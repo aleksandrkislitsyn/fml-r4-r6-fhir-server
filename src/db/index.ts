@@ -5,7 +5,7 @@ export const sql = new SQL(
 );
 
 /** Resource types that have a storage table. Add a type here to get a table for it. */
-export const STORED_RESOURCE_TYPES = ["Patient"] as const;
+export const STORED_RESOURCE_TYPES = ["Patient", "BodyStructure"] as const;
 export type StoredResourceType = (typeof STORED_RESOURCE_TYPES)[number];
 
 export function isStoredResourceType(t: string): t is StoredResourceType {
