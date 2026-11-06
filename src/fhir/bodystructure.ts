@@ -268,3 +268,53 @@ export function assignRowIds(base: string, existing: any[], incoming: any[], las
   let next = Math.max(lastSuffix, 1);
   return assigned.map((key) => idForSuffix(base, key === undefined ? ++next : Number(key)));
 }
+
+const UNORDERED = new Set(["extension", "locationQualifier"]);
+
+/** Comparable form: key order never matters, and neither does the order of these lists. */
+function comparable(value: any, key?: string): any {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => comparable(item));
+    return key && UNORDERED.has(key)
+      ? items.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+      : items;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((k) => [k, comparable(value[k], k)]));
+  }
+  return value;
+}
+
+/** The first path where `after` no longer has what `before` had, or undefined if nothing was lost. */
+function firstLoss(before: any, after: any, path: string): string | undefined {
+  if (Array.isArray(before) && Array.isArray(after) && before.length === after.length) {
+    for (let i = 0; i < before.length; i++) {
+      const loss = firstLoss(before[i], after[i], `${path}[${i}]`);
+      if (loss) return loss;
+    }
+    return undefined;
+  }
+  if (before && after && typeof before === "object" && typeof after === "object" && !Array.isArray(before) && !Array.isArray(after)) {
+    for (const key of Object.keys(before)) {
+      const loss = firstLoss(before[key], after[key], `${path}.${key}`);
+      if (loss) return loss;
+    }
+    return undefined;
+  }
+  return JSON.stringify(before) === JSON.stringify(after) ? undefined : path;
+}
+
+/** Ignores what the server assigns: `id`, `meta`, row links and `includedStructure.id`. */
+export function lostContent(before: any, after: any): string | undefined {
+  const strip = (resource: any) => {
+    const { id: _id, meta: _meta, ...rest } = resource;
+    const out: any = { ...rest };
+    if (out.extension) {
+      out.extension = out.extension.filter((e: any) => e.url !== ROW_GROUP_URL);
+      if (out.extension.length === 0) delete out.extension;
+    }
+    if (out.includedStructure) out.includedStructure = out.includedStructure.map(({ id: _e, ...structure }: any) => structure);
+    return comparable(out);
+  };
+  return firstLoss(strip(before), strip(after), before.resourceType);
+}

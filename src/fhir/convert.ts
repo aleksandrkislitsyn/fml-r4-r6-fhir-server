@@ -1,16 +1,35 @@
-import { resolve } from "node:path";
 import type { StoredResource } from "../db/repository.ts";
 import { baseId, elementId, isSecondaryId, withRowLinks } from "./bodystructure.ts";
-import { loadMap, runMap } from "./fml.ts";
-import type { FhirVersion, Validator } from "./validator.ts";
+import type { FhirVersion } from "./validator.ts";
 import {
-  createSingleInputRequest, FmlExecutor,
+  createSingleInputRequest, FmlExecutor, stringifyFmlJson,
   type FmlDiagnostic, type PreparedFmlProgram,
 } from "@fhirpath-lab/fml-executor";
 import { configuredMapDirectories, loadMapCatalog } from "./maps.ts";
 
 export interface ResourceConverter {
   toR6(resource: StoredResource, signal?: AbortSignal): Promise<StoredResource>;
+}
+
+/** Conversion for types where one R6 resource is stored as several linked R4 rows. */
+export interface GroupConverter {
+  /** One R6 resource to its R4 rows, in `includedStructure` order, with the given row ids. */
+  toStorage(resource: StoredResource, rowIds: string[], signal?: AbortSignal): Promise<StoredResource[]>;
+  /** A group's R4 rows, in `includedStructure` order, to one R6 resource. */
+  fromStorage(rows: StoredResource[], signal?: AbortSignal): Promise<StoredResource>;
+}
+
+const XVER = "http://hl7.org/fhir/uv/xver/StructureMap";
+const BODY_STRUCTURE_TO_R4 = `${XVER}/BodyStructure6to4`;
+const BODY_STRUCTURE_TO_R6 = `${XVER}/BodyStructure4to6`;
+
+/** The engine returns numbers as lossless objects; validators and storage need plain JSON. */
+const plainJson = <T>(value: unknown): T => JSON.parse(stringifyFmlJson(value));
+
+/** Version and timestamps are per row and profiles are version-specific, so only labels carry over. */
+function keepLabels(meta: any): Record<string, unknown> | undefined {
+  if (!meta?.tag && !meta?.security) return undefined;
+  return { ...(meta.tag ? { tag: meta.tag } : {}), ...(meta.security ? { security: meta.security } : {}) };
 }
 
 export class ConversionError extends Error {
@@ -28,15 +47,42 @@ function isResource(value: unknown): value is StoredResource {
   return typeof value === "object" && value !== null && "resourceType" in value && typeof value.resourceType === "string";
 }
 
-export function createFmlConverter(directories = configuredMapDirectories()): ResourceConverter {
+export function createFmlConverter(directories = configuredMapDirectories()): ResourceConverter & GroupConverter {
   let runtime: Promise<{ catalog: Awaited<ReturnType<typeof loadMapCatalog>>; executor: FmlExecutor }> | undefined;
   const programs = new Map<string, Promise<{ program: PreparedFmlProgram; entryGroup: string; executor: FmlExecutor }>>();
 
+  const loadRuntime = () => runtime ??= loadMapCatalog(directories).then((catalog) => ({
+    catalog, executor: new FmlExecutor({ maps: catalog.sources }),
+  }));
+
+  const groupPrograms = new Map<string, Promise<PreparedFmlProgram>>();
+  const groupProgram = (canonical: string) => {
+    let program = groupPrograms.get(canonical);
+    if (!program) {
+      program = (async () => {
+        const { catalog, executor } = await loadRuntime();
+        const source = catalog.byCanonical.get(canonical);
+        if (!source) throw new ConversionError(`Map ${canonical} is not configured`, [], 501, "not-supported");
+        const result = await executor.prepare(source);
+        if (result.status !== "success") throw new ConversionError(`Unable to prepare map ${canonical}`, result.diagnostics);
+        return result.value;
+      })();
+      groupPrograms.set(canonical, program);
+      program.catch(() => groupPrograms.delete(canonical));
+    }
+    return program;
+  };
+
+  const runGroupMap = async <T>(canonical: string, input: unknown, signal?: AbortSignal): Promise<T> => {
+    const program = await groupProgram(canonical);
+    const { executor } = await loadRuntime();
+    const result = await executor.execute(createSingleInputRequest(program, input), { signal });
+    if (result.status !== "success") throw new ConversionError(`Execution of map ${canonical} failed`, result.diagnostics);
+    return plainJson<T>(result.value.targets[0]?.value);
+  };
+
   const prepare = async (type: string) => {
-    runtime ??= loadMapCatalog(directories).then((catalog) => ({
-      catalog, executor: new FmlExecutor({ maps: catalog.sources }),
-    }));
-    const { catalog, executor } = await runtime;
+    const { catalog, executor } = await loadRuntime();
     const map = catalog.resourceMaps.get(type);
     if (!map) throw new ConversionError(`No R4 -> R6 map is configured for ${type}`, [], 501, "not-supported");
     const result = await executor.prepare(map.source);
@@ -77,6 +123,27 @@ export function createFmlConverter(directories = configuredMapDirectories()): Re
       }
       return target;
     },
+
+    async toStorage(resource, rowIds, signal) {
+      const bundle = await runGroupMap<{ entry?: { resource: StoredResource }[] }>(BODY_STRUCTURE_TO_R4, resource, signal);
+      const labels = keepLabels(resource.meta);
+      const rows = (bundle.entry ?? []).map((entry, index) => ({
+        ...entry.resource,
+        id: rowIds[index],
+        ...(labels ? { meta: labels } : {}),
+      }));
+      return withRowLinks(rows, baseId(rowIds[0]!));
+    },
+
+    async fromStorage(rows, signal) {
+      const bundle = { resourceType: "Bundle", type: "collection", entry: rows.map((resource) => ({ resource })) };
+      const merged = await runGroupMap<any>(BODY_STRUCTURE_TO_R6, bundle, signal);
+      merged.includedStructure.forEach((structure: any, index: number) => {
+        structure.id = elementId(rows[index]!.id!);
+      });
+      const primary = rows.find((row) => !isSecondaryId(row.id!)) ?? rows[0]!;
+      return { ...merged, id: primary.id, meta: primary.meta };
+    },
   };
 }
 
@@ -95,51 +162,4 @@ export async function fromStorage(
   if (version === "R4") return resource;
   if (!converter) throw new ConversionError("R6 conversion is not configured", [], 501, "not-supported");
   return converter.toR6(resource, signal);
-}
-
-const MAPS = resolve(import.meta.dir, "../../fml-maps");
-
-export interface Converter {
-  /** One R6 resource to its R4 rows, in `includedStructure` order, with the given row ids. */
-  toStorage(resource: StoredResource, rowIds: string[]): StoredResource[];
-  /** A group's R4 rows, in `includedStructure` order, to one R6 resource. */
-  fromStorage(rows: StoredResource[]): StoredResource;
-}
-
-/**
- * Conversion between `/R6` requests and the stored R4, using FML. The database holds R4
- * only, so `/R4` content doesn't need converting to be stored. One R6 resource can become
- * several R4 rows, so these work on arrays.
- */
-export async function loadConverter(validators: { R4: Validator; R6: Validator }): Promise<Converter> {
-  const toR4 = await loadMap(`${MAPS}/R6_R4/maps/StructureMaps/BodyStructure_6to4.fml`);
-  const toR6 = await loadMap(`${MAPS}/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml`);
-
-  return {
-    toStorage(resource, rowIds) {
-      const bundle = runMap(toR4, resource, "Bundle", validators.R4);
-      const labels = keepLabels(resource.meta);
-      const rows: StoredResource[] = (bundle.entry ?? []).map((entry: any, index: number) => ({
-        ...entry.resource,
-        id: rowIds[index],
-        ...(labels ? { meta: labels } : {}),
-      }));
-      return withRowLinks(rows, baseId(rowIds[0]!));
-    },
-    fromStorage(rows) {
-      const bundle = { resourceType: "Bundle", type: "collection", entry: rows.map((resource) => ({ resource })) };
-      const primary = rows.find((r) => !isSecondaryId(r.id!)) ?? rows[0]!;
-      const merged = runMap(toR6, bundle, "BodyStructure", validators.R6);
-      merged.includedStructure.forEach((structure: any, index: number) => {
-        structure.id = elementId(rows[index]!.id!);
-      });
-      return { ...merged, id: primary.id, meta: primary.meta };
-    },
-  };
-}
-
-/** Version and timestamps are per row and profiles are version-specific, so only labels carry over. */
-function keepLabels(meta: any): Record<string, unknown> | undefined {
-  if (!meta?.tag && !meta?.security) return undefined;
-  return { ...(meta.tag ? { tag: meta.tag } : {}), ...(meta.security ? { security: meta.security } : {}) };
 }

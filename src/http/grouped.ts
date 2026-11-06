@@ -7,13 +7,14 @@ import {
   baseId,
   carryForwardExtensions,
   isSecondaryId,
+  lostContent,
   orderRows,
   unsupportedR4,
   unsupportedR6,
   withRowLinks,
   withSharedFieldsFrom,
 } from "../fhir/bodystructure.ts";
-import type { Converter } from "../fhir/convert.ts";
+import type { GroupConverter } from "../fhir/convert.ts";
 import { hasErrors, type FhirVersion, type Validator } from "../fhir/validator.ts";
 import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from "./responses.ts";
 
@@ -22,18 +23,32 @@ import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from 
  * reachable through both versions, so every write, from either version, is checked to be
  * valid in both before it commits.
  */
-export function createGroupedHandlers(validators: { R4: Validator; R6: Validator }, converter: Converter) {
+export function createGroupedHandlers(validators: { R4: Validator; R6: Validator }, converter: GroupConverter) {
   const notStorable = (paths: string[]) =>
     error(422, `Not supported across FHIR versions yet: ${paths.join(", ")}`, "not-supported");
 
   /** Rejects rows that aren't valid R4, or that can't be returned as valid R6. */
-  function checkRows(rows: StoredResource[]): Response | null {
+  async function checkRows(rows: StoredResource[]): Promise<Response | null> {
     for (const row of rows) {
       const oo = validators.R4.validate(row);
       if (hasErrors(oo)) return json(oo, 422);
     }
-    const oo = validators.R6.validate(converter.fromStorage(rows));
+    const oo = validators.R6.validate(await converter.fromStorage(rows));
     return hasErrors(oo) ? json(oo, 422) : null;
+  }
+
+  /** Converts and converts back. Anything that doesn't survive the trip would be silently lost. */
+  async function lossFromR6(body: StoredResource, rows: StoredResource[]): Promise<Response | null> {
+    const lost = lostContent(body, await converter.fromStorage(rows));
+    return lost ? notStorable([lost]) : null;
+  }
+
+  async function lossFromR4(rows: StoredResource[], incoming: StoredResource): Promise<Response | null> {
+    const r6 = await converter.fromStorage(rows);
+    const back = await converter.toStorage(r6, rows.map((row) => row.id!));
+    const again = back.find((row) => row.id === incoming.id);
+    const lost = again ? lostContent(incoming, again) : incoming.resourceType;
+    return lost ? notStorable([lost]) : null;
   }
 
   const newIdError = (id: string) =>
@@ -57,13 +72,13 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
 
   async function saveR6(type: StoredResourceType, id: string, body: any, ifMatch: number | undefined) {
     const existing = orderRows(await repo.readGroup(type, id));
-    const existingStructures = existing.length > 0 ? (converter.fromStorage(existing) as any).includedStructure : [];
+    const existingStructures = existing.length > 0 ? ((await converter.fromStorage(existing)) as any).includedStructure : [];
     const rowIds = assignRowIds(id, existingStructures, body.includedStructure, await repo.maxGroupSuffix(type, id));
-    const rows = converter.toStorage(body, rowIds);
-    const invalid = checkRows(rows);
+    const rows = await converter.toStorage(body, rowIds);
+    const invalid = (await checkRows(rows)) ?? (await lossFromR6(body, rows));
     if (invalid) return invalid;
     const stored = await repo.writeGroup(type, id, rows, ifMatch === undefined ? undefined : { id, version: ifMatch });
-    return converter.fromStorage(stored);
+    return converter.fromStorage(orderRows(stored));
   }
 
   async function createR6(req: Request, type: StoredResourceType, base: string) {
@@ -81,7 +96,7 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
     if (isSecondaryId(id)) return error(404, `${type}/${id} not found`, "not-found");
     const rows = await repo.readGroup(type, id);
     if (rows[0]?.id !== id) return missing(type, id);
-    const out = converter.fromStorage(orderRows(rows));
+    const out = await converter.fromStorage(orderRows(rows));
     const { location: _l, ...headers } = resourceHeaders(base, out);
     return json(out, 200, headers);
   }
@@ -114,7 +129,7 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
     if (paths.length > 0) return notStorable(paths);
     const id = crypto.randomUUID();
     const row = { ...body, id };
-    const rejected = checkRows([row]);
+    const rejected = (await checkRows([row])) ?? (await lossFromR4([row], row));
     if (rejected) return rejected;
     const [stored] = await repo.writeGroup(type, id, [row]);
     return json(stored, 201, resourceHeaders(base, stored!));
@@ -155,7 +170,7 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
       stored ? rows.map((r) => (r.id === id ? incoming : withSharedFieldsFrom(incoming, r))) : [incoming],
       group,
     );
-    const rejected = checkRows(next);
+    const rejected = (await checkRows(next)) ?? (await lossFromR4(next, next.find((r) => r.id === id)!));
     if (rejected) return rejected;
 
     const written = await repo.writeGroup(type, group, next, ifMatch === undefined ? undefined : { id, version: ifMatch });

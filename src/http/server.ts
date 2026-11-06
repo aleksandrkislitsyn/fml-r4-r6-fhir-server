@@ -1,6 +1,6 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
-import { ConversionError, fromStorage, toStorage, type Converter, type ResourceConverter } from "../fhir/convert.ts";
+import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter } from "../fhir/convert.ts";
 import { outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
 import { createGroupedHandlers } from "./grouped.ts";
 import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from "./responses.ts";
@@ -13,16 +13,14 @@ const GROUPED: readonly StoredResourceType[] = ["BodyStructure"];
 
 export interface ServerDeps {
   validators: Partial<Record<FhirVersion, Validator>>;
-  /** Reads any type with an R4 -> R6 map. */
-  converter?: ResourceConverter;
-  /** Needed for grouped types. Without it those return 501. */
-  groupConverter?: Converter;
+  /** Reads any type with an R4 -> R6 map. Grouped types also need both validators, or they return 501. */
+  converter?: ResourceConverter & Partial<GroupConverter>;
 }
 
-export function createHandler({ validators, converter, groupConverter }: ServerDeps) {
+export function createHandler({ validators, converter }: ServerDeps) {
   const grouped =
-    groupConverter && validators.R4 && validators.R6
-      ? createGroupedHandlers({ R4: validators.R4, R6: validators.R6 }, groupConverter)
+    converter?.toStorage && converter.fromStorage && validators.R4 && validators.R6
+      ? createGroupedHandlers({ R4: validators.R4, R6: validators.R6 }, converter as GroupConverter)
       : undefined;
 
   return async function handle(req: Request): Promise<Response> {

@@ -13,8 +13,6 @@ const PACKAGES: Partial<Record<FhirVersion, string>> = {
 export interface Validator {
   validate(resource: unknown): OperationOutcome;
   knowsType(type: string): boolean;
-  /** Names of the repeating child elements of a type or path, e.g. "BodyStructure.includedStructure". */
-  repeatingOf(path: string): string[];
 }
 
 /**
@@ -31,19 +29,12 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
   await manager.init();
 
   const byUrl: Record<string, FHIRSchema> = {};
-  const repeating = new Map<string, string[]>();
   const entries = await manager.searchEntries({});
   for (const entry of entries) {
     if (entry.resourceType !== "StructureDefinition") continue;
     const sd = await manager.read(entry);
     if (sd.derivation === "constraint") continue; // profiles/extensions not needed for base validation
     byUrl[sd.url!] = translate(sd as any);
-    for (const element of (sd as any).snapshot?.element ?? []) {
-      if (element.max !== "*") continue;
-      const dot = element.path.lastIndexOf(".");
-      const parent = element.path.slice(0, dot);
-      repeating.set(parent, [...(repeating.get(parent) ?? []), element.path.slice(dot + 1).replace("[x]", "")]);
-    }
   }
 
   // The validator expects each schema already merged with its base chain
@@ -63,7 +54,6 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
 
   return {
     knowsType: (type) => schemas[type]?.kind === "resource",
-    repeatingOf: (path) => repeating.get(path) ?? [],
     validate(resource) {
       const type = (resource as any)?.resourceType;
       const schema = typeof type === "string" ? schemas[type] : undefined;

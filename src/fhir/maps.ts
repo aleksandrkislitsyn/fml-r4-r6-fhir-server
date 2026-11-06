@@ -2,10 +2,11 @@ import { readdir } from "node:fs/promises";
 import { delimiter, resolve } from "node:path";
 import { parseFmlModel, resolveFmlStructureType, type FmlSource } from "@fhirpath-lab/validator";
 
-const DEFAULT_MAP_DIRECTORY = resolve(import.meta.dir, "..", "..", "fml-maps", "R4_R6", "maps", "StructureMaps");
+const DEFAULT_MAP_DIRECTORIES = ["R4_R6", "R6_R4"].map((direction) =>
+  resolve(import.meta.dir, "..", "..", "fml-maps", direction, "maps", "StructureMaps"));
 
 export function configuredMapDirectories(value = process.env.FML_MAP_DIRS): string[] {
-  if (value === undefined) return [DEFAULT_MAP_DIRECTORY];
+  if (value === undefined) return DEFAULT_MAP_DIRECTORIES;
   const directories = value.split(delimiter).map((directory) => directory.trim());
   if (directories.some((directory) => !directory)) throw new Error("FML_MAP_DIRS must contain non-empty directory paths");
   return directories.map((directory) => resolve(directory));
@@ -19,6 +20,8 @@ export interface ResourceMap {
 export interface MapCatalog {
   sources: readonly FmlSource[];
   resourceMaps: ReadonlyMap<string, ResourceMap>;
+  /** Maps that don't convert one resource to the same type, such as a group of rows. */
+  byCanonical: ReadonlyMap<string, FmlSource>;
 }
 
 export async function loadMapCatalog(directories: readonly string[]): Promise<MapCatalog> {
@@ -38,6 +41,7 @@ export async function loadMapCatalog(directories: readonly string[]): Promise<Ma
   const sources: FmlSource[] = [];
   const resourceMaps = new Map<string, ResourceMap>();
   const canonicals = new Map<string, string>();
+  const byCanonical = new Map<string, FmlSource>();
   for (const path of files) {
     const source: FmlSource = {
       sourceName: path,
@@ -54,6 +58,7 @@ export async function loadMapCatalog(directories: readonly string[]): Promise<Ma
     if (previous) throw new Error(`Ambiguous FML canonical ${identity}: ${previous} and ${path}`);
     canonicals.set(identity, path);
     sources.push(source);
+    byCanonical.set(canonical, source);
 
     if (model.sourceModelVersion !== "R4" || model.targetModelVersion !== "R6") continue;
     for (const group of model.groups) {
@@ -73,5 +78,5 @@ export async function loadMapCatalog(directories: readonly string[]): Promise<Ma
       resourceMaps.set(type, { source, entryGroup: group.name });
     }
   }
-  return { sources, resourceMaps };
+  return { sources, resourceMaps, byCanonical };
 }
