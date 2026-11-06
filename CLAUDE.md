@@ -1,10 +1,11 @@
 # Project notes
 
-Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All resources are stored as FHIR **R4**, one table per resource type plus `<type>_history`. `/R4` uses the stored data directly. `/R6` requests go through `src/fhir/convert.ts`, which runs FML (R4 → R6 on read, R6 → R4 on write). Only `BodyStructure` has this so far; other types stay R4-only through `SUPPORTED` in `src/http/server.ts`. See README.md for the layout and `docs/mappings.html` for diagrams.
+Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All resources are stored as FHIR **R4**, one table per resource type plus `<type>_history`. `/R4` uses the stored data directly. `/R6` requests go through `src/fhir/convert.ts`, which runs FML (R4 → R6 on read, R6 → R4 on write). Only `BodyStructure` is writable through `/R6` (`GROUPED` in `src/http/server.ts`); other types are read through R4 → R6 maps and return 405 on R6 writes. See README.md for the layout and `docs/mappings.html` for diagrams.
 
 - DB: `bun run db:up` (docker compose, port 5437). Tests are integration tests and need the DB.
 - One R6 resource can be several R4 rows (`<id>`, `<id>--2`, ...). A write from either version rewrites the group in one transaction and must be valid in both versions (`src/http/grouped.ts`, `src/fhir/bodystructure.ts`). Row ids are stable and numbers are never reused (`assignRowIds`). Tests in `test/bodystructure-cross-version.test.ts` are the acceptance criteria.
-- FML runs on `fhir-structuremap-js`, which has no type information. Maps must use the style listed at the top of `src/fhir/fml.ts`; the generated maps in `fml-maps/R4_R6` don't yet, so they can't run unchanged.
+- FML runs on the executor in the `vendor/fhirpath-lab` submodule (`git submodule update --init --recursive`, then `bun run build:fml`). It refuses cross-version writes without a mapping, so values go through datatype maps: `fml-maps/R6_R4/*_6to4.fml` are reversed from the generated `R4_R6` ones. `docs/mappings.html` lists the map style it needs.
+- Writes in `src/http/grouped.ts` convert and convert back, returning 422 for anything that would be lost.
 - Don't call `sql.close()` in tests: Bun shares the pool across test files.
 - Check R6 element names against the pinned `6.0.0-ballot5` package in `.fhir/r6`, not build.fhir.org: the rolling build has elements the pinned package doesn't (e.g. `BodyStructure.predecessor`).
 - Keep `docs/mappings.html` and `postman/` in line with the maps when mappings change.

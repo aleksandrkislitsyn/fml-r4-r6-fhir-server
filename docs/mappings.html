@@ -281,6 +281,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
         <li>An R6 <code>Attachment.size</code> over 2,147,483,647 doesn't fit R4's <code>unsignedInt</code>.</li>
         <li>Extensions using a URL the mapping relies on are reserved.</li>
         <li><code>extension</code> or <code>id</code> directly on landmark elements, and extensions on primitive values, aren't mapped yet.</li>
+        <li>Anything else that wouldn't survive conversion. Every write is converted and converted back, and a difference returns 422 naming the path. Examples are R6-only extension types like <code>valueInteger64</code>, and R6-only fields inside datatypes like <code>Timing.repeat.startOffset</code>.</li>
       </ul>
     </li>
     <li><code>X-Replace-Extensions</code> is this server's own header, so a client has to know about it. A client that sends an <code>extension</code> array but leaves ours out of it removes them.</li>
@@ -292,16 +293,18 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 
 <section>
   <h2>Writing maps for this engine</h2>
-  <p><code>fhir-structuremap-js</code> runs maps inside the server but has no FHIR type information. <code>src/fhir/fml.ts</code> covers the differences, and maps need to follow this style. The 163 generated maps don't yet, so they can't run unchanged.</p>
+  <p>Maps run on the FHIRPath Lab executor in <code>vendor/fhirpath-lab</code>. It knows FHIR types and refuses to write a value across versions without a mapping, so every value goes through a datatype map. <code>R4_R6</code> holds the generated ones, and <code>R6_R4</code> holds the same files reversed.</p>
   <div class="tw"><table>
     <thead><tr><th>Goal</th><th>Write this</th><th>Not this</th></tr></thead>
     <tbody>
-      <tr><td>Copy a value</td><td><code>src.a as v -&gt; tgt.a = v;</code></td><td><code>src.a -&gt; tgt.a;</code> creates <code>{}</code></td></tr>
-      <tr><td>Add to a repeating element</td><td><code>tgt.a = create('BackboneElement') as t</code></td><td><code>tgt.a as t</code> reuses one item</td></tr>
-      <tr><td>Read a value from a variable</td><td><code>tgt.a = evaluate(e, valueCodeableConcept)</code></td><td><code>tgt.a = (e.valueCodeableConcept)</code> looks in the target</td></tr>
-      <tr><td>Share rules between maps</td><td>Define the group in the same map</td><td><code>extends</code> a group from an import</td></tr>
+      <tr><td>Copy a value across versions</td><td><code>src.a -&gt; tgt.a;</code></td><td><code>src.a as v -&gt; tgt.a = v;</code> is rejected for complex values</td></tr>
+      <tr><td>Fill a choice element</td><td><code>x.valueCodeableConcept as t then CodeableConcept(v, t)</code></td><td><code>x.valueCodeableConcept = v</code></td></tr>
+      <tr><td>Read an extension's value</td><td><code>e.value : CodeableConcept -&gt; tgt.a;</code></td><td><code>e.value -&gt; tgt.a;</code> is ambiguous across all value types</td></tr>
+      <tr><td>Add a resource to a Bundle</td><td><code>create('BodyStructure') as out, b.entry as e, e.resource = out</code></td><td><code>create()</code> with a <code>uses</code> alias</td></tr>
+      <tr><td>Reuse rules in two places</td><td>One group per contextual type</td><td>One group for a resource and an Extension</td></tr>
     </tbody>
   </table></div>
+  <p class="note">Open type groups must be unique per source type. Two <code>&lt;&lt;type+&gt;&gt;</code> groups for <code>string</code> make every <code>valueString</code> extension fail with "Ambiguous default mapping". Use <code>&lt;&lt;types&gt;&gt;</code> for a conversion to a specific other type.</p>
 </section>
 
 <section>
