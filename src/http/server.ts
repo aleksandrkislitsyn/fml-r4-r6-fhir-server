@@ -1,52 +1,28 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
-import { ConversionError, fromStorage, toStorage, type ResourceConverter } from "../fhir/convert.ts";
-import { hasErrors, outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
-import { stringifyFmlJson } from "@fhirpath-lab/fml-executor";
+import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter } from "../fhir/convert.ts";
+import { outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
+import { createGroupedHandlers } from "./grouped.ts";
+import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from "./responses.ts";
 
-const FHIR_JSON = "application/fhir+json; charset=utf-8";
 const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
 
-function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(stringifyFmlJson(body), {
-    status,
-    headers: { "content-type": FHIR_JSON, ...headers },
-  });
-}
 
-function error(status: number, text: string, code = "invalid"): Response {
-  return json(outcome(text, code), status);
-}
-
-function resourceHeaders(base: string, r: repo.StoredResource): Record<string, string> {
-  return {
-    etag: `W/"${r.meta.versionId}"`,
-    "last-modified": new Date(r.meta.lastUpdated).toUTCString(),
-    location: `${base}/${r.resourceType}/${r.id}/_history/${r.meta.versionId}`,
-  };
-}
-
-/** Parses `W/"3"` or `"3"` into 3. */
-function parseIfMatch(header: string | null): number | undefined | "invalid" {
-  if (header === null) return undefined;
-  const m = header.match(/^(?:W\/)?"(\d+)"$/);
-  return m ? Number(m[1]) : "invalid";
-}
-
-async function readBody(req: Request): Promise<any | Response> {
-  try {
-    return await req.json();
-  } catch {
-    return error(400, "Request body is not valid JSON", "structure");
-  }
-}
+/** Types stored as linked rows, which need the group logic in both versions. */
+const GROUPED: readonly StoredResourceType[] = ["BodyStructure"];
 
 export interface ServerDeps {
   validators: Partial<Record<FhirVersion, Validator>>;
-  converter?: ResourceConverter;
+  /** Reads any type with an R4 -> R6 map. Grouped types also need both validators, or they return 501. */
+  converter?: ResourceConverter & Partial<GroupConverter>;
 }
 
 export function createHandler({ validators, converter }: ServerDeps) {
+  const grouped =
+    converter?.toStorage && converter.fromStorage && validators.R4 && validators.R6
+      ? createGroupedHandlers({ R4: validators.R4, R6: validators.R6 }, converter as GroupConverter)
+      : undefined;
+
   return async function handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const [versionSeg, type, id, ...rest] = url.pathname.split("/").filter(Boolean);
@@ -68,11 +44,15 @@ export function createHandler({ validators, converter }: ServerDeps) {
       return error(404, `Resource type ${type} is not supported`, "not-supported");
     }
     if (id !== undefined && !ID_RE.test(id)) return error(400, `Invalid id: ${id}`);
-    if (version === "R6" && req.method !== "GET") {
-      return json(outcome("R6 is read-only; use /R4 for writes", "not-supported"), 405, { allow: "GET" });
-    }
 
     try {
+      if (GROUPED.includes(type)) {
+        if (!grouped) return error(501, `${type} needs both FHIR versions and the FML maps`, "not-supported");
+        return await grouped.handle(req, type, id, version, base);
+      }
+      if (version === "R6" && req.method !== "GET") {
+        return json(outcome("R6 is read-only for this type; use /R4 for writes", "not-supported"), 405, { allow: "GET" });
+      }
       if (id === undefined) {
         if (req.method === "POST" && validator) return await createResource(req, type, version, base, validator);
         if (req.method === "GET" && type === "Encounter") {
@@ -156,14 +136,6 @@ async function searchEncounters(
   });
 }
 
-function checkBody(body: any, type: StoredResourceType, validator: Validator): Response | null {
-  if (body?.resourceType !== type) {
-    return error(400, `Expected resourceType ${type}, got ${JSON.stringify(body?.resourceType)}`);
-  }
-  const oo = validator.validate(body);
-  return hasErrors(oo) ? json(oo, 422) : null;
-}
-
 async function createResource(
   req: Request,
   type: StoredResourceType,
@@ -231,8 +203,8 @@ function capabilityStatement(version: FhirVersion) {
         resource: STORED_RESOURCE_TYPES.map((type) => ({
           type,
           versioning: "versioned",
-          updateCreate: version === "R4",
-          interaction: version === "R6" ? [
+          updateCreate: version === "R4" || GROUPED.includes(type),
+          interaction: version === "R6" && !GROUPED.includes(type) ? [
             { code: "read" }, ...(type === "Encounter" ? [{ code: "search-type" }] : []),
           ] : [
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },

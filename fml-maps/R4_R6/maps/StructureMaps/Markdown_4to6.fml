@@ -12,6 +12,3 @@ imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 
 group Markdown(source src : markdownR4, target tgt : markdownR6) extends String <<type+>> {
 }
-
-group string2Markdown(source src : stringR4, target tgt : markdownR6) extends String <<type+>> {
-}

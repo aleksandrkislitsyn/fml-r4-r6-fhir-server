@@ -9,7 +9,7 @@
         "@atomic-ehr/fhirschema": "^0.0.14",
         "antlr4": "^4.13.2",
         "entities": "^6.0.1",
-        "fhirpath": "^5.0.0",
+        "fhirpath": "^5.2.3",
         "lossless-json": "^4.3.0",
         "luxon": "^3.4.3",
       },
@@ -136,7 +136,7 @@
 
     "escape-html": ["escape-html@1.0.3", "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/escape-html/-/escape-html-1.0.3.tgz", {}, "sha1-Aljq5NPQwJdN4cFpGI7wBR0dGYg="],
 
-    "fhirpath": ["fhirpath@5.2.2", "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/fhirpath/-/fhirpath-5.2.2.tgz", { "dependencies": { "@lhncbc/ucum-lhc": "^7.1.10", "@loxjs/url-join": "^1.0.2", "antlr4": "~4.9.3", "commander": "^14.0.3", "date-fns": "^1.30.1", "decimal.js": "^10.6.0", "js-yaml": "^4.1.1" }, "bin": { "fhirpath": "bin/fhirpath" } }, "sha512-ij+/Bv09T2V1h0Rcvl4emVfiDXtFQ8Yvt73M51FSCdZpSuqg4MsIm+iifIZ7pp3VrQypqu34kYcChuIfoSPHwQ=="],
+    "fhirpath": ["fhirpath@5.2.3", "", { "dependencies": { "@lhncbc/ucum-lhc": "^7.1.10", "@loxjs/url-join": "^1.0.2", "antlr4": "~4.9.3", "commander": "^14.0.3", "date-fns": "^1.30.1", "decimal.js": "^10.6.0", "js-yaml": "^4.1.1" }, "bin": { "fhirpath": "bin/fhirpath" } }, "sha512-l1j7vAn7NDGE+vo6S+5IJH1AP5awFBsNlXCTuqVgItB5EE42ZTJ+1XXcUJZXrLiIl4ezcdbZ2vbKdzoFLEYfoA=="],
 
     "get-caller-file": ["get-caller-file@2.0.5", "https://packagefeedproxy.microsoft.io/npm/get-caller-file/-/get-caller-file-2.0.5.tgz", {}, "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg=="],
 

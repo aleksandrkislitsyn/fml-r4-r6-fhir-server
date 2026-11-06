@@ -4,7 +4,7 @@ import type { OperationOutcome } from "../fhir-types/hl7-fhir-r4-core/OperationO
 
 export type FhirVersion = "R4" | "R6";
 
-// R6 schemas validate converted test fixtures; R6 writes are not enabled.
+// R6 validates /R6 writes and converted output. It is still a draft, so its version stays pinned.
 const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R4: "hl7.fhir.r4.core@4.0.1",
   R6: "hl7.fhir.r6.core@6.0.0-ballot5",
@@ -49,6 +49,8 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
   };
   for (const url of Object.keys(byUrl)) flatten(url);
   const schemas = flat;
+  const backboneBase = schemas.BackboneElement?.elements ?? {};
+  for (const schema of Object.values(schemas)) addBackboneBase(schema, backboneBase);
 
   return {
     knowsType: (type) => schemas[type]?.kind === "resource",
@@ -73,6 +75,20 @@ export function outcome(
 
 export function hasErrors(oo: OperationOutcome): boolean {
   return (oo.issue ?? []).some((i) => i.severity === "error" || i.severity === "fatal");
+}
+
+/**
+ * Backbone elements hold their children inline, so they never get merged with the
+ * BackboneElement base. Without this, the legal `id`, `extension` and `modifierExtension`
+ * on them are reported as extra fields.
+ */
+function addBackboneBase(node: any, base: Record<string, unknown>): void {
+  for (const element of Object.values<any>(node.elements ?? {})) {
+    if (element.type === "BackboneElement" && element.elements) {
+      element.elements = { ...base, ...element.elements };
+    }
+    addBackboneBase(element, base);
+  }
 }
 
 const UNION_KEYS = new Set(["required", "excluded"]);

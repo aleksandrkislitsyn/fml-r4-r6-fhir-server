@@ -15,6 +15,6 @@ group CodeableConcept(source src : CodeableConceptR4, target tgt : CodeableConce
   src.text -> tgt.text;
 }
 
-group CodeableConcept2CodeableReference(source src : CodeableConceptR4, target tgt : CodeableReferenceR6) extends Element <<type+>> {
+group CodeableConcept2CodeableReference(source src : CodeableConceptR4, target tgt : CodeableReferenceR6) extends Element <<types>> {
   src -> tgt.concept as c then CodeableConcept(src, c) "setCodeableConcept";
 }

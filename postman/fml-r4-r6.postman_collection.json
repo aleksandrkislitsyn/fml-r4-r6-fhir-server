@@ -1,0 +1,2625 @@
+{
+  "info": {
+    "name": "FML R4-R6 FHIR server",
+    "description": "Tries out BodyStructure through /R4 and /R6 on the same stored R4 data.\n\n**Before you start:** `git submodule update --init --recursive`, `bun install`, `bun run build:fml`, `bun run db:up`, then `bun run dev`. The server listens on `http://localhost:8080`; change the `baseUrl` collection variable if yours differs.\n\n**How to run:** use Run collection to go top to bottom, or send requests by hand in order, because later requests use the id and rows saved by earlier ones. Run folder 2 again for a fresh resource; folder 7 deletes it.\n\nDiagrams of the mapping are in `docs/mappings.html`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "bsId",
+      "value": ""
+    },
+    {
+      "key": "singleId",
+      "value": ""
+    },
+    {
+      "key": "r4Id",
+      "value": ""
+    },
+    {
+      "key": "originalEtag",
+      "value": ""
+    },
+    {
+      "key": "row",
+      "value": ""
+    },
+    {
+      "key": "editedRow",
+      "value": ""
+    },
+    {
+      "key": "r6Current",
+      "value": ""
+    },
+    {
+      "key": "editedR6",
+      "value": ""
+    },
+    {
+      "key": "skinId",
+      "value": ""
+    },
+    {
+      "key": "fullId",
+      "value": ""
+    },
+    {
+      "key": "stableId",
+      "value": ""
+    },
+    {
+      "key": "extId",
+      "value": ""
+    },
+    {
+      "key": "ownExtId",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "encounterId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Check the server",
+      "description": "Run this first. If it fails, start the database and server (see the collection description).",
+      "item": [
+        {
+          "name": "R4 capability statement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is FHIR 4.0.1\", () => pm.expect(pm.response.json().fhirVersion).to.eql(\"4.0.1\"));",
+                  "pm.test(\"serves Patient and BodyStructure\", () => pm.expect(pm.response.json().rest[0].resource.map(r => r.type)).to.include.members([\"Patient\", \"BodyStructure\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/metadata"
+          }
+        },
+        {
+          "name": "R6 capability statement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const resources = pm.response.json().rest[0].resource;",
+                  "pm.test(\"is FHIR 6.0.0-ballot5\", () => pm.expect(pm.response.json().fhirVersion).to.eql(\"6.0.0-ballot5\"));",
+                  "pm.test(\"BodyStructure can be written\", () => pm.expect(resources.find(r => r.type === \"BodyStructure\").interaction.map(i => i.code)).to.include(\"create\"));",
+                  "pm.test(\"Patient is read-only\", () => pm.expect(resources.find(r => r.type === \"Patient\").interaction.map(i => i.code)).to.eql([\"read\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/metadata"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. One R6 resource becomes three R4 rows",
+      "description": "The main case. One R6 BodyStructure with three includedStructure entries is stored as rows <id>, <id>--2 and <id>--3.",
+      "item": [
+        {
+          "name": "Create through R6 (3 structures)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"structures are Forearm, Upper arm, Shoulder\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Upper arm\", \"Shoulder\"]));",
+                  "pm.collectionVariables.set(\"bsId\", pm.response.json().id);",
+                  "pm.collectionVariables.set(\"originalEtag\", pm.response.headers.get(\"ETag\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Saves the new id as {{bsId}} and the ETag for later requests."
+          }
+        },
+        {
+          "name": "Read through R6: one resource",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Forearm, Upper arm, Shoulder\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Upper arm\", \"Shoulder\"]));",
+                  "const first = pm.response.json().includedStructure[0];",
+                  "pm.test(\"laterality is back in its own field\", () => pm.expect(first.laterality.text).to.eql(\"Left\"));",
+                  "pm.test(\"qualifier has only Volar\", () => pm.expect(first.qualifier.map(q => q.text)).to.eql([\"Volar\"]));",
+                  "pm.test(\"both morphology values are back\", () => pm.expect(first.morphology.length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Read through R4: primary row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const row = pm.response.json();",
+                  "pm.test(\"holds the first structure\", () => pm.expect(row.location.text).to.eql(\"Forearm\"));",
+                  "pm.test(\"first morphology is on the element\", () => pm.expect(row.morphology.text).to.eql(\"Basal cell carcinoma\"));",
+                  "pm.test(\"second morphology is in an extension\", () => pm.expect(row.extension[0].valueCodeableConcept.text).to.eql(\"Nevus sebaceus\"));",
+                  "pm.test(\"laterality and qualifier share locationQualifier\", () => pm.expect(row.locationQualifier.map(q => q.text)).to.eql([\"Volar\", \"Left\"]));",
+                  "pm.test(\"lists the other rows\", () => { const link = row.extension.find(e => e.url.endsWith(\"bodystructure-row-group\")); const id = pm.collectionVariables.get(\"bsId\"); pm.expect(link.extension.filter(e => e.url === \"member\").map(e => e.valueReference.reference)).to.eql([\"BodyStructure/\" + id + \"--2\", \"BodyStructure/\" + id + \"--3\"]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Read through R4: row 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"holds the second structure\", () => pm.expect(pm.response.json().location.text).to.eql(\"Upper arm\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--2"
+          }
+        },
+        {
+          "name": "Read through R4: row 3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"holds the third structure\", () => pm.expect(pm.response.json().location.text).to.eql(\"Shoulder\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--3"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Edit through R4, read through R6",
+      "description": "The same data, used through both versions. Run in order after folder 2.",
+      "item": [
+        {
+          "name": "Get row 2 to edit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"row\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--2"
+          }
+        },
+        {
+          "name": "Change location on row 2 through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"row 2 now says Elbow\", () => pm.expect(pm.response.json().location.text).to.eql(\"Elbow\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "row.location = { text: \"Elbow\" };",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--2",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: only structure 2 changed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Forearm, Elbow, Shoulder\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Elbow\", \"Shoulder\"]));",
+                  "pm.test(\"ETag changed\", () => pm.expect(pm.response.headers.get(\"ETag\")).to.not.eql(pm.collectionVariables.get(\"originalEtag\")));",
+                  "pm.collectionVariables.set(\"r6Current\", JSON.stringify(pm.response.json(), null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "R6 update with the old ETag is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 412\", () => pm.response.to.have.status(412));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{originalEtag}}"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{r6Current}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The R4 edit moved the version, so this stale write must not overwrite anything."
+          }
+        },
+        {
+          "name": "Get row 3 to edit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"row\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--3"
+          }
+        },
+        {
+          "name": "Change description on row 3 through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "row.description = \"Edited on row 3 through R4\";",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--3",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "description is shared, so it must reach every row and the R6 view."
+          }
+        },
+        {
+          "name": "Read through R6: description changed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"shows the new description\", () => pm.expect(pm.response.json().description).to.eql(\"Edited on row 3 through R4\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Read primary row: description changed too",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"shows the new description\", () => pm.expect(pm.response.json().description).to.eql(\"Edited on row 3 through R4\"));",
+                  "pm.collectionVariables.set(\"row\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "R4 client sends the row without our extensions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"the server restored the extra morphology\", () => pm.expect(pm.response.json().extension.some(e => e.valueCodeableConcept && e.valueCodeableConcept.text === \"Nevus sebaceus\")).to.be.true);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "delete row.extension;",
+                  "row.locationQualifier.forEach(q => delete q.extension);",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "A typical R4 client drops extensions it doesn't understand. R6-only data must survive."
+          }
+        },
+        {
+          "name": "Read through R6: laterality and morphology survived",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const first = pm.response.json().includedStructure[0];",
+                  "pm.test(\"laterality is still there\", () => pm.expect(first.laterality.text).to.eql(\"Left\"));",
+                  "pm.test(\"both morphology values are still there\", () => pm.expect(first.morphology.length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Get primary row again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"row\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Remove the laterality code through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "row.locationQualifier = row.locationQualifier.filter(q => q.text !== \"Left\");",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: laterality is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const first = pm.response.json().includedStructure[0];",
+                  "pm.test(\"laterality was removed\", () => pm.expect(first.laterality).to.be.undefined);",
+                  "pm.test(\"qualifier is untouched\", () => pm.expect(first.qualifier.map(q => q.text)).to.eql([\"Volar\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Requests that must be rejected",
+      "description": "Each of these stores nothing. Folder 4 needs {{bsId}} from folder 2 only for the row id check.",
+      "item": [
+        {
+          "name": "R6 without patient (valid R6, not storable as R4)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R6 with modifierExtension (can't be understood safely)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names it\", () => pm.expect(pm.response.text()).to.include(\"modifierExtension\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"modifierExtension\": [\n    {\n      \"url\": \"http://example.org/m\",\n      \"valueBoolean\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Extension using a URL the mapping relies on",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"says reserved\", () => pm.expect(pm.response.text()).to.include(\"reserved\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/fhir/StructureDefinition/bodystructure-row-group\",\n      \"valueBoolean\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Other types are read-only through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 405\", () => pm.response.to.have.status(405));",
+                  "pm.test(\"allows only GET\", () => pm.expect(pm.response.headers.get(\"Allow\")).to.eql(\"GET\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Patient\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R6-only extension type has no R4 form",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names what would be lost\", () => pm.expect(pm.response.text()).to.include(\"extension\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/e\",\n      \"valueInteger64\": \"9007199254740993\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Every write is converted and converted back. Anything that doesn't survive returns 422."
+          }
+        },
+        {
+          "name": "R6 with contained resources (no R4 place)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names the unsupported element\", () => pm.expect(pm.response.text()).to.include(\"contained\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"contained\": [\n    {\n      \"resourceType\": \"Patient\",\n      \"id\": \"p\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R6 attachment too large for R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names size\", () => pm.expect(pm.response.text()).to.include(\"size\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"image\": [\n    {\n      \"url\": \"http://imaging.acme.com/big.png\",\n      \"size\": \"5000000000\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "R6 size is integer64, but R4 size is unsignedInt."
+          }
+        },
+        {
+          "name": "R4 without location (valid R4, not readable as R6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R4 row ids don't exist in R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}--2"
+          }
+        },
+        {
+          "name": "New ids can't contain the reserved --",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/new--2",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"id\": \"new--2\",\n  \"location\": {\n    \"text\": \"Spleen\"\n  },\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Real HL7 examples and every element",
+      "description": "R6 examples with one includedStructure become one R4 row. Landmarks and every other element survive in extensions.",
+      "item": [
+        {
+          "name": "Create tumor example through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"structures are Spleen\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Spleen\"]));",
+                  "pm.collectionVariables.set(\"singleId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"12345\"\n    }\n  ],\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"78961009\",\n            \"display\": \"Splenic structure (body structure)\"\n          }\n        ],\n        \"text\": \"Spleen\"\n      },\n      \"morphology\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"4147007\",\n              \"display\": \"Mass (morphologic abnormality)\"\n            }\n          ],\n          \"text\": \"Splenic mass\"\n        }\n      ]\n    }\n  ],\n  \"description\": \"7 cm maximum diameter\",\n  \"image\": [\n    {\n      \"contentType\": \"application/dicom\",\n      \"url\": \"http://imaging.acme.com/wado/server?requestType=WADO&amp;wado_details\"\n    }\n  ],\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read tumor through R4: one row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const row = pm.response.json();",
+                  "pm.test(\"location comes from structure\", () => pm.expect(row.location.text).to.eql(\"Spleen\"));",
+                  "pm.test(\"morphology comes from the structure\", () => pm.expect(row.morphology.text).to.eql(\"Splenic mass\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{singleId}}"
+          }
+        },
+        {
+          "name": "No second row exists",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{singleId}}--2"
+          }
+        },
+        {
+          "name": "Create fetus example through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"structures are Fetus\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Fetus\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"12345\"\n    }\n  ],\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"83418008\",\n            \"display\": \"Entire fetus (body structure)\"\n          }\n        ],\n        \"text\": \"Fetus\"\n      }\n    }\n  ],\n  \"description\": \"EDD 1/1/2017 confirmation by LMP\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create skin-patch example through R6 (has landmarks)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"skinId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"12345\"\n    }\n  ],\n  \"active\": false,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"bodyLandmarkOrientation\": [\n        {\n          \"landmarkDescription\": [\n            {\n              \"text\": \"heart tattoo\"\n            }\n          ],\n          \"distanceFromLandmark\": [\n            {\n              \"value\": [\n                {\n                  \"value\": 2.0,\n                  \"unit\": \"cm\",\n                  \"system\": \"http://unitsofmeasure.org\",\n                  \"code\": \"cm\"\n                }\n              ]\n            }\n          ],\n          \"surfaceOrientation\": [\n            {\n              \"coding\": [\n                {\n                  \"system\": \"http://snomed.info/sct\",\n                  \"code\": \"46053002\",\n                  \"display\": \"distal\"\n                }\n              ]\n            }\n          ]\n        }\n      ],\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"275265005\",\n              \"display\": \"Epithelioma basal cell (disorder)\"\n            }\n          ],\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"707136009\",\n              \"display\": \"Nevus sebaceous (disorder)\"\n            }\n          ],\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    }\n  ],\n  \"description\": \"inner surface (volar) of the left forearm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read skin-patch through R4: landmarks are in an extension",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"landmark extension is there\", () => pm.expect(pm.response.json().extension.some(e => e.url.endsWith(\"bodyLandmarkOrientation\"))).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{skinId}}"
+          }
+        },
+        {
+          "name": "Read skin-patch through R6: landmarks are back",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const lm = pm.response.json().includedStructure[0].bodyLandmarkOrientation[0];",
+                  "pm.test(\"landmark description is back\", () => pm.expect(lm.landmarkDescription[0].text).to.eql(\"heart tattoo\"));",
+                  "pm.test(\"distance is back\", () => pm.expect(lm.distanceFromLandmark[0].value[0].code).to.eql(\"cm\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{skinId}}"
+          }
+        },
+        {
+          "name": "Create with every element through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"structures are Forearm, Upper arm\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Upper arm\"]));",
+                  "pm.collectionVariables.set(\"fullId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"full-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"bodyLandmarkOrientation\": [\n        {\n          \"landmarkDescription\": [\n            {\n              \"text\": \"heart tattoo\"\n            }\n          ],\n          \"clockFacePosition\": [\n            {\n              \"text\": \"3 o'clock\"\n            }\n          ],\n          \"distanceFromLandmark\": [\n            {\n              \"device\": [\n                {\n                  \"concept\": {\n                    \"text\": \"ruler\"\n                  }\n                },\n                {\n                  \"reference\": {\n                    \"reference\": \"Device/ruler-1\"\n                  }\n                }\n              ],\n              \"value\": [\n                {\n                  \"value\": 2.5,\n                  \"unit\": \"cm\",\n                  \"system\": \"http://unitsofmeasure.org\",\n                  \"code\": \"cm\"\n                }\n              ]\n            }\n          ],\n          \"surfaceOrientation\": [\n            {\n              \"coding\": [\n                {\n                  \"system\": \"http://snomed.info/sct\",\n                  \"code\": \"46053002\",\n                  \"display\": \"distal\"\n                }\n              ]\n            }\n          ]\n        }\n      ],\n      \"spatialReference\": [\n        {\n          \"reference\": \"ImagingSelection/selection-1\"\n        }\n      ],\n      \"image\": [\n        {\n          \"contentType\": \"image/jpeg\",\n          \"url\": \"http://imaging.acme.com/forearm.jpg\",\n          \"size\": \"1234\",\n          \"title\": \"Forearm\",\n          \"height\": 480,\n          \"width\": 640,\n          \"frames\": 1,\n          \"duration\": 0.5,\n          \"pages\": 1\n        }\n      ],\n      \"qualifier\": [\n        {\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ],\n      \"origin\": [\n        {\n          \"text\": \"Primary site\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"text\": \"Upper arm\"\n      },\n      \"origin\": [\n        {\n          \"text\": \"Spread\"\n        }\n      ]\n    }\n  ],\n  \"excludedStructure\": [\n    {\n      \"structure\": {\n        \"text\": \"Elbow\"\n      },\n      \"laterality\": {\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"text\": \"Dorsal\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"No lesion\"\n        },\n        {\n          \"text\": \"Normal skin\"\n        }\n      ],\n      \"bodyLandmarkOrientation\": [\n        {\n          \"landmarkDescription\": [\n            {\n              \"text\": \"elbow crease\"\n            }\n          ]\n        }\n      ],\n      \"origin\": [\n        {\n          \"text\": \"Checked\"\n        }\n      ]\n    }\n  ],\n  \"description\": \"Every BodyStructure element, to prove nothing is lost\",\n  \"image\": [\n    {\n      \"contentType\": \"image/png\",\n      \"url\": \"http://imaging.acme.com/overview.png\",\n      \"size\": \"99\",\n      \"height\": 100\n    }\n  ],\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Excluded structure never becomes a row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{fullId}}--3",
+            "description": "Only the two included structures have rows. The excluded one is an extension."
+          }
+        },
+        {
+          "name": "Read through R6: nothing was lost",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"excludedStructure is back\", () => pm.expect(r.excludedStructure[0].structure.text).to.eql(\"Elbow\"));",
+                  "pm.test(\"attachment fields are back\", () => pm.expect(r.includedStructure[0].image[0].height).to.eql(480));",
+                  "pm.test(\"size is an R6 string again\", () => pm.expect(r.includedStructure[0].image[0].size).to.eql(\"1234\"));",
+                  "pm.test(\"origin is back\", () => pm.expect(r.includedStructure[1].origin[0].text).to.eql(\"Spread\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{fullId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Created through R4, extended through R6",
+      "description": "The other direction: a plain R4 resource grows a second structure through R6.",
+      "item": [
+        {
+          "name": "Create through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"r4Id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"location\": {\n    \"text\": \"Spleen\"\n  },\n  \"morphology\": {\n    \"text\": \"Mass\"\n  },\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: one structure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Spleen\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Spleen\"]));",
+                  "pm.collectionVariables.set(\"r6Current\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{r4Id}}"
+          }
+        },
+        {
+          "name": "Add a structure through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Spleen, Liver\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Spleen\", \"Liver\"]));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r6 = JSON.parse(pm.collectionVariables.get(\"r6Current\"));",
+                  "r6.includedStructure.push({ structure: { text: \"Liver\" } });",
+                  "pm.collectionVariables.set(\"editedR6\", JSON.stringify(r6, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{r4Id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedR6}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R4: original row intact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"still Spleen with its morphology\", () => { const r = pm.response.json(); pm.expect(r.location.text).to.eql(\"Spleen\"); pm.expect(r.morphology.text).to.eql(\"Mass\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{r4Id}}"
+          }
+        },
+        {
+          "name": "Read through R4: new row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"holds the new structure\", () => pm.expect(pm.response.json().location.text).to.eql(\"Liver\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{r4Id}}--2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Stable row ids and links",
+      "description": "A row keeps its id while its structure exists, and numbers are never reused.",
+      "item": [
+        {
+          "name": "Create through R6 (3 structures)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"element ids are 1, 2, 3\", () => pm.expect(pm.response.json().includedStructure.map(i => i.id)).to.eql([\"1\", \"2\", \"3\"]));",
+                  "pm.collectionVariables.set(\"stableId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Row 3 shows its link",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const link = pm.response.json().extension.find(e => e.url.endsWith(\"bodystructure-row-group\"));",
+                  "pm.test(\"position is 3\", () => pm.expect(link.extension.find(e => e.url === \"position\").valuePositiveInt).to.eql(3));",
+                  "pm.test(\"points at the primary row\", () => pm.expect(link.extension.find(e => e.url === \"primary\").valueReference.reference).to.eql(\"BodyStructure/\" + pm.collectionVariables.get(\"stableId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}--3"
+          }
+        },
+        {
+          "name": "Delete row 2 through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}--2"
+          }
+        },
+        {
+          "name": "Read through R6: row 3 kept its id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"element ids are 1, 3\", () => pm.expect(pm.response.json().includedStructure.map(i => i.id)).to.eql([\"1\", \"3\"]));",
+                  "pm.collectionVariables.set(\"r6Current\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{stableId}}"
+          }
+        },
+        {
+          "name": "Add a structure through R6: gets a new number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"element ids are 1, 3, 4\", () => pm.expect(pm.response.json().includedStructure.map(i => i.id)).to.eql([\"1\", \"3\", \"4\"]));",
+                  "pm.test(\"structures are Forearm, Shoulder, Neck\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Shoulder\", \"Neck\"]));",
+                  "pm.collectionVariables.set(\"r6Current\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r6 = JSON.parse(pm.collectionVariables.get(\"r6Current\"));",
+                  "r6.includedStructure.push({ structure: { text: \"Neck\" } });",
+                  "pm.collectionVariables.set(\"editedR6\", JSON.stringify(r6, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{stableId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedR6}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deleted number stays deleted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}--2"
+          }
+        },
+        {
+          "name": "Reorder through R6: row ids don't change",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Neck, Shoulder, Forearm\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Neck\", \"Shoulder\", \"Forearm\"]));",
+                  "pm.test(\"element ids are 4, 3, 1\", () => pm.expect(pm.response.json().includedStructure.map(i => i.id)).to.eql([\"4\", \"3\", \"1\"]));",
+                  "pm.collectionVariables.set(\"r6Current\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r6 = JSON.parse(pm.collectionVariables.get(\"r6Current\"));",
+                  "r6.includedStructure.reverse();",
+                  "pm.collectionVariables.set(\"editedR6\", JSON.stringify(r6, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{stableId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedR6}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Primary row still holds its structure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"still Forearm\", () => pm.expect(pm.response.json().location.text).to.eql(\"Forearm\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}"
+          }
+        },
+        {
+          "name": "Remove the primary row's structure through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Neck, Shoulder\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Neck\", \"Shoulder\"]));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r6 = JSON.parse(pm.collectionVariables.get(\"r6Current\"));",
+                  "r6.includedStructure = r6.includedStructure.filter(s => s.id !== \"1\");",
+                  "pm.collectionVariables.set(\"editedR6\", JSON.stringify(r6, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{stableId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedR6}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The one exception: the R6 resource needs a row with its own id, so the first remaining structure moves into the primary row."
+          }
+        },
+        {
+          "name": "Primary row now holds the next structure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"now Neck\", () => pm.expect(pm.response.json().location.text).to.eql(\"Neck\"));",
+                  "pm.test(\"lists the one remaining row\", () => { const link = pm.response.json().extension.find(e => e.url.endsWith(\"bodystructure-row-group\")); const id = pm.collectionVariables.get(\"stableId\"); pm.expect(link.extension.filter(e => e.url === \"member\").map(e => e.valueReference.reference)).to.eql([\"BodyStructure/\" + id + \"--3\"]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}"
+          }
+        },
+        {
+          "name": "Its old row is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{stableId}}--4"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Removing extensions through R4",
+      "description": "A client that drops extensions keeps them; a client can still remove one on purpose.",
+      "item": [
+        {
+          "name": "Create with an extra morphology",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"extId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the R4 row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"row\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{extId}}"
+          }
+        },
+        {
+          "name": "PUT without extensions: they come back",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "delete row.extension;",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{extId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: extra is still there",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"morphology is Basal cell carcinoma, Nevus sebaceus\", () => pm.expect(pm.response.json().includedStructure[0].morphology.map(m => m.text)).to.eql([\"Basal cell carcinoma\", \"Nevus sebaceus\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{extId}}"
+          }
+        },
+        {
+          "name": "Same PUT with X-Replace-Extensions: removed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const row = JSON.parse(pm.collectionVariables.get(\"row\"));",
+                  "delete row.extension;",
+                  "pm.collectionVariables.set(\"editedRow\", JSON.stringify(row, null, 2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "X-Replace-Extensions",
+                "value": "true"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{extId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{editedRow}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: extra is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"morphology is Basal cell carcinoma\", () => pm.expect(pm.response.json().includedStructure[0].morphology.map(m => m.text)).to.eql([\"Basal cell carcinoma\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{extId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8b. Your own extensions and attachment language",
+      "description": "Extensions we don't recognise are carried across. One on the resource is on every row; one on a structure stays on its row.",
+      "item": [
+        {
+          "name": "Create with extensions and attachment language",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"ownExtId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ],\n      \"extension\": [\n        {\n          \"url\": \"http://example.org/ext/on-structure\",\n          \"valueBoolean\": true\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/ext/on-resource\",\n      \"valueString\": \"whole resource\"\n    }\n  ],\n  \"image\": [\n    {\n      \"url\": \"http://imaging.acme.com/overview.png\",\n      \"language\": \"en\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: everything is where it was sent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"resource extension is back\", () => pm.expect(r.extension[0].valueString).to.eql(\"whole resource\"));",
+                  "pm.test(\"structure extension is on structure 2 only\", () => { pm.expect(r.includedStructure[1].extension[0].valueBoolean).to.eql(true); pm.expect(r.includedStructure[0].extension).to.be.undefined; });",
+                  "pm.test(\"attachment language is back\", () => pm.expect(r.image[0].language).to.eql(\"en\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{ownExtId}}"
+          }
+        },
+        {
+          "name": "Read row 2 through R4: both are there",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const urls = pm.response.json().extension.map(e => e.url);",
+                  "pm.test(\"has its own extension\", () => pm.expect(urls).to.include(\"http://example.org/ext/on-structure\"));",
+                  "pm.test(\"has the wrapped resource extension\", () => pm.expect(urls.some(u => u.endsWith(\"extension-BodyStructure.extension\"))).to.be.true);",
+                  "pm.test(\"language is on the attachment\", () => pm.expect(pm.response.json().image[0].language).to.eql(\"en\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{ownExtId}}--2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8c. Patient and Encounter through R6",
+      "description": "Stored as R4 and read through the generated maps. These types are read-only through R6.",
+      "item": [
+        {
+          "name": "Create a Patient through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"patientId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Patient",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Patient\",\n  \"name\": [\n    {\n      \"family\": \"Doe\",\n      \"given\": [\n        \"Jane\"\n      ]\n    }\n  ],\n  \"gender\": \"female\",\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/s\",\n      \"valueString\": \"text\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has the name\", () => pm.expect(pm.response.json().name[0].family).to.eql(\"Doe\"));",
+                  "pm.test(\"has the extension\", () => pm.expect(pm.response.json().extension[0].valueString).to.eql(\"text\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient/{{patientId}}"
+          }
+        },
+        {
+          "name": "Create an Encounter through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"encounterId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Encounter",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"status\": \"finished\",\n  \"class\": {\n    \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n    \"code\": \"AMB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R6: class is now a list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"class is a repeating CodeableConcept\", () => pm.expect(pm.response.json().class[0].coding[0].code).to.eql(\"AMB\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Encounter/{{encounterId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Deletes",
+      "description": "Run last, because this removes the resource from folder 2.",
+      "item": [
+        {
+          "name": "Delete row 2 through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--2"
+          }
+        },
+        {
+          "name": "Read through R6: one structure fewer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"structures are Forearm, Shoulder\", () => pm.expect(pm.response.json().includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Shoulder\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Deleted row returns 410",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--2"
+          }
+        },
+        {
+          "name": "Delete the primary row through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}",
+            "description": "The R6 resource shares this id, so the whole group goes."
+          }
+        },
+        {
+          "name": "R6 resource is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{bsId}}"
+          }
+        },
+        {
+          "name": "Remaining row is gone too",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{bsId}}--3"
+          }
+        },
+        {
+          "name": "Delete through R6 removes every row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{r4Id}}"
+          }
+        },
+        {
+          "name": "Its second row is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{r4Id}}--2"
+          }
+        }
+      ]
+    }
+  ]
+}

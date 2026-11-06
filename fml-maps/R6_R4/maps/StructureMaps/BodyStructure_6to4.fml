@@ -1,0 +1,103 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BodyStructure6to4'
+/// name = 'BodyStructure6to4'
+/// title = 'BodyStructure Transforms: R6 to R4 (one R4 row per includedStructure)'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/BodyStructure" alias BodyStructureR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Bundle" alias BundleR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// R6 includedStructure is 1..*, but R4 location and morphology are 0..1, so each
+// structure becomes its own R4 BodyStructure. HL7 does not define this split; it is
+// this project's design. Row ids, row links and meta are set in src/fhir/convert.ts and
+// src/fhir/bodystructure.ts.
+group BodyStructureSplit(source src : BodyStructureR6, target bundle : BundleR4) {
+  src -> bundle.type = 'collection' "type";
+  src.includedStructure as inc -> create('BodyStructure') as out, bundle.entry as e, e.resource = out then BodyStructureRow(src, inc, out) "entry";
+}
+
+group BodyStructureRow(source src, source inc, target out) {
+  // Shared fields: on every row, and kept in sync by src/fhir/bodystructure.ts.
+  src.language -> out.language "language";
+  src.text -> out.text "text";
+  src.identifier -> out.identifier "identifier";
+  src.active -> out.active "active";
+  src.description -> out.description "description";
+  src.image -> out.image "image";
+  src.patient -> out.patient "patient";
+
+  // excludedStructure says what is NOT there. It must never become a row of its own,
+  // because a row reads as a structure that is present. It is shared, so deleting a row
+  // can't lose it.
+  src.excludedStructure as ex -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.excludedStructure' then StructureToExtension(ex, x) "excluded";
+
+  // Extensions on the R6 resource describe all of it, so they are shared. A wrapper keeps
+  // them apart from a structure's own extensions, which sit directly on its row.
+  src.extension as e -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.extension', x.extension as inner then Extension(e, inner) "sharedExtension";
+
+  // Per-row fields.
+  inc.structure -> out.location "location";
+  inc.morphology first -> out.morphology "morphology";
+
+  // R4 morphology holds one value: the rest are kept in an extension.
+  inc.morphology not_first as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology', x.valueCodeableConcept as t then CodeableConcept(v, t) "morphologyExtra";
+
+  // laterality and qualifier both land in locationQualifier. A marker on the laterality
+  // item lets the read path put it back, and it disappears if an R4 client removes the item.
+  inc.qualifier -> out.locationQualifier "qualifier";
+  inc.laterality as v -> out.locationQualifier as q then MarkLaterality(v, q) "laterality";
+
+  inc -> out then StructureExtras(inc, out) "extras";
+}
+
+group MarkLaterality(source v, target q) {
+  v.coding -> q.coding "coding";
+  v.text -> q.text "text";
+  v -> q.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality', x.valueBoolean = true "marker";
+}
+
+// Elements with no R4 element, on a row.
+group StructureExtras(source inc, target out) {
+  inc.extension -> out.extension "extension";
+  inc.bodyLandmarkOrientation as lm -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation' then LandmarkToExtension(lm, x) "landmark";
+  inc.spatialReference as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference', x.valueReference as t then Reference(v, t) "spatialReference";
+  inc.image as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.image', x.valueAttachment as t then Attachment(v, t) "image";
+  inc.origin as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.origin', x.valueCodeableConcept as t then CodeableConcept(v, t) "origin";
+}
+
+// The same elements inside the excludedStructure extension. A group can only have one
+// contextual type, so this can't be shared with StructureExtras.
+group ExcludedExtras(source inc, target out) {
+  inc.extension -> out.extension "extension";
+  inc.bodyLandmarkOrientation as lm -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation' then LandmarkToExtension(lm, x) "landmark";
+  inc.spatialReference as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference', x.valueReference as t then Reference(v, t) "spatialReference";
+  inc.image as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.image', x.valueAttachment as t then Attachment(v, t) "image";
+  inc.origin as v -> out.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.origin', x.valueCodeableConcept as t then CodeableConcept(v, t) "origin";
+}
+
+// A whole structure as extensions: all of it goes here, since nothing has an R4 element.
+group StructureToExtension(source ex, target x) {
+  ex.structure as v -> x.extension as e, e.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.structure', e.valueCodeableConcept as t then CodeableConcept(v, t) "structure";
+  ex.laterality as v -> x.extension as e, e.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality', e.valueCodeableConcept as t then CodeableConcept(v, t) "laterality";
+  ex.qualifier as v -> x.extension as e, e.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.qualifier', e.valueCodeableConcept as t then CodeableConcept(v, t) "qualifier";
+  ex.morphology as v -> x.extension as e, e.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology', e.valueCodeableConcept as t then CodeableConcept(v, t) "morphology";
+  ex -> x then ExcludedExtras(ex, x) "extras";
+}
+
+group LandmarkToExtension(source lm, target x) {
+  lm.landmarkDescription as v -> x.extension as e, e.url = 'landmarkDescription', e.valueCodeableConcept as t then CodeableConcept(v, t) "landmarkDescription";
+  lm.clockFacePosition as v -> x.extension as e, e.url = 'clockFacePosition', e.valueCodeableConcept as t then CodeableConcept(v, t) "clockFacePosition";
+  lm.distanceFromLandmark as d -> x.extension as e, e.url = 'distanceFromLandmark' then DistanceToExtension(d, e) "distanceFromLandmark";
+  lm.surfaceOrientation as v -> x.extension as e, e.url = 'surfaceOrientation', e.valueCodeableConcept as t then CodeableConcept(v, t) "surfaceOrientation";
+}
+
+group DistanceToExtension(source d, target x) {
+  d.device as dv -> x.extension as e, e.url = 'device' then CodeableReferenceToExtension(dv, e) "device";
+  d.value as v -> x.extension as e, e.url = 'value', e.valueQuantity as t then Quantity(v, t) "value";
+}
+
+group CodeableReferenceToExtension(source c, target x) {
+  c.concept as v -> x.extension as e, e.url = 'concept', e.valueCodeableConcept as t then CodeableConcept(v, t) "concept";
+  c.reference as v -> x.extension as e, e.url = 'reference', e.valueReference as t then Reference(v, t) "reference";
+}

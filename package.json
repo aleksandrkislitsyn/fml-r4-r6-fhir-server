@@ -18,7 +18,7 @@
     "@atomic-ehr/fhirschema": "^0.0.14",
     "antlr4": "^4.13.2",
     "entities": "^6.0.1",
-    "fhirpath": "^5.0.0",
+    "fhirpath": "^5.2.3",
     "lossless-json": "^4.3.0",
     "luxon": "^3.4.3"
   },

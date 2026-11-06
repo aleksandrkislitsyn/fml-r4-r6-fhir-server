@@ -1,0 +1,39 @@
+{
+  "resourceType": "BodyStructure",
+  "identifier": [{ "system": "http://goodhealth.org/bodystructure/identifiers", "value": "multi-1" }],
+  "active": true,
+  "includedStructure": [
+    {
+      "structure": {
+        "coding": [{ "system": "http://snomed.info/sct", "code": "14975008", "display": "Forearm" }],
+        "text": "Forearm"
+      },
+      "laterality": {
+        "coding": [{ "system": "http://snomed.info/sct", "code": "419161000", "display": "Unilateral left" }],
+        "text": "Left"
+      },
+      "qualifier": [
+        { "coding": [{ "system": "http://snomed.info/sct", "code": "263929005", "display": "Volar" }], "text": "Volar" }
+      ],
+      "morphology": [
+        { "text": "Basal cell carcinoma" },
+        { "text": "Nevus sebaceus" }
+      ]
+    },
+    {
+      "structure": {
+        "coding": [{ "system": "http://snomed.info/sct", "code": "85050009", "display": "Bone structure of humerus" }],
+        "text": "Upper arm"
+      },
+      "morphology": [{ "text": "Lesion" }]
+    },
+    {
+      "structure": {
+        "coding": [{ "system": "http://snomed.info/sct", "code": "16982005", "display": "Shoulder region structure" }],
+        "text": "Shoulder"
+      }
+    }
+  ],
+  "description": "Lesion spreading across three regions of the left arm",
+  "patient": { "reference": "Patient/example" }
+}

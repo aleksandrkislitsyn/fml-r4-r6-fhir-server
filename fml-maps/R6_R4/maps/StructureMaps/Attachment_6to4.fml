@@ -1,0 +1,28 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Attachment6to4'
+/// name = 'Attachment6to4'
+/// title = 'Attachment Transforms: R6 to R4'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Attachment" alias AttachmentR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Attachment" alias AttachmentR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// Hand-written. R6 has fields R4 lacks, so they are kept in extensions, and size changes
+// from integer64 (a JSON string) to unsignedInt. A size too big for R4 is rejected before
+// mapping, in src/fhir/bodystructure.ts.
+group Attachment(source src : AttachmentR6, target tgt : AttachmentR4) extends Element <<type+>> {
+  src.contentType -> tgt.contentType;
+  src.language -> tgt.language;
+  src.data -> tgt.data;
+  src.url -> tgt.url;
+  src.size as v -> tgt.size = evaluate(v, $this.toInteger()) "size";
+  src.hash -> tgt.hash;
+  src.title -> tgt.title;
+  src.creation -> tgt.creation;
+  src.height as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.height', x.valuePositiveInt as t then PositiveInt(v, t) "height";
+  src.width as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.width', x.valuePositiveInt as t then PositiveInt(v, t) "width";
+  src.frames as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.frames', x.valuePositiveInt as t then PositiveInt(v, t) "frames";
+  src.duration as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.duration', x.valueDecimal as t then Decimal(v, t) "duration";
+  src.pages as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.pages', x.valuePositiveInt as t then PositiveInt(v, t) "pages";
+}

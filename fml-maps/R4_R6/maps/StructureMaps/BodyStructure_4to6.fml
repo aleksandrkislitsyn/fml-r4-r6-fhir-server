@@ -1,35 +1,130 @@
 /// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BodyStructure4to6'
 /// name = 'BodyStructure4to6'
-/// title = 'BodyStructure Transforms: R4 to R6'
+/// title = 'BodyStructure Transforms: R4 to R6 (one or more linked R4 rows into one R6 resource)'
 /// status = 'draft'
 
-uses "http://hl7.org/fhir/4.0/StructureDefinition/BodyStructure" alias BodyStructureR4 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Bundle" alias BundleR4 as source
 uses "http://hl7.org/fhir/6.0/StructureDefinition/BodyStructure" alias BodyStructureR6 as target
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 
-/* The following target properties were not populated:
-    BodyStructure.includedStructure BackboneElement[1..*]
-    BodyStructure.includedStructure.laterality CodeableConcept[0..1]
-    BodyStructure.includedStructure.bodyLandmarkOrientation BackboneElement[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.landmarkDescription CodeableConcept[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.clockFacePosition CodeableConcept[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark BackboneElement[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.device CodeableReference[0..*] (Device)
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.value Quantity[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.surfaceOrientation CodeableConcept[0..*]
-    BodyStructure.includedStructure.spatialReference Reference[0..*] (ImagingSelection)
-    BodyStructure.includedStructure.image Attachment[0..*]
-    BodyStructure.includedStructure.origin CodeableConcept[0..*]
-    BodyStructure.excludedStructure [0..*]
-*/
-group BodyStructure(source src : BodyStructureR4, target tgt : BodyStructureR6) extends DomainResource <<type+>> {
-  src.identifier -> tgt.identifier;
-  src.active -> tgt.active;
-  src.morphology -> tgt.includedStructure.morphology; // renamed
-  src.location /* [0..1] */ -> tgt.includedStructure.structure /* [1..1] */; // renamed // Warning: source optional, target mandatory
-  src.locationQualifier -> tgt.includedStructure.qualifier; // renamed
-  src.description -> tgt.description;
-  src.image -> tgt.image;
-  src.patient -> tgt.patient;
+// The input is a Bundle of R4 rows belonging to one group, already in includedStructure
+// order. A row that was created alone through /R4 is simply a group of one. Id, element
+// ids and meta are set in src/fhir/convert.ts, and the row-group extension is not read
+// here. Rewritten by hand from the generated map, which could not fill a single
+// includedStructure per row.
+group BodyStructureMerge(source rows : BundleR4, target tgt : BodyStructureR6) {
+  rows.entry first as e then {
+    e.resource : BodyStructure as r -> tgt then BodyStructureShared(r, tgt) "shared";
+  } "first";
+  rows.entry as e then {
+    e.resource : BodyStructure as r -> tgt.includedStructure as inc then BodyStructureIncluded(r, inc) "included";
+  } "each";
+}
+
+group BodyStructureShared(source r, target tgt) {
+  r.language -> tgt.language "language";
+  r.text -> tgt.text "text";
+  r.identifier -> tgt.identifier "identifier";
+  r.active -> tgt.active "active";
+  r.description -> tgt.description "description";
+  r.image -> tgt.image "image";
+  r.patient -> tgt.patient "patient";
+  r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.excludedStructure') -> tgt.excludedStructure as ex then ExtensionToStructure(x, ex) "excluded";
+  r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.extension') then {
+    x.extension -> tgt.extension "extension";
+  } "sharedExtension";
+}
+
+group BodyStructureIncluded(source r, target inc) {
+  r.location -> inc.structure "structure";
+  r.morphology -> inc.morphology "morphology";
+  r.locationQualifier as q where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality').exists()) -> inc.laterality as lat then UnmarkLaterality(q, lat) "laterality";
+  r.locationQualifier where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality').exists().not()) -> inc.qualifier "qualifier";
+  r -> inc then StructureExtras(r, inc) "extras";
+}
+
+group UnmarkLaterality(source q, target lat) {
+  q.coding -> lat.coding "coding";
+  q.text -> lat.text "text";
+}
+
+// What a row holds in extensions.
+group StructureExtras(source r, target inc) {
+  r.extension where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure').not() and url != 'http://example.org/fhir/StructureDefinition/bodystructure-row-group') -> inc.extension "extension";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology') then {
+    e.value : CodeableConcept -> inc.morphology "value";
+  } "morphologyExtra";
+  r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation') -> inc.bodyLandmarkOrientation as lm then ExtensionToLandmark(x, lm) "landmark";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference') then {
+    e.value : Reference -> inc.spatialReference "value";
+  } "spatialReference";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.image') then {
+    e.value : Attachment -> inc.image "value";
+  } "image";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.origin') then {
+    e.value : CodeableConcept -> inc.origin "value";
+  } "origin";
+}
+
+// The same inside the excludedStructure extension. A group can only have one contextual
+// type, so this can't be shared with StructureExtras.
+group ExcludedExtras(source r, target inc) {
+  r.extension where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure').not() and url != 'http://example.org/fhir/StructureDefinition/bodystructure-row-group') -> inc.extension "extension";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology') then {
+    e.value : CodeableConcept -> inc.morphology "value";
+  } "morphologyExtra";
+  r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation') -> inc.bodyLandmarkOrientation as lm then ExtensionToLandmark(x, lm) "landmark";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference') then {
+    e.value : Reference -> inc.spatialReference "value";
+  } "spatialReference";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.image') then {
+    e.value : Attachment -> inc.image "value";
+  } "image";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.origin') then {
+    e.value : CodeableConcept -> inc.origin "value";
+  } "origin";
+}
+
+// A whole structure held in extensions, as excludedStructure is.
+group ExtensionToStructure(source x, target ex) {
+  x.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.structure') then {
+    e.value : CodeableConcept -> ex.structure "value";
+  } "structure";
+  x.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality') then {
+    e.value : CodeableConcept -> ex.laterality "value";
+  } "laterality";
+  x.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.qualifier') then {
+    e.value : CodeableConcept -> ex.qualifier "value";
+  } "qualifier";
+  x -> ex then ExcludedExtras(x, ex) "extras";
+}
+
+group ExtensionToLandmark(source x, target lm) {
+  x.extension as e where (url = 'landmarkDescription') then {
+    e.value : CodeableConcept -> lm.landmarkDescription "value";
+  } "landmarkDescription";
+  x.extension as e where (url = 'clockFacePosition') then {
+    e.value : CodeableConcept -> lm.clockFacePosition "value";
+  } "clockFacePosition";
+  x.extension as e where (url = 'distanceFromLandmark') -> lm.distanceFromLandmark as d then ExtensionToDistance(e, d) "distanceFromLandmark";
+  x.extension as e where (url = 'surfaceOrientation') then {
+    e.value : CodeableConcept -> lm.surfaceOrientation "value";
+  } "surfaceOrientation";
+}
+
+group ExtensionToDistance(source x, target d) {
+  x.extension as e where (url = 'device') -> d.device as c then ExtensionToCodeableReference(e, c) "device";
+  x.extension as e where (url = 'value') then {
+    e.value : Quantity -> d.value "value";
+  } "value";
+}
+
+group ExtensionToCodeableReference(source x, target c) {
+  x.extension as e where (url = 'concept') then {
+    e.value : CodeableConcept -> c.concept "value";
+  } "concept";
+  x.extension as e where (url = 'reference') then {
+    e.value : Reference -> c.reference "value";
+  } "reference";
 }

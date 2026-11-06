@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { migrate, sql } from "../src/db/index.ts";
+import { migrate } from "../src/db/index.ts";
 import { loadValidator } from "../src/fhir/validator.ts";
 import { createHandler } from "../src/http/server.ts";
 import { createFmlConverter } from "../src/fhir/convert.ts";
@@ -17,7 +17,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   server.stop(true);
-  await sql.close();
 });
 
 const patient: Patient = {
@@ -35,6 +34,14 @@ const send = (method: string, path: string, body?: unknown, headers: Record<stri
   });
 
 describe("R4 Patient CRUD", () => {
+  test("id and extension are legal on backbone elements", async () => {
+    const res = await send("POST", "/Patient", {
+      ...patient,
+      contact: [{ id: "c1", extension: [{ url: "http://example.org/x", valueBoolean: true }], name: { family: "Roe" } }],
+    });
+    expect(res.status).toBe(201);
+  });
+
   test("create → read → update → delete", async () => {
     const created = await send("POST", "/Patient", { ...patient, id: "ignored" });
     expect(created.status).toBe(201);
@@ -95,6 +102,19 @@ describe("R4 Patient CRUD", () => {
 
   test("id mismatch on PUT → 400", async () => {
     expect((await send("PUT", "/Patient/a", { ...patient, id: "b" })).status).toBe(400);
+  });
+
+  test("R6 reads carry string and CodeableConcept extensions", async () => {
+    const extension = [
+      { url: "http://example.org/s", valueString: "text" },
+      { url: "http://example.org/c", valueCodeableConcept: { text: "concept" } },
+    ];
+    const created = await send("POST", "/Patient", { ...patient, extension });
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as Patient;
+    const read = await fetch(`${server.url}R6/Patient/${id}`);
+    expect(read.status).toBe(200);
+    expect(((await read.json()) as any).extension).toEqual(extension);
   });
 
   test("R6 Patient reads return 404 for unknown ids", async () => {
