@@ -93,6 +93,40 @@ export function createHandler({ validators, converter }: ServerDeps) {
   };
 }
 
+/**
+ * R6 `class` semantics on R4: the native Coding plus the cross-version extension codings.
+ * The canonical follows the version-prefix pattern of cross-version extensions; HL7 does not
+ * publish a SearchParameter under it. R4 `class` keeps its standard meaning, so the backport
+ * gets its own name.
+ */
+const ENCOUNTER_CLASS_BACKPORT = "http://hl7.org/fhir/6.0/SearchParameter/Encounter-class";
+
+/** Encounter search parameters per version, mapped to whether cross-version class codings match. */
+const ENCOUNTER_SEARCH_PARAMS: Record<FhirVersion, ReadonlyMap<string, boolean>> = {
+  R4: new Map([["class", false], ["class-r6", true]]),
+  R6: new Map([["class", true]]),
+};
+
+function encounterSearchParams(version: FhirVersion) {
+  const syntax = "Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.";
+  const crossVersion = `native class and codings of the ${repo.ENCOUNTER_CLASS_EXTENSION} extension`;
+  const classParam = {
+    name: "class",
+    definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
+    type: "token",
+    documentation: `${version === "R4" ? "Native R4 class only" : `Matches ${crossVersion}`}. ${syntax}`,
+  };
+  if (version === "R6") return [classParam];
+  return [classParam, {
+    name: "class-r6",
+    definition: ENCOUNTER_CLASS_BACKPORT,
+    type: "token",
+    documentation: `Backport of R6 class; matches ${crossVersion}`
+      + ` (Encounter.class | Encounter.extension('${repo.ENCOUNTER_CLASS_EXTENSION}').value).`
+      + ` Cannot be combined with class. ${syntax}`,
+  }];
+}
+
 async function searchEncounters(
   url: URL,
   base: string,
@@ -100,20 +134,24 @@ async function searchEncounters(
   converter?: ResourceConverter,
   signal?: AbortSignal,
 ): Promise<Response> {
-  for (const key of url.searchParams.keys()) {
-    if (key !== "class") return error(400, `Unsupported search parameter: ${key}`, "not-supported");
+  const supported = ENCOUNTER_SEARCH_PARAMS[version];
+  const names = new Set(url.searchParams.keys());
+  for (const name of names) {
+    if (!supported.has(name)) return error(400, `Unsupported search parameter: ${name}`, "not-supported");
   }
-  const values = url.searchParams.getAll("class");
-  if (values.length > 1) return error(400, "Repeated class parameters are not supported", "not-supported");
+  if (names.size > 1) return error(400, `Combining ${[...names].join(" and ")} is not supported`, "not-supported");
+  const [name] = names;
   const token: repo.ClassToken = {};
-  if (values.length) {
+  if (name !== undefined) {
+    const values = url.searchParams.getAll(name);
+    if (values.length > 1) return error(400, `Repeated ${name} parameters are not supported`, "not-supported");
     const value = values[0]!;
     if (/[,\\$]/.test(value)) {
       return error(400, "Comma lists and escaped token values are not supported", "not-supported");
     }
     const parts = value.split("|");
     if (!value || parts.length > 2 || (parts.length === 2 && !parts[0] && !parts[1])) {
-      return error(400, "Expected class=code, system|code, |code, or system|");
+      return error(400, `Expected ${name}=code, system|code, |code, or system|`);
     }
     if (parts.length === 1) token.code = value;
     else {
@@ -121,7 +159,7 @@ async function searchEncounters(
       if (parts[1]) token.code = parts[1];
     }
   }
-  const stored = await repo.searchEncounterClass(token, version === "R6");
+  const stored = await repo.searchEncounterClass(token, name !== undefined && supported.get(name) === true);
   const resources = await Promise.all(stored.map((resource) => fromStorage(version, resource, converter, signal)));
   return json({
     resourceType: "Bundle",
@@ -210,14 +248,7 @@ function capabilityStatement(version: FhirVersion) {
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
             ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
           ],
-          ...(type === "Encounter" ? {
-            searchParam: [{
-              name: "class",
-              definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
-              type: "token",
-              documentation: `${version === "R4" ? "Native R4 class only" : "Native class and xver/encounter-class extension codings"}. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.`,
-            }],
-          } : {}),
+          ...(type === "Encounter" ? { searchParam: encounterSearchParams(version) } : {}),
         })),
       },
     ],
