@@ -3,11 +3,14 @@ import * as repo from "../db/repository.ts";
 import type { StoredResource } from "../db/repository.ts";
 import {
   MAX_BASE_ID_LENGTH,
+  assignRowIds,
   baseId,
   carryForwardExtensions,
   isSecondaryId,
+  orderRows,
   unsupportedR4,
   unsupportedR6,
+  withRowLinks,
   withSharedFieldsFrom,
 } from "../fhir/bodystructure.ts";
 import type { Converter } from "../fhir/convert.ts";
@@ -53,7 +56,10 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
   /* R6: one resource, stored as one row per includedStructure. */
 
   async function saveR6(type: StoredResourceType, id: string, body: any, ifMatch: number | undefined) {
-    const rows = converter.toStorage(body, id);
+    const existing = orderRows(await repo.readGroup(type, id));
+    const existingStructures = existing.length > 0 ? (converter.fromStorage(existing) as any).includedStructure : [];
+    const rowIds = assignRowIds(id, existingStructures, body.includedStructure, await repo.maxGroupSuffix(type, id));
+    const rows = converter.toStorage(body, rowIds);
     const invalid = checkRows(rows);
     if (invalid) return invalid;
     const stored = await repo.writeGroup(type, id, rows, ifMatch === undefined ? undefined : { id, version: ifMatch });
@@ -75,7 +81,7 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
     if (isSecondaryId(id)) return error(404, `${type}/${id} not found`, "not-found");
     const rows = await repo.readGroup(type, id);
     if (rows[0]?.id !== id) return missing(type, id);
-    const out = converter.fromStorage(rows);
+    const out = converter.fromStorage(orderRows(rows));
     const { location: _l, ...headers } = resourceHeaders(base, out);
     return json(out, 200, headers);
   }
@@ -131,22 +137,24 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
     if (body.id !== id) return error(400, `Resource id ${JSON.stringify(body.id)} does not match URL id ${id}`);
 
     const group = baseId(id);
-    const rows = await repo.readGroup(type, group);
+    const rows = orderRows(await repo.readGroup(type, group));
     const stored = rows.find((r) => r.id === id);
     if (!stored) {
       const idProblem = newIdError(id);
       if (idProblem) return idProblem;
     }
 
-    const incoming = stored ? carryForwardExtensions(stored, body) : body;
+    const replaceExtensions = req.headers.get("x-replace-extensions")?.toLowerCase() === "true";
+    const incoming = stored ? carryForwardExtensions(stored, body, replaceExtensions) : body;
     const paths = unsupportedR4(incoming);
     if (paths.length > 0) return notStorable(paths);
 
     // One rule for every write: all rows are rewritten, so shared fields stay the same
     // everywhere and the primary row's version, which is the R6 ETag, always moves.
-    const next = stored
-      ? rows.map((r) => (r.id === id ? incoming : withSharedFieldsFrom(incoming, r)))
-      : [incoming];
+    const next = withRowLinks(
+      stored ? rows.map((r) => (r.id === id ? incoming : withSharedFieldsFrom(incoming, r))) : [incoming],
+      group,
+    );
     const rejected = checkRows(next);
     if (rejected) return rejected;
 
@@ -161,9 +169,9 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
       return new Response(null, { status: 204 });
     }
     const group = baseId(id);
-    const rows = await repo.readGroup(type, group);
+    const rows = orderRows(await repo.readGroup(type, group));
     if (rows.some((r) => r.id === id)) {
-      await repo.writeGroup(type, group, rows.filter((r) => r.id !== id));
+      await repo.writeGroup(type, group, withRowLinks(rows.filter((r) => r.id !== id), group));
     }
     return new Response(null, { status: 204 });
   }

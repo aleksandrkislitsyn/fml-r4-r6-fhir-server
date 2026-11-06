@@ -101,7 +101,16 @@ const GROUP_ROWS = `WHERE id = $1 OR id LIKE $2`;
 const groupParams = (base: string) => [base, `${base}--%`];
 const suffix = (id: string) => Number(id.split("--")[1] ?? 1);
 
-/** All current rows of a group, primary first. */
+/** The highest row number a group has ever used, including deleted rows. */
+export async function maxGroupSuffix(type: StoredResourceType, base: string): Promise<number> {
+  const rows = await sql.unsafe(
+    `SELECT DISTINCT id FROM ${tableName(type)}_history ${GROUP_ROWS}`,
+    groupParams(base),
+  );
+  return [...rows].reduce((max: number, r: any) => Math.max(max, suffix(r.id)), 1);
+}
+
+/** All current rows of a group, by row number. */
 export async function readGroup(type: StoredResourceType, base: string): Promise<StoredResource[]> {
   const rows = await sql.unsafe(`SELECT id, resource FROM ${tableName(type)} ${GROUP_ROWS}`, groupParams(base));
   return [...rows]

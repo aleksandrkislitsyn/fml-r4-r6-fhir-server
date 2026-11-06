@@ -1,15 +1,15 @@
 import { resolve } from "node:path";
 import type { StoredResource } from "../db/repository.ts";
-import { rowId } from "./bodystructure.ts";
+import { baseId, elementId, isSecondaryId, withRowLinks } from "./bodystructure.ts";
 import { loadMap, runMap } from "./fml.ts";
 import type { Validator } from "./validator.ts";
 
 const MAPS = resolve(import.meta.dir, "../../fml-maps");
 
 export interface Converter {
-  /** One R6 resource to its R4 rows. Rows get ids `<id>`, `<id>--2`, ... */
-  toStorage(resource: StoredResource, id: string): StoredResource[];
-  /** A group's R4 rows, primary first, to one R6 resource. */
+  /** One R6 resource to its R4 rows, in `includedStructure` order, with the given row ids. */
+  toStorage(resource: StoredResource, rowIds: string[]): StoredResource[];
+  /** A group's R4 rows, in `includedStructure` order, to one R6 resource. */
   fromStorage(rows: StoredResource[]): StoredResource;
 }
 
@@ -23,19 +23,24 @@ export async function loadConverter(validators: { R4: Validator; R6: Validator }
   const toR6 = await loadMap(`${MAPS}/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml`);
 
   return {
-    toStorage(resource, id) {
+    toStorage(resource, rowIds) {
       const bundle = runMap(toR4, resource, "Bundle", validators.R4);
       const labels = keepLabels(resource.meta);
-      return (bundle.entry ?? []).map((entry: any, index: number) => ({
+      const rows: StoredResource[] = (bundle.entry ?? []).map((entry: any, index: number) => ({
         ...entry.resource,
-        id: rowId(id, index),
+        id: rowIds[index],
         ...(labels ? { meta: labels } : {}),
       }));
+      return withRowLinks(rows, baseId(rowIds[0]!));
     },
     fromStorage(rows) {
       const bundle = { resourceType: "Bundle", type: "collection", entry: rows.map((resource) => ({ resource })) };
-      const primary = rows[0]!;
-      return { ...runMap(toR6, bundle, "BodyStructure", validators.R6), id: primary.id, meta: primary.meta };
+      const primary = rows.find((r) => !isSecondaryId(r.id!)) ?? rows[0]!;
+      const merged = runMap(toR6, bundle, "BodyStructure", validators.R6);
+      merged.includedStructure.forEach((structure: any, index: number) => {
+        structure.id = elementId(rows[index]!.id!);
+      });
+      return { ...merged, id: primary.id, meta: primary.meta };
     },
   };
 }
