@@ -3,9 +3,8 @@
 /// title = 'Encounter Transforms: R6 to R4'
 /// status = 'draft'
 
-// From HL7's R5 -> R4 ConceptMap (R5 and R6 share these codes). discharged and
-// discontinued have no R4 code of their own, so they are left out: a write that uses them
-// fails the round-trip check in src/http/r6writes.ts and returns 422.
+// From HL7's R5 -> R4 ConceptMap (R5 and R6 share these codes). discharged maps to finished
+// too, but needs the status extension (see the group). discontinued has no R4 code: see TODO.
 conceptmap "EncounterStatus" {
   prefix s = "http://hl7.org/fhir/encounter-status"
   prefix t = "http://hl7.org/fhir/encounter-status"
@@ -32,54 +31,116 @@ uses "http://hl7.org/fhir/4.0/StructureDefinition/Encounter" alias EncounterR4 a
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
 
-// The reverse of Encounter4to6. Elements that map has no rule for (reason, dietPreference,
-// specialArrangement, specialCourtesy) and R6-only elements are not mapped either; a write
-// that uses them fails the round-trip check and returns 422.
+// The reverse of Encounter4to6. What R4 has an element for goes there; R6-only content is kept
+// in cross-version extensions (http://hl7.org/fhir/6.0/StructureDefinition/extension-<element>),
+// and Encounter4to6 reads it back. A write that still loses something fails the round-trip
+// check in src/http/r6writes.ts and returns 422.
 group Encounter(source src : EncounterR6, target tgt : EncounterR4) extends DomainResource <<type+>> {
   src.identifier -> tgt.identifier;
 
-  src.status as v where ($this != 'in-progress') -> tgt.status = translate(v, '#EncounterStatus', 'code') "status";
-  src where (status = 'in-progress' and subjectStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged')).empty()) -> tgt.status = 'in-progress' "inProgress";
-  src where (status = 'in-progress') then {
+  // Status. A required binding with more codes in R6 (HL7's rule: closest R4 code, R6 code in
+  // the cross-version extension on the element). discharged maps to finished, which would read
+  // back as completed, so the extension keeps it.
+  // TODO: discontinued has no R4 mapping (HL7: noMap). Intended: a placeholder R4 code, the R6
+  // code in the status extension, and implicitRules on the resource, because without a mapping
+  // the R4 value alone doesn't carry the meaning. Not implemented, so it returns 422.
+  src.status as v where ($this != 'in-progress' and $this != 'discharged') -> tgt.status = translate(v, '#EncounterStatus', 'code') "status";
+  src.status as v where ($this = 'discharged') -> tgt.status = 'finished' as ts, ts.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.status', x.valueCode = 'discharged' "discharged";
+
+  // R4 arrived and triaged: in-progress with exactly that subjectStatus. Any other subjectStatus
+  // is kept in an extension.
+  src where (status = 'in-progress' and (subjectStatus.text.empty() and subjectStatus.coding.count() = 1 and subjectStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged') and display.empty() and version.empty()).exists()).not()) -> tgt.status = 'in-progress' "inProgress";
+  src where (status = 'in-progress' and subjectStatus.text.empty() and subjectStatus.coding.count() = 1 and subjectStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged') and display.empty() and version.empty()).exists()) then {
     src.subjectStatus as ss then {
-      ss.coding as c where (system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged')) then {
+      ss.coding as c then {
         c.code as code -> tgt.status = translate(code, '#SubjectStatus', 'code') "code";
       } "coding";
     } "subjectStatus";
   } "arrivedOrTriaged";
+  src where ((status = 'in-progress' and subjectStatus.text.empty() and subjectStatus.coding.count() = 1 and subjectStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged') and display.empty() and version.empty()).exists()).not()) then {
+    src.subjectStatus as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.subjectStatus', x.valueCodeableConcept as t then CodeableConcept(v, t) "subjectStatus";
+  } "subjectStatusExtension";
 
-  // R4 class is one Coding: the first class becomes it, every further class an extension.
-  src.class first as c then {
-    c.coding first -> tgt.class "coding";
-  } "class";
+  // R4 class is one Coding: the first coding of the first class. Every further class is an
+  // extension; if the first class holds more than one coding, see EncounterFirstClass.
+  src.class first as c -> tgt.class as k then EncounterFirstClass(c, k) "class";
   src.class not_first as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class', x.valueCodeableConcept as t then CodeableConcept(v, t) "classExtra";
 
   src.priority -> tgt.priority;
   src.type -> tgt.type;
-  // R4 serviceType is one CodeableConcept; R6 is a list of CodeableReferences.
+
+  // R4 serviceType is one CodeableConcept: the first entry if it is only a concept. Every other
+  // entry is an extension. (The condition sits inside, because a where next to first would pick
+  // the first entry that matches rather than the first entry.)
   src.serviceType first as s then {
-    s.concept -> tgt.serviceType "concept";
+    s where (reference.empty() and concept.exists() and id.empty() and extension.empty()) then {
+      s.concept -> tgt.serviceType "concept";
+    } "native";
+    s where ((reference.empty() and concept.exists() and id.empty() and extension.empty()).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.serviceType' then EncounterCodeableReferenceToExtension(s, x) "extension";
   } "serviceType";
+  src.serviceType not_first as s -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.serviceType' then EncounterCodeableReferenceToExtension(s, x) "serviceTypeExtra";
+
   src.subject -> tgt.subject;
   src.episodeOfCare -> tgt.episodeOfCare;
-  src.basedOn -> tgt.basedOn;
+  // R4 basedOn only allows ServiceRequest (HL7: references to other targets go in the
+  // cross-version extension).
+  src.basedOn as v where ((type.exists() and (type in ('ServiceRequest'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(ServiceRequest)/[^/]+(/_history/[^/]+)?$')))) -> tgt.basedOn as t then Reference(v, t) "basedOn";
+  src.basedOn as v where (((type.exists() and (type in ('ServiceRequest'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(ServiceRequest)/[^/]+(/_history/[^/]+)?$')))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.basedOn', x.valueReference as t then Reference(v, t) "basedOnExtra";
   src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
   src.appointment -> tgt.appointment;
   src.actualPeriod -> tgt.period; // renamed
   src.length -> tgt.length;
-  src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
+
+  // One R4 reasonCode or reasonReference per R6 reason with one value, no use, and a reference
+  // R4 allows (not DiagnosticReport). Any other reason is kept whole in an extension.
+  src.reason as r where (use.empty() and id.empty() and extension.empty() and value.count() = 1 and value.id.empty() and value.extension.empty() and (value.concept.exists() xor value.reference.exists()) and (value.reference.empty() or ((value.reference.type.exists() and (value.reference.type in ('Condition' | 'Procedure' | 'Observation'))) or (value.reference.type.empty() and (value.reference.reference.empty() or value.reference.reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or value.reference.reference.matches('(^|/)(Condition|Procedure|Observation)/[^/]+(/_history/[^/]+)?$')))))) then {
+    r.value as v then {
+      v.concept -> tgt.reasonCode "concept";
+      v.reference -> tgt.reasonReference "reference";
+    } "value";
+  } "reason";
+  src.reason as r where ((use.empty() and id.empty() and extension.empty() and value.count() = 1 and value.id.empty() and value.extension.empty() and (value.concept.exists() xor value.reference.exists()) and (value.reference.empty() or ((value.reference.type.exists() and (value.reference.type in ('Condition' | 'Procedure' | 'Observation'))) or (value.reference.type.empty() and (value.reference.reference.empty() or value.reference.reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or value.reference.reference.matches('(^|/)(Condition|Procedure|Observation)/[^/]+(/_history/[^/]+)?$')))))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason' then EncounterReasonToExtension(r, x) "reasonExtra";
+
+  // R4 diagnosis has one condition reference and at most one use. Any other diagnosis is kept
+  // whole in an extension.
+  src.diagnosis as s where (condition.count() = 1 and condition.reference.exists() and condition.concept.empty() and condition.id.empty() and condition.extension.empty() and use.count() <= 1) -> tgt.diagnosis as t then EncounterDiagnosis(s, t) "diagnosis";
+  src.diagnosis as s where ((condition.count() = 1 and condition.reference.exists() and condition.concept.empty() and condition.id.empty() and condition.extension.empty() and use.count() <= 1).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis' then EncounterDiagnosisToExtension(s, x) "diagnosisExtra";
+
   src.account -> tgt.account;
-  src.admission as s -> tgt.hospitalization as t then EncounterAdmission(s, t); // renamed
+  // R4 keeps admission, dietPreference, specialArrangement and specialCourtesy in hospitalization.
+  src where (admission.exists() or dietPreference.exists() or specialArrangement.exists() or specialCourtesy.exists()) -> tgt.hospitalization as h then EncounterHospitalization(src, h) "hospitalization";
   src.location as s -> tgt.location as t then EncounterLocation(s, t);
   src.serviceProvider -> tgt.serviceProvider;
   src.partOf -> tgt.partOf;
+
+  // R6-only elements.
+  src.businessStatus as s -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.businessStatus' then EncounterBusinessStatusToExtension(s, x) "businessStatus";
+  src.careTeam as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.careTeam', x.valueReference as t then Reference(v, t) "careTeam";
+  src.virtualService as s -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.virtualService' then EncounterVirtualServiceToExtension(s, x) "virtualService";
+  src.plannedStartDate as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.plannedStartDate', x.valueDateTime as t then DateTime(v, t) "plannedStartDate";
+  src.plannedEndDate as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.plannedEndDate', x.valueDateTime as t then DateTime(v, t) "plannedEndDate";
+
+  // R4-only elements, which Encounter4to6 shows as R4 cross-version extensions.
+  src.extension as e where (url = 'http://hl7.org/fhir/4.0/StructureDefinition/extension-Encounter.statusHistory') -> tgt.statusHistory as t then EncounterExtensionToStatusHistory(e, t) "statusHistory";
+  src.extension as e where (url = 'http://hl7.org/fhir/4.0/StructureDefinition/extension-Encounter.classHistory') -> tgt.classHistory as t then EncounterExtensionToClassHistory(e, t) "classHistory";
+}
+
+
+// The first coding becomes the R4 class. If the first class holds more (more codings, a text,
+// or its own id or extensions), all of it is also kept in the class extension on the R4 class,
+// and Encounter4to6 reads it from there.
+group EncounterFirstClass(source c, target k) {
+  c.coding first as cd then Coding(cd, k) "coding";
+  c where (coding.count() != 1 or text.exists() or id.exists() or extension.exists()) -> k.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class', x.valueCodeableConcept as t then CodeableConcept(c, t) "full";
 }
 
 
 group EncounterParticipant(source src, target tgt) extends BackboneElement {
   src.type -> tgt.type;
   src.period -> tgt.period;
-  src.actor -> tgt.individual; // renamed
+  // renamed. R4 individual only allows Practitioner, PractitionerRole and RelatedPerson.
+  src.actor as v where ((type.exists() and (type in ('Practitioner' | 'PractitionerRole' | 'RelatedPerson'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(Practitioner|PractitionerRole|RelatedPerson)/[^/]+(/_history/[^/]+)?$')))) -> tgt.individual as t then Reference(v, t) "actor";
+  src.actor as v where (((type.exists() and (type in ('Practitioner' | 'PractitionerRole' | 'RelatedPerson'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(Practitioner|PractitionerRole|RelatedPerson)/[^/]+(/_history/[^/]+)?$')))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.participant.actor', x.valueReference as t then Reference(v, t) "actorExtension";
 }
 
 
@@ -89,6 +150,14 @@ group EncounterDiagnosis(source src, target tgt) extends BackboneElement {
     c.reference -> tgt.condition "reference";
   } "condition";
   src.use first -> tgt.use "use";
+}
+
+
+group EncounterHospitalization(source src, target tgt) {
+  src.admission as a then EncounterAdmission(a, tgt) "admission";
+  src.dietPreference -> tgt.dietPreference "dietPreference";
+  src.specialArrangement -> tgt.specialArrangement "specialArrangement";
+  src.specialCourtesy -> tgt.specialCourtesy "specialCourtesy";
 }
 
 
@@ -107,4 +176,62 @@ group EncounterLocation(source src, target tgt) extends BackboneElement {
   src.status -> tgt.status;
   src.form -> tgt.physicalType; // renamed
   src.period -> tgt.period;
+}
+
+
+// CodeableReference doesn't exist in R4: a complex extension with concept and reference.
+group EncounterCodeableReferenceToExtension(source c, target x) {
+  c.concept as v -> x.extension as e, e.url = 'concept', e.valueCodeableConcept as t then CodeableConcept(v, t) "concept";
+  c.reference as v -> x.extension as e, e.url = 'reference', e.valueReference as t then Reference(v, t) "reference";
+}
+
+
+group EncounterReasonToExtension(source r, target x) {
+  r.use as v -> x.extension as e, e.url = 'use', e.valueCodeableConcept as t then CodeableConcept(v, t) "use";
+  r.value as v -> x.extension as e, e.url = 'value' then EncounterCodeableReferenceToExtension(v, e) "value";
+}
+
+
+group EncounterDiagnosisToExtension(source d, target x) {
+  d.condition as v -> x.extension as e, e.url = 'condition' then EncounterCodeableReferenceToExtension(v, e) "condition";
+  d.use as v -> x.extension as e, e.url = 'use', e.valueCodeableConcept as t then CodeableConcept(v, t) "use";
+}
+
+
+group EncounterBusinessStatusToExtension(source b, target x) {
+  b.code as v -> x.extension as e, e.url = 'code', e.valueCodeableConcept as t then CodeableConcept(v, t) "code";
+  b.type as v -> x.extension as e, e.url = 'type', e.valueCodeableConcept as t then CodeableConcept(v, t) "type";
+  b.effectiveDate as v -> x.extension as e, e.url = 'effectiveDate', e.valueDateTime as t then DateTime(v, t) "effectiveDate";
+}
+
+
+// VirtualServiceDetail is R6-only. address as ExtendedContactDetail (also R6-only) isn't mapped.
+group EncounterVirtualServiceToExtension(source s, target x) {
+  s.channelType as v -> x.extension as e, e.url = 'channelType', e.valueCoding as t then Coding(v, t) "channelType";
+  s.address : url as v -> x.extension as e, e.url = 'address', e.valueUrl as t then Url(v, t) "addressUrl";
+  s.address : string as v -> x.extension as e, e.url = 'address', e.valueString as t then String(v, t) "addressString";
+  s.address : ContactPoint as v -> x.extension as e, e.url = 'address', e.valueContactPoint as t then ContactPoint(v, t) "addressContactPoint";
+  s.additionalInfo as v -> x.extension as e, e.url = 'additionalInfo', e.valueUrl as t then Url(v, t) "additionalInfo";
+  s.maxParticipants as v -> x.extension as e, e.url = 'maxParticipants', e.valuePositiveInt as t then PositiveInt(v, t) "maxParticipants";
+  s.sessionKey as v -> x.extension as e, e.url = 'sessionKey', e.valueString as t then String(v, t) "sessionKey";
+}
+
+
+group EncounterExtensionToStatusHistory(source x, target h) {
+  x.extension as e where (url = 'status') then {
+    e.value : code -> h.status "value";
+  } "status";
+  x.extension as e where (url = 'period') then {
+    e.value : Period as v -> h.period as t then Period(v, t) "value";
+  } "period";
+}
+
+
+group EncounterExtensionToClassHistory(source x, target h) {
+  x.extension as e where (url = 'class') then {
+    e.value : Coding as v -> h.class as t then Coding(v, t) "value";
+  } "class";
+  x.extension as e where (url = 'period') then {
+    e.value : Period as v -> h.period as t then Period(v, t) "value";
+  } "period";
 }

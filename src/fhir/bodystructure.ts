@@ -352,5 +352,5 @@ export function lostContent(before: any, after: any): string | undefined {
     if (out.includedStructure) out.includedStructure = out.includedStructure.map(({ id: _e, ...structure }: any) => structure);
     return out;
   };
-  return lostContentAfterRoundTrip(strip(before), strip(after), UNORDERED);
+  return lostContentAfterRoundTrip(strip(before), strip(after), (key) => UNORDERED.has(key));
 }

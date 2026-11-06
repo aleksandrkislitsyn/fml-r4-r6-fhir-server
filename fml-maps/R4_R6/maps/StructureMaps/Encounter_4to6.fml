@@ -32,7 +32,10 @@ uses "http://hl7.org/fhir/6.0/StructureDefinition/Encounter" alias EncounterR6 a
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 
-/* The following source properties were not read:
+/* Generated lists, before the hand edits for R6 writes. Every property below is now mapped:
+   R4-only ones as R4 cross-version extensions in R6, R6-only ones from R6 cross-version
+   extensions in R4. diagnosis.rank is the exception and stays R4-only.
+   The following source properties were not read:
     Encounter.statusHistory BackboneElement[0..*]
     Encounter.statusHistory.status code[1..1]
     Encounter.statusHistory.period Period[1..1]
@@ -65,31 +68,89 @@ imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 */
 group Encounter(source src : EncounterR4, target tgt : EncounterR6) extends DomainResource <<type+>> {
   src.identifier -> tgt.identifier;
-  src.status as v -> tgt.status = translate(v, '#EncounterStatus', 'code') "status";
+
+  // Status: an R6 code kept in the status extension (see Encounter6to4) wins; otherwise HL7's
+  // ConceptMap.
+  src.status as v where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.status').exists()) then {
+    v.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.status') then {
+      e.value : code -> tgt.status "value";
+    } "extension";
+  } "statusFromExtension";
+  src.status as v where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.status').empty()) -> tgt.status = translate(v, '#EncounterStatus', 'code') "status";
   // R6 moved arrived and triaged to subjectStatus; the encounter itself is in progress.
   src.status as v where ($this = 'arrived' or $this = 'triaged') -> tgt.status = 'in-progress', tgt.subjectStatus as ss, ss.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status', c.code = translate(v, '#SubjectStatus', 'code') "subjectStatus";
-  src.class as s -> tgt.class as t then {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.subjectStatus') then {
+    e.value : CodeableConcept as v -> tgt.subjectStatus as t then CodeableConcept(v, t) "value";
+  } "subjectStatusExtension";
+
+  // The first class: in full from the class extension on the R4 class, if there is one, or
+  // else the R4 Coding. Further classes come from extensions on the resource.
+  src.class as s where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').empty()) -> tgt.class as t then {
     s -> t.coding as c then Coding(s, c);
-  };
+  } "class";
+  src.class as s where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').exists()) then {
+    s.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class') then {
+      e.value : CodeableConcept as v -> tgt.class as t then CodeableConcept(v, t) "value";
+    } "extension";
+  } "classFull";
   src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class') then {
     e.value : CodeableConcept as s -> tgt.class as t then CodeableConcept(s, t);
   };
+
   src.type -> tgt.type;
   src.serviceType -> tgt.serviceType;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.serviceType') -> tgt.serviceType as t then EncounterExtensionToCodeableReference(e, t) "serviceTypeExtra";
   src.priority -> tgt.priority;
   src.subject -> tgt.subject;
   src.episodeOfCare -> tgt.episodeOfCare;
   src.basedOn -> tgt.basedOn;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.basedOn') then {
+    e.value : Reference as v -> tgt.basedOn as t then Reference(v, t) "value";
+  } "basedOnExtra";
   src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
   src.appointment -> tgt.appointment;
   src.period -> tgt.actualPeriod; // renamed
   src.length -> tgt.length;
+
+  // R4 reasonCode and reasonReference: one R6 reason per value. Reasons R4 can't hold come
+  // whole from extensions.
+  src.reasonCode as v -> tgt.reason as r, r.value as rv, rv.concept as t then CodeableConcept(v, t) "reasonCode";
+  src.reasonReference as v -> tgt.reason as r, r.value as rv, rv.reference as t then Reference(v, t) "reasonReference";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason') -> tgt.reason as t then EncounterExtensionToReason(e, t) "reasonExtra";
+
   src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis') -> tgt.diagnosis as t then EncounterExtensionToDiagnosis(e, t) "diagnosisExtra";
   src.account -> tgt.account;
-  src.hospitalization as s -> tgt.admission as t then EncounterHospitalization(s, t); // renamed
+
+  // R4 hospitalization holds R6 admission plus dietPreference, specialArrangement and
+  // specialCourtesy, which R6 has on the Encounter.
+  src.hospitalization as s where (preAdmissionIdentifier.exists() or origin.exists() or admitSource.exists() or reAdmission.exists() or destination.exists() or dischargeDisposition.exists() or id.exists() or extension.exists() or modifierExtension.exists()) -> tgt.admission as t then EncounterHospitalization(s, t); // renamed
+  src.hospitalization as s then {
+    s.dietPreference -> tgt.dietPreference "dietPreference";
+    s.specialArrangement -> tgt.specialArrangement "specialArrangement";
+    s.specialCourtesy -> tgt.specialCourtesy "specialCourtesy";
+  } "hospitalizationMoved";
+
   src.location as s -> tgt.location as t then EncounterLocation(s, t);
   src.serviceProvider -> tgt.serviceProvider;
   src.partOf -> tgt.partOf;
+
+  // R6-only elements, written by Encounter6to4 as R6 cross-version extensions.
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.businessStatus') -> tgt.businessStatus as t then EncounterExtensionToBusinessStatus(e, t) "businessStatus";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.careTeam') then {
+    e.value : Reference as v -> tgt.careTeam as t then Reference(v, t) "value";
+  } "careTeam";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.virtualService') -> tgt.virtualService as t then EncounterExtensionToVirtualService(e, t) "virtualService";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.plannedStartDate') then {
+    e.value : dateTime -> tgt.plannedStartDate "value";
+  } "plannedStartDate";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.plannedEndDate') then {
+    e.value : dateTime -> tgt.plannedEndDate "value";
+  } "plannedEndDate";
+
+  // R4-only elements: R4 cross-version extensions in R6, read back by Encounter6to4.
+  src.statusHistory as s -> tgt.extension as x, x.url = 'http://hl7.org/fhir/4.0/StructureDefinition/extension-Encounter.statusHistory' then EncounterStatusHistoryToExtension(s, x) "statusHistory";
+  src.classHistory as s -> tgt.extension as x, x.url = 'http://hl7.org/fhir/4.0/StructureDefinition/extension-Encounter.classHistory' then EncounterClassHistoryToExtension(s, x) "classHistory";
 }
 
 
@@ -97,6 +158,9 @@ group EncounterParticipant(source src, target tgt) extends BackboneElement {
   src.type -> tgt.type;
   src.period -> tgt.period;
   src.individual -> tgt.actor; // renamed
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.participant.actor') then {
+    e.value : Reference as v -> tgt.actor as t then Reference(v, t) "value";
+  } "actorExtension";
 }
 
 
@@ -121,4 +185,76 @@ group EncounterLocation(source src, target tgt) extends BackboneElement {
   src.status -> tgt.status;
   src.physicalType -> tgt.form; // renamed
   src.period -> tgt.period;
+}
+
+
+group EncounterExtensionToCodeableReference(source x, target c) {
+  x.extension as e where (url = 'concept') then {
+    e.value : CodeableConcept as v -> c.concept as t then CodeableConcept(v, t) "value";
+  } "concept";
+  x.extension as e where (url = 'reference') then {
+    e.value : Reference as v -> c.reference as t then Reference(v, t) "value";
+  } "reference";
+}
+
+
+group EncounterExtensionToReason(source x, target r) {
+  x.extension as e where (url = 'use') then {
+    e.value : CodeableConcept as v -> r.use as t then CodeableConcept(v, t) "value";
+  } "use";
+  x.extension as e where (url = 'value') -> r.value as t then EncounterExtensionToCodeableReference(e, t) "value";
+}
+
+
+group EncounterExtensionToDiagnosis(source x, target d) {
+  x.extension as e where (url = 'condition') -> d.condition as t then EncounterExtensionToCodeableReference(e, t) "condition";
+  x.extension as e where (url = 'use') then {
+    e.value : CodeableConcept as v -> d.use as t then CodeableConcept(v, t) "value";
+  } "use";
+}
+
+
+group EncounterExtensionToBusinessStatus(source x, target b) {
+  x.extension as e where (url = 'code') then {
+    e.value : CodeableConcept as v -> b.code as t then CodeableConcept(v, t) "value";
+  } "code";
+  x.extension as e where (url = 'type') then {
+    e.value : CodeableConcept as v -> b.type as t then CodeableConcept(v, t) "value";
+  } "type";
+  x.extension as e where (url = 'effectiveDate') then {
+    e.value : dateTime -> b.effectiveDate "value";
+  } "effectiveDate";
+}
+
+
+group EncounterExtensionToVirtualService(source x, target s) {
+  x.extension as e where (url = 'channelType') then {
+    e.value : Coding as v -> s.channelType as t then Coding(v, t) "value";
+  } "channelType";
+  x.extension as e where (url = 'address') then {
+    e.value : url as v -> s.addressUrl as t then Url(v, t) "url";
+    e.value : string as v -> s.addressString as t then String(v, t) "string";
+    e.value : ContactPoint as v -> s.addressContactPoint as t then ContactPoint(v, t) "contactPoint";
+  } "address";
+  x.extension as e where (url = 'additionalInfo') then {
+    e.value : url -> s.additionalInfo "value";
+  } "additionalInfo";
+  x.extension as e where (url = 'maxParticipants') then {
+    e.value : positiveInt -> s.maxParticipants "value";
+  } "maxParticipants";
+  x.extension as e where (url = 'sessionKey') then {
+    e.value : string -> s.sessionKey "value";
+  } "sessionKey";
+}
+
+
+group EncounterStatusHistoryToExtension(source s, target x) {
+  s.status as v -> x.extension as e, e.url = 'status', e.valueCode as t then Code(v, t) "status";
+  s.period as v -> x.extension as e, e.url = 'period', e.valuePeriod as t then Period(v, t) "period";
+}
+
+
+group EncounterClassHistoryToExtension(source s, target x) {
+  s.class as v -> x.extension as e, e.url = 'class', e.valueCoding as t then Coding(v, t) "class";
+  s.period as v -> x.extension as e, e.url = 'period', e.valuePeriod as t then Period(v, t) "period";
 }

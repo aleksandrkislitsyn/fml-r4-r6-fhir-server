@@ -12,7 +12,11 @@ imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
 
 group Quantity(source src : QuantityR6, target tgt : QuantityR4) extends Element <<type+>> {
   src.value -> tgt.value;
-  src.comparator -> tgt.comparator;
+  // R6 added ~ and ad, which have no R4 code (required binding). They are left out, so a
+  // write that uses them fails the round-trip check and returns 422.
+  // TODO: no R4 mapping; intended handling is the R6 code in a cross-version extension plus
+  // implicitRules on the resource, as for Encounter.status discontinued.
+  src.comparator where ($this = '<' or $this = '<=' or $this = '>=' or $this = '>') -> tgt.comparator;
   src.unit -> tgt.unit;
   src.system -> tgt.system;
   src.code -> tgt.code;

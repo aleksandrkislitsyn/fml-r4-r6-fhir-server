@@ -8,7 +8,9 @@ uses "http://hl7.org/fhir/6.0/StructureDefinition/Patient" alias PatientR6 as ta
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 
-/* The following target properties were not populated:
+/* Generated list, before the hand edits for R6 writes: these are now read from R6
+   cross-version extensions on the contact.
+   The following target properties were not populated:
     Patient.contact.role CodeableConcept[0..*]
     Patient.contact.additionalName HumanName[0..*]
     Patient.contact.additionalAddress Address[0..*]
@@ -41,6 +43,16 @@ group PatientContact(source src, target tgt) extends BackboneElement {
   src.gender -> tgt.gender;
   src.organization -> tgt.organization;
   src.period -> tgt.period;
+  // R6-only elements, written by Patient6to4 as R6 cross-version extensions.
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.role') then {
+    e.value : CodeableConcept as v -> tgt.role as t then CodeableConcept(v, t) "value";
+  } "role";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.additionalName') then {
+    e.value : HumanName as v -> tgt.additionalName as t then HumanName(v, t) "value";
+  } "additionalName";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.additionalAddress') then {
+    e.value : Address as v -> tgt.additionalAddress as t then Address(v, t) "value";
+  } "additionalAddress";
 }
 
 

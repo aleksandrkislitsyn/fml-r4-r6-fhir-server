@@ -3,11 +3,22 @@
  * is stored only if nothing is lost, so data is never silently dropped.
  */
 
-/** Comparable form: key order never matters, and neither does the order of the lists named in `unordered`. */
-function comparable(value: any, unordered: ReadonlySet<string>, key?: string): any {
+/** Whether the order of the list under a key carries no meaning, so a reordered list isn't a loss. */
+export type ListOrder = (key: string) => boolean;
+
+/**
+ * FHIR's rule: the order of a repeating element has a meaning only where its definition sets
+ * `orderMeaning`. In R4 and R6 that is `HumanName.given`, `prefix`, `suffix` and
+ * `Address.line`, for every type the server stores; every other list may come back reordered.
+ */
+const ORDERED_LISTS = new Set(["given", "prefix", "suffix", "line"]);
+export const fhirListOrder: ListOrder = (key) => !ORDERED_LISTS.has(key);
+
+/** Comparable form: key order never matters, and neither does the order of unordered lists. */
+function comparable(value: any, unordered: ListOrder, key?: string): any {
   if (Array.isArray(value)) {
     const items = value.map((item) => comparable(item, unordered));
-    return key && unordered.has(key)
+    return key && unordered(key)
       ? items.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
       : items;
   }
@@ -41,7 +52,7 @@ function firstLoss(before: any, after: any, path: string): string | undefined {
  * `before` had. `id` and `meta` are ignored, because the server assigns them. Content that
  * `after` adds is not a loss.
  */
-export function lostContent(before: any, after: any, unordered: ReadonlySet<string> = new Set(["extension"])): string | undefined {
+export function lostContent(before: any, after: any, unordered: ListOrder = (key) => key === "extension"): string | undefined {
   const strip = ({ id: _id, meta: _meta, ...rest }: any) => comparable(rest, unordered);
   return firstLoss(strip(before), strip(after), before.resourceType);
 }

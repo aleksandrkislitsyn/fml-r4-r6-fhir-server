@@ -8,9 +8,9 @@ uses "http://hl7.org/fhir/4.0/StructureDefinition/Patient" alias PatientR4 as ta
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
 
-// The reverse of Patient4to6. R6-only elements (contact.role, contact.additionalName,
-// contact.additionalAddress) have no R4 element and are not mapped; a write that uses them
-// fails the round-trip check in src/http/r6writes.ts and returns 422.
+// The reverse of Patient4to6. The R6-only contact.role, contact.additionalName and
+// contact.additionalAddress are kept in R6 cross-version extensions on the R4 contact, and
+// Patient4to6 reads them back.
 group Patient(source src : PatientR6, target tgt : PatientR4) extends DomainResource <<type+>> {
   src.identifier -> tgt.identifier;
   src.active -> tgt.active;
@@ -39,6 +39,9 @@ group PatientContact(source src, target tgt) extends BackboneElement {
   src.gender -> tgt.gender;
   src.organization -> tgt.organization;
   src.period -> tgt.period;
+  src.role as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.role', x.valueCodeableConcept as t then CodeableConcept(v, t) "role";
+  src.additionalName as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.additionalName', x.valueHumanName as t then HumanName(v, t) "additionalName";
+  src.additionalAddress as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Patient.contact.additionalAddress', x.valueAddress as t then Address(v, t) "additionalAddress";
 }
 
 

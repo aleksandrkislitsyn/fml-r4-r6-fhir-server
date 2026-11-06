@@ -881,7 +881,7 @@
           }
         },
         {
-          "name": "R6 Patient with contact.role (R6 only, not storable as R4)",
+          "name": "R6 Encounter with status discontinued (no R4 code yet)",
           "event": [
             {
               "listen": "test",
@@ -889,7 +889,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
-                  "pm.test(\"names the element\", () => pm.expect(pm.response.json().issue[0].diagnostics).to.include(\"Patient.contact[0].role\"));"
+                  "pm.test(\"names the element\", () => pm.expect(pm.response.json().issue[0].diagnostics).to.include(\"Encounter.status\"));"
                 ]
               }
             }
@@ -906,10 +906,10 @@
                 "value": "application/fhir+json"
               }
             ],
-            "url": "{{baseUrl}}/R6/Patient",
+            "url": "{{baseUrl}}/R6/Encounter",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resourceType\": \"Patient\",\n  \"contact\": [\n    {\n      \"role\": [\n        {\n          \"text\": \"emergency contact\"\n        }\n      ],\n      \"name\": {\n        \"family\": \"Doe\"\n      }\n    }\n  ]\n}",
+              "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"status\": \"discontinued\",\n  \"class\": [\n    {\n      \"coding\": [\n        {\n          \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n          \"code\": \"AMB\"\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
