@@ -14,7 +14,8 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] R4 `class-r6`: the R6 class search backported to R4. See the [mapping diagrams](docs/mappings.html#encounter-class)
 - [x] FML conversion for `BodyStructure` in both directions, with one R6 resource stored as several R4 rows. See the [mapping diagrams](docs/mappings.html)
 - [x] `/R6/BodyStructure` CRUD on the same data as `/R4/BodyStructure`
-- [ ] R6 writes for other types, including `Device`
+- [x] R4 `Observation` CRUD and `/R6/Observation/:id` reads, with references to a split `BodyStructure`
+- [ ] R6 writes for other types
 - [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
@@ -70,7 +71,7 @@ The maps remain draft R6-ballot5 maps, not a production conformance guarantee.
 Preparation warnings are logged as a diagnostic count. The converted Encounter
 fixture is validated against R6 ballot5 in the integration tests; runtime output
 validation, history interactions, terminology services, and external reference
-resolution are not implemented. Patient and Encounter have storage and HTTP support.
+resolution are not implemented. Patient, Encounter and Observation have storage and HTTP support.
 `bun test` runs the server's `test/` suite; the vendored Lab has its own tests.
 
 ### Encounter class search (R4)
@@ -217,6 +218,22 @@ R6 `BodyStructure.includedStructure` repeats, but R4 `location` and `morphology`
 - R6-only elements are kept in R4 extensions. An R4 PUT with no `extension` array keeps them. One with an array states the client's intent, and `X-Replace-Extensions: true` removes them when no array would remain.
 - Extensions we don't recognise are carried across: one on the R6 resource is shared by every row, and one on a structure or written on an R4 row stays with that structure. URLs our mapping uses are reserved.
 - Content the server can't carry safely returns `422` rather than being lost. See `docs/mappings.html` for the list.
+
+### References to a BodyStructure
+
+R4 has no core element for these, so an R4 Observation holds them as the standard `http://hl7.org/fhir/StructureDefinition/bodySite` extension on `bodySite`:
+
+```json
+{ "bodySite": { "text": "arm", "extension": [
+  { "url": "http://hl7.org/fhir/StructureDefinition/bodySite",
+    "valueReference": { "reference": "BodyStructure/abc--2" } } ] } }
+```
+
+- R4 stores it as sent, and it can point at one row.
+- R6 reads it as `bodyStructure`, always pointing at the whole resource (`BodyStructure/abc`). Rows of one group become one entry. R6 can't tell which structure was meant.
+- If a structure moves into the primary row, Observations referencing its old row are changed to reference the primary row in the same transaction, each with a new version.
+- The form is checked on R4 writes and returns `422`: it must be a `valueReference` to a BodyStructure, and can't be version-specific, contained, or an absolute URL on this server. Whether the target exists isn't checked.
+- Only Observation does this so far, and it is read-only through R6. See `docs/mappings.html` for the limits and for how to add another type.
 
 ### Adding a resource type
 

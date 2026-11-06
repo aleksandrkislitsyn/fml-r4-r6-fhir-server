@@ -62,7 +62,8 @@ export async function loadMapCatalog(directories: readonly string[]): Promise<Ma
 
     if (model.sourceModelVersion !== "R4" || model.targetModelVersion !== "R6") continue;
     for (const group of model.groups) {
-      if (group.typeMode === "types") continue;
+      // Only a default mapping is a type's entry map. Other groups are called by name.
+      if (group.typeMode !== "type+") continue;
       const inputs = group.parameters.filter((parameter) => parameter.mode === "source");
       const outputs = group.parameters.filter((parameter) => parameter.mode === "target");
       if (inputs.length !== 1 || outputs.length !== 1) continue;

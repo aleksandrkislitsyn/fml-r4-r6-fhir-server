@@ -1,5 +1,6 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
+import { bodySiteReferenceProblem } from "../fhir/bodystructure.ts";
 import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter } from "../fhir/convert.ts";
 import { outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
 import { createGroupedHandlers } from "./grouped.ts";
@@ -174,6 +175,13 @@ async function searchEncounters(
   });
 }
 
+/** 422 for an Observation whose bodySite references wouldn't work through both versions. */
+function checkBodySiteReferences(body: any, type: StoredResourceType, base: string): Response | null {
+  if (type !== "Observation") return null;
+  const problem = bodySiteReferenceProblem(body, new URL(base).origin);
+  return problem ? error(422, problem) : null;
+}
+
 async function createResource(
   req: Request,
   type: StoredResourceType,
@@ -183,7 +191,7 @@ async function createResource(
 ): Promise<Response> {
   const body = await readBody(req);
   if (body instanceof Response) return body;
-  const invalid = checkBody(body, type, validator);
+  const invalid = checkBody(body, type, validator) ?? checkBodySiteReferences(body, type, base);
   if (invalid) return invalid;
   const { id: _ignored, ...resource } = body; // server assigns the id on create
   const stored = await repo.create(type, toStorage(version, resource));
@@ -219,7 +227,7 @@ async function updateResource(
   if (ifMatch === "invalid") return error(400, "Malformed If-Match header");
   const body = await readBody(req);
   if (body instanceof Response) return body;
-  const invalid = checkBody(body, type, validator);
+  const invalid = checkBody(body, type, validator) ?? checkBodySiteReferences(body, type, base);
   if (invalid) return invalid;
   if (body.id !== id) return error(400, `Resource id ${JSON.stringify(body.id)} does not match URL id ${id}`);
   const { resource, created } = await repo.update(type, id, toStorage(version, body), ifMatch);
