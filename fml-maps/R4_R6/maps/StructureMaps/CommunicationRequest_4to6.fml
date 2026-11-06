@@ -1,0 +1,42 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/CommunicationRequest4to6'
+/// name = 'CommunicationRequest4to6'
+/// title = 'CommunicationRequest Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/CommunicationRequest" alias CommunicationRequestR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CommunicationRequest" alias CommunicationRequestR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    CommunicationRequest.intent code[1..1]
+*/
+group CommunicationRequest(source src : CommunicationRequestR4, target tgt : CommunicationRequestR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.replaces -> tgt.replaces;
+  src.groupIdentifier -> tgt.groupIdentifier;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.category -> tgt.category;
+  src.priority -> tgt.priority;
+  src.doNotPerform -> tgt.doNotPerform;
+  src.medium -> tgt.medium;
+  src.subject -> tgt.subject;
+  src.about -> tgt.about;
+  src.encounter -> tgt.encounter;
+  src.payload as s -> tgt.payload as t then CommunicationRequestPayload(s, t);
+  src.occurrence -> tgt.occurrence;
+  src.authoredOn -> tgt.authoredOn;
+  src.requester -> tgt.requester;
+  src.recipient -> tgt.recipient;
+  src.sender -> tgt.informationProvider; // renamed
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed // Warning: Source TargetProfile unsupported: Condition,Observation,DiagnosticReport,DocumentReference  (Condition,Observation,DiagnosticReport,DocumentReference -> Resource)
+  src.note -> tgt.note;
+}
+
+
+group CommunicationRequestPayload(source src, target tgt) extends BackboneElement {
+  src.content -> tgt.content;
+}

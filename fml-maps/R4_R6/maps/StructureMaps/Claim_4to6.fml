@@ -1,0 +1,192 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Claim4to6'
+/// name = 'Claim4to6'
+/// title = 'Claim Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Claim" alias ClaimR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Claim" alias ClaimR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Claim.patient Reference[1..1] (Patient)
+    Claim.careTeam.responsible boolean[0..1]
+    Claim.diagnosis.packageCode CodeableConcept[0..1]
+*/
+/* The following target properties were not populated:
+    Claim.traceNumber Identifier[0..*]
+    Claim.statusReason string[0..1]
+    Claim.subject Reference[1..1] (Patient,Group)
+    Claim.encounter Reference[0..*] (Encounter)
+    Claim.diagnosisRelatedGroup CodeableConcept[0..1]
+    Claim.event BackboneElement[0..*]
+    Claim.event.type CodeableConcept[1..1]
+    Claim.event.when[x] dateTime,Period[1..1]
+    Claim.supportingInfo.subCategory CodeableConcept[0..1]
+    Claim.patientPaid Money[0..1]
+    Claim.item.traceNumber Identifier[0..*]
+    Claim.item.subject Reference[0..1] (Patient,Group)
+    Claim.item.productOrServiceEnd CodeableConcept[0..1]
+    Claim.item.request Reference[0..*] (DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest,VisionPrescription)
+    Claim.item.patientPaid Money[0..1]
+    Claim.item.tax Money[0..1]
+    Claim.item.bodySite BackboneElement[0..*]
+    Claim.item.detail.traceNumber Identifier[0..*]
+    Claim.item.detail.productOrServiceEnd CodeableConcept[0..1]
+    Claim.item.detail.patientPaid Money[0..1]
+    Claim.item.detail.tax Money[0..1]
+    Claim.item.detail.subDetail.traceNumber Identifier[0..*]
+    Claim.item.detail.subDetail.productOrServiceEnd CodeableConcept[0..1]
+    Claim.item.detail.subDetail.patientPaid Money[0..1]
+    Claim.item.detail.subDetail.tax Money[0..1]
+*/
+group Claim(source src : ClaimR4, target tgt : ClaimR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.subType -> tgt.subType;
+  src.use -> tgt.use;
+  src.billablePeriod -> tgt.billablePeriod;
+  src.created -> tgt.created;
+  src.enterer -> tgt.enterer;
+  src.insurer -> tgt.insurer;
+  src.provider -> tgt.provider;
+  src.priority -> tgt.priority;
+  src.fundsReserve -> tgt.fundsReserve;
+  src.related as s -> tgt.related as t then ClaimRelated(s, t);
+  src.prescription -> tgt.request; // renamed
+  src.originalPrescription -> tgt.originalPrescription;
+  src.payee as s -> tgt.payee as t then ClaimPayee(s, t);
+  src.referral -> tgt.referral;
+  src.facility -> tgt.facility;
+  src.careTeam as s -> tgt.careTeam as t then ClaimCareTeam(s, t);
+  src.supportingInfo as s -> tgt.supportingInfo as t then ClaimSupportingInfo(s, t);
+  src.diagnosis as s -> tgt.diagnosis as t then ClaimDiagnosis(s, t);
+  src.procedure as s -> tgt.procedure as t then ClaimProcedure(s, t);
+  src.insurance as s -> tgt.insurance as t then ClaimInsurance(s, t);
+  src.accident as s -> tgt.accident as t then ClaimAccident(s, t);
+  src.item as s -> tgt.item as t then ClaimItem(s, t);
+  src.total -> tgt.total;
+}
+
+
+group ClaimRelated(source src, target tgt) extends BackboneElement {
+  src.claim -> tgt.claim;
+  src.relationship -> tgt.relationship;
+  src.reference -> tgt.reference;
+}
+
+
+group ClaimPayee(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.party -> tgt.party;
+}
+
+
+group ClaimCareTeam(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.provider -> tgt.provider;
+  src.role -> tgt.role;
+  src.qualification -> tgt.specialty; // renamed
+}
+
+
+group ClaimSupportingInfo(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.timing -> tgt.timing;
+  src.value -> tgt.value;
+  src.reason -> tgt.reason;
+}
+
+
+group ClaimDiagnosis(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.diagnosis -> tgt.diagnosis;
+  src.type -> tgt.type;
+  src.onAdmission -> tgt.onAdmission;
+}
+
+
+group ClaimProcedure(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.type -> tgt.type;
+  src.date -> tgt.date;
+  src.procedure -> tgt.procedure;
+  src.udi -> tgt.udi;
+}
+
+
+group ClaimInsurance(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.focal -> tgt.focal;
+  src.identifier -> tgt.identifier;
+  src.coverage -> tgt.coverage;
+  src.businessArrangement -> tgt.businessArrangement;
+  src.preAuthRef -> tgt.preAuthRef;
+  src.claimResponse -> tgt.claimResponse;
+}
+
+
+group ClaimAccident(source src, target tgt) extends BackboneElement {
+  src.date -> tgt.date;
+  src.type -> tgt.type;
+  src.location -> tgt.location;
+}
+
+
+group ClaimItem(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.careTeamSequence -> tgt.careTeamSequence;
+  src.diagnosisSequence -> tgt.diagnosisSequence;
+  src.procedureSequence -> tgt.procedureSequence;
+  src.informationSequence -> tgt.informationSequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.serviced -> tgt.serviced;
+  src.location -> tgt.location;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+  src.bodySite /* [0..1] */ -> tgt.bodySite.site /* [1..*] */; // renamed // Warning: source optional, target mandatory
+  src.subSite -> tgt.bodySite.subSite; // renamed
+  src.encounter -> tgt.encounter;
+  src.detail as s -> tgt.detail as t then ClaimItemDetail(s, t);
+}
+
+
+group ClaimItemDetail(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+  src.subDetail as s -> tgt.subDetail as t then ClaimItemDetailSubDetail(s, t);
+}
+
+
+group ClaimItemDetailSubDetail(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+}

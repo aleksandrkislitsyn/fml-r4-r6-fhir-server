@@ -1,0 +1,51 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MessageHeader4to6'
+/// name = 'MessageHeader4to6'
+/// title = 'MessageHeader Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MessageHeader" alias MessageHeaderR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MessageHeader" alias MessageHeaderR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MessageHeader.destination.target Reference[0..1] (Device)
+    MessageHeader.enterer Reference[0..1] (Practitioner,PractitionerRole)
+    MessageHeader.author Reference[0..1] (Practitioner,PractitionerRole)
+    MessageHeader.responsible Reference[0..1] (Practitioner,PractitionerRole,Organization)
+*/
+group MessageHeader(source src : MessageHeaderR4, target tgt : MessageHeaderR6) extends DomainResource <<type+>> {
+  src.event -> tgt.event;
+  src.destination as s -> tgt.destination as t then MessageHeaderDestination(s, t);
+  src.sender -> tgt.source.sender; // renamed
+  src.source as s -> tgt.source as t then MessageHeaderSource(s, t);
+  src.reason -> tgt.reason;
+  src.response as s -> tgt.response as t then MessageHeaderResponse(s, t);
+  src.focus -> tgt.focus;
+  src.definition -> tgt.definition;
+}
+
+
+group MessageHeaderDestination(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.endpoint -> tgt.endpoint;
+  src.receiver -> tgt.receiver;
+}
+
+
+group MessageHeaderSource(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.software -> tgt.software;
+  src.version -> tgt.version;
+  src.contact -> tgt.contact;
+  src.endpoint -> tgt.endpoint;
+}
+
+
+group MessageHeaderResponse(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-MessageHeader.response.identifier') -> tgt.identifier = (e.value) "xverIdentifierId";
+// rule changed to id -> Identifier
+// src.identifier -> tgt.identifier; // Warning: Source Type unsupported: id  (id -> Identifier)
+  src.code -> tgt.code;
+  src.details -> tgt.details;
+}

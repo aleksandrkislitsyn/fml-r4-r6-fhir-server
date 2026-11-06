@@ -1,0 +1,48 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DetectedIssue4to6'
+/// name = 'DetectedIssue4to6'
+/// title = 'DetectedIssue Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DetectedIssue" alias DetectedIssueR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DetectedIssue" alias DetectedIssueR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    DetectedIssue.category CodeableConcept[0..*]
+    DetectedIssue.encounter Reference[0..1] (Encounter)
+    DetectedIssue.qualityOfEvidence CodeableConcept[0..1]
+    DetectedIssue.expectedOnsetType CodeableConcept[0..1]
+    DetectedIssue.medicationClass CodeableConcept[0..*]
+    DetectedIssue.managementCode CodeableConcept[0..1]
+    DetectedIssue.mitigation.note Annotation[0..*]
+*/
+group DetectedIssue(source src : DetectedIssueR4, target tgt : DetectedIssueR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.code -> tgt.code;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DetectedIssue.severity') -> tgt.severity = (e.value) "xverSeverityCode";
+// rule changed to code -> CodeableConcept
+// src.severity -> tgt.severity; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.patient -> tgt.subject; // renamed
+  src.identified -> tgt.identified;
+  src.author -> tgt.author;
+  src.implicated -> tgt.implicated;
+  src.evidence as s -> tgt.evidence as t then DetectedIssueEvidence(s, t);
+  src.detail -> tgt.detail;
+  src.reference -> tgt.reference;
+  src.mitigation as s -> tgt.mitigation as t then DetectedIssueMitigation(s, t);
+}
+
+
+group DetectedIssueEvidence(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.detail -> tgt.detail;
+}
+
+
+group DetectedIssueMitigation(source src, target tgt) extends BackboneElement {
+  src.action -> tgt.action;
+  src.date -> tgt.date;
+  src.author -> tgt.author;
+}

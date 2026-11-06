@@ -1,0 +1,51 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DeviceRequest4to6'
+/// name = 'DeviceRequest4to6'
+/// title = 'DeviceRequest Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DeviceRequest" alias DeviceRequestR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DeviceRequest" alias DeviceRequestR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    DeviceRequest.instantiatesCanonical canonical[0..*] (ActivityDefinition,PlanDefinition)
+    DeviceRequest.instantiatesUri uri[0..*]
+*/
+/* The following target properties were not populated:
+    DeviceRequest.doNotPerform boolean[0..1]
+    DeviceRequest.quantity integer[0..1]
+    DeviceRequest.location CodeableReference[0..*] (Location)
+    DeviceRequest.asNeeded boolean[0..1]
+    DeviceRequest.asNeededFor CodeableConcept[0..1]
+*/
+group DeviceRequest(source src : DeviceRequestR4, target tgt : DeviceRequestR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.priorRequest -> tgt.replaces; // renamed // Warning: Source TargetProfile unsupported: Resource  (Resource -> DeviceRequest)
+  src.groupIdentifier -> tgt.groupIdentifier;
+  src.status -> tgt.status;
+  src.intent -> tgt.intent;
+  src.priority -> tgt.priority;
+  src.code -> tgt.product; // renamed
+  src.parameter as s -> tgt.parameter as t then DeviceRequestParameter(s, t);
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.occurrence -> tgt.occurrence;
+  src.authoredOn -> tgt.authoredOn;
+  src.requester -> tgt.requester;
+  src.performerType -> tgt.performer; // renamed
+  src.performer -> tgt.performer;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.insurance -> tgt.insurance;
+  src.supportingInfo -> tgt.supportingInfo;
+  src.note -> tgt.note;
+  src.relevantHistory -> tgt.relevantHistory;
+}
+
+
+group DeviceRequestParameter(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.value -> tgt.value;
+}

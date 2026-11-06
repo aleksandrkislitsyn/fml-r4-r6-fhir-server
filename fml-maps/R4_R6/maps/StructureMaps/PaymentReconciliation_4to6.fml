@@ -1,0 +1,71 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/PaymentReconciliation4to6'
+/// name = 'PaymentReconciliation4to6'
+/// title = 'PaymentReconciliation Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/PaymentReconciliation" alias PaymentReconciliationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/PaymentReconciliation" alias PaymentReconciliationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    PaymentReconciliation.type CodeableConcept[1..1]
+    PaymentReconciliation.statusReason string[0..1]
+    PaymentReconciliation.kind CodeableConcept[0..1]
+    PaymentReconciliation.enterer Reference[0..1] (Practitioner,PractitionerRole,Organization)
+    PaymentReconciliation.issuerType CodeableConcept[0..1]
+    PaymentReconciliation.location Reference[0..1] (Location)
+    PaymentReconciliation.method CodeableConcept[0..1]
+    PaymentReconciliation.cardBrand string[0..1]
+    PaymentReconciliation.accountNumber string[0..1]
+    PaymentReconciliation.expirationDate date[0..1]
+    PaymentReconciliation.processor string[0..1]
+    PaymentReconciliation.referenceNumber string[0..1]
+    PaymentReconciliation.authorization string[0..1]
+    PaymentReconciliation.tenderedAmount Money[0..1]
+    PaymentReconciliation.returnedAmount Money[0..1]
+    PaymentReconciliation.allocation.targetItem[x] string,Identifier,positiveInt[0..1]
+    PaymentReconciliation.allocation.characteristics Reference[0..1] (Observation)
+    PaymentReconciliation.allocation.encounter Reference[0..1] (Encounter)
+    PaymentReconciliation.allocation.account Reference[0..1] (Account)
+    PaymentReconciliation.allocation.noteNumber positiveInt[0..*]
+    PaymentReconciliation.processNote.class CodeableConcept[0..1]
+    PaymentReconciliation.processNote.number positiveInt[0..1]
+*/
+group PaymentReconciliation(source src : PaymentReconciliationR4, target tgt : PaymentReconciliationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.period -> tgt.period;
+  src.created -> tgt.created;
+  src.paymentIssuer -> tgt.paymentIssuer;
+  src.request -> tgt.request;
+  src.requestor -> tgt.requestor;
+  src.outcome -> tgt.outcome;
+  src.disposition -> tgt.disposition;
+  src.paymentDate -> tgt.date; // renamed
+  src.paymentAmount -> tgt.amount; // renamed
+  src.paymentIdentifier -> tgt.paymentIdentifier;
+  src.detail as s -> tgt.allocation as t then PaymentReconciliationDetail(s, t); // renamed
+  src.formCode -> tgt.formCode;
+  src.processNote as s -> tgt.processNote as t then PaymentReconciliationProcessNote(s, t);
+}
+
+
+group PaymentReconciliationDetail(source src, target tgt) extends BackboneElement {
+  src.identifier -> tgt.identifier; // renamed
+  src.predecessor -> tgt.predecessor; // renamed
+  src.type -> tgt.type; // renamed
+  src.request -> tgt.target; // renamed // Warning: Source TargetProfile unsupported: Resource  (Resource -> Claim,Account,Encounter,Patient,Group)
+  src.submitter -> tgt.submitter; // renamed
+  src.response -> tgt.response; // renamed // Warning: Source TargetProfile unsupported: Resource  (Resource -> ClaimResponse)
+  src.date -> tgt.date; // renamed
+  src.responsible -> tgt.responsible; // renamed
+  src.payee -> tgt.payee; // renamed
+  src.amount -> tgt.amount; // renamed
+}
+
+
+group PaymentReconciliationProcessNote(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.text -> tgt.text;
+}

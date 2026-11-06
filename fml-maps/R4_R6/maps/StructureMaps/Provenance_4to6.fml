@@ -1,0 +1,46 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Provenance4to6'
+/// name = 'Provenance4to6'
+/// title = 'Provenance Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Provenance" alias ProvenanceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Provenance" alias ProvenanceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Provenance.reason CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    Provenance.authorization CodeableConcept[0..*]
+    Provenance.why markdown[0..1]
+    Provenance.basedOn Reference[0..*] (Resource)
+    Provenance.patient Reference[0..1] (Patient)
+    Provenance.encounter Reference[0..1] (Encounter)
+*/
+group Provenance(source src : ProvenanceR4, target tgt : ProvenanceR6) extends DomainResource <<type+>> {
+  src.target -> tgt.target;
+  src.occurred -> tgt.occurred;
+  src.recorded -> tgt.recorded;
+  src.policy -> tgt.policy;
+  src.location -> tgt.location;
+  src.activity -> tgt.activity;
+  src.agent as s -> tgt.agent as t then ProvenanceAgent(s, t);
+  src.entity as s -> tgt.entity as t then ProvenanceEntity(s, t);
+  src.signature -> tgt.signature;
+}
+
+
+group ProvenanceAgent(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.role -> tgt.role;
+  src.who -> tgt.who;
+  src.onBehalfOf -> tgt.onBehalfOf; // Warning: Source TargetProfile unsupported: Device  (Practitioner,PractitionerRole,RelatedPerson,Patient,Device,Organization -> Practitioner,PractitionerRole,Organization,CareTeam,Patient,RelatedPerson,Group,HealthcareService)
+}
+
+
+group ProvenanceEntity(source src, target tgt) extends BackboneElement {
+  src.role -> tgt.role;
+  src.what -> tgt.what;
+  src.agent as s -> tgt.agent as t then ProvenanceAgent(s, t);
+}

@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/integer4to6'
+/// name = 'integer4to6'
+/// title = 'integer Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/integer" alias integerR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/integer" alias integerR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Integer(source src : integerR4, target tgt : integerR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+}

@@ -1,0 +1,49 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DiagnosticReport4to6'
+/// name = 'DiagnosticReport4to6'
+/// title = 'DiagnosticReport Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DiagnosticReport" alias DiagnosticReportR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DiagnosticReport" alias DiagnosticReportR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    DiagnosticReport.statusReason CodeableConcept[0..1]
+    DiagnosticReport.relatesTo RelatedArtifact[0..*]
+    DiagnosticReport.procedure Reference[0..*] (Procedure)
+    DiagnosticReport.note Annotation[0..*]
+    DiagnosticReport.supportingInfo BackboneElement[0..*]
+    DiagnosticReport.supportingInfo.type CodeableConcept[1..1]
+    DiagnosticReport.supportingInfo.reference Reference[1..1] (ImagingStudy,Procedure,Observation,DiagnosticReport,FamilyMemberHistory,AllergyIntolerance,Condition,DocumentReference)
+    DiagnosticReport.composition Reference[0..1] (Composition)
+    DiagnosticReport.recommendation CodeableReference[0..*] (ServiceRequest,CommunicationRequest,NutritionOrder,CarePlan,Appointment,DeviceRequest,RequestOrchestration,VisionPrescription)
+    DiagnosticReport.communication Reference[0..*] (Communication)
+    DiagnosticReport.comparison Reference[0..1] (List)
+*/
+group DiagnosticReport(source src : DiagnosticReportR4, target tgt : DiagnosticReportR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: ImmunizationRecommendation  (CarePlan,ImmunizationRecommendation,MedicationRequest,NutritionOrder,ServiceRequest -> CarePlan,MedicationRequest,NutritionOrder,ServiceRequest)
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.effective -> tgt.effective;
+  src.issued -> tgt.issued;
+  src.performer -> tgt.performer;
+  src.resultsInterpreter -> tgt.resultsInterpreter;
+  src.specimen -> tgt.specimen;
+  src.result -> tgt.result;
+  src.imagingStudy -> tgt.study; // renamed
+  src.media as s -> tgt.media as t then DiagnosticReportMedia(s, t);
+  src.conclusion -> tgt.conclusion;
+  src.conclusionCode -> tgt.conclusionCode;
+  src.presentedForm -> tgt.presentedForm;
+}
+
+
+group DiagnosticReportMedia(source src, target tgt) extends BackboneElement {
+  src.comment -> tgt.comment;
+  src.link -> tgt.link; // Warning: Source TargetProfile unsupported: Media  (Media -> DocumentReference)
+}

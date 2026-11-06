@@ -1,0 +1,26 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/AppointmentResponse4to6'
+/// name = 'AppointmentResponse4to6'
+/// title = 'AppointmentResponse Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/AppointmentResponse" alias AppointmentResponseR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/AppointmentResponse" alias AppointmentResponseR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    AppointmentResponse.proposedNewTime boolean[0..1]
+    AppointmentResponse.recurring boolean[0..1]
+    AppointmentResponse.occurrenceDate date[0..1]
+    AppointmentResponse.recurrenceId positiveInt[0..1]
+*/
+group AppointmentResponse(source src : AppointmentResponseR4, target tgt : AppointmentResponseR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.appointment -> tgt.appointment;
+  src.start -> tgt.start;
+  src.end -> tgt.end;
+  src.participantType -> tgt.participantType;
+  src.actor -> tgt.actor;
+  src.participantStatus -> tgt.participantStatus;
+  src.comment -> tgt.comment;
+}

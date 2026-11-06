@@ -1,0 +1,67 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Observation4to6'
+/// name = 'Observation4to6'
+/// title = 'Observation Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Observation" alias ObservationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Observation" alias ObservationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Observation.triggeredBy BackboneElement[0..*]
+    Observation.triggeredBy.observation Reference[1..1] (Observation)
+    Observation.triggeredBy.type code[1..1]
+    Observation.triggeredBy.reason string[0..1]
+    Observation.statusReason CodeableConcept[0..1]
+    Observation.organizer boolean[0..1]
+    Observation.context CodeableReference[0..*] (Resource)
+    Observation.bodyStructure CodeableReference[0..*] (BodyStructure)
+    Observation.supportingDevice CodeableReference[0..*] (Device)
+    Observation.referenceRange.normalValue CodeableConcept[0..1]
+*/
+group Observation(source src : ObservationR4, target tgt : ObservationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: ImmunizationRecommendation  (CarePlan,DeviceRequest,ImmunizationRecommendation,MedicationRequest,NutritionOrder,ServiceRequest -> CarePlan,DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest)
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.focus -> tgt.focus;
+  src.encounter -> tgt.encounter;
+  src.effective -> tgt.effective;
+  src.issued -> tgt.issued;
+  src.performer -> tgt.performer;
+  src.value -> tgt.value;
+  src.dataAbsentReason -> tgt.dataAbsentReason;
+  src.interpretation -> tgt.interpretation;
+  src.note -> tgt.note;
+  src.bodySite -> tgt.bodySite;
+  src.method -> tgt.method;
+  src.specimen -> tgt.specimen;
+  src.device -> tgt.device;
+  src.referenceRange as s -> tgt.referenceRange as t then ObservationReferenceRange(s, t);
+  src.hasMember -> tgt.hasMember; // Warning: Source TargetProfile unsupported: MolecularSequence  (Observation,QuestionnaireResponse,MolecularSequence -> Observation,QuestionnaireResponse)
+  src.derivedFrom -> tgt.derivedFrom; // Warning: Source TargetProfile unsupported: Media,MolecularSequence  (DocumentReference,ImagingStudy,Media,QuestionnaireResponse,Observation,MolecularSequence -> DocumentReference,ImagingStudy,ImagingSelection,QuestionnaireResponse,Observation)
+  src.component as s -> tgt.component as t then ObservationComponent(s, t);
+}
+
+
+group ObservationReferenceRange(source src, target tgt) extends BackboneElement {
+  src.low -> tgt.low;
+  src.high -> tgt.high;
+  src.type -> tgt.type;
+  src.appliesTo -> tgt.appliesTo;
+  src.age -> tgt.age;
+  src.text -> tgt.text;
+}
+
+
+group ObservationComponent(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.value -> tgt.value;
+  src.dataAbsentReason -> tgt.dataAbsentReason;
+  src.interpretation -> tgt.interpretation;
+  src.referenceRange as s -> tgt.referenceRange as t then ObservationReferenceRange(s, t);
+}

@@ -1,0 +1,23 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Flag4to6'
+/// name = 'Flag4to6'
+/// title = 'Flag Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Flag" alias FlagR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Flag" alias FlagR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Flag.supportingInfo Reference[0..*] (Condition,Procedure,AllergyIntolerance,Observation,RiskAssessment,DocumentReference,DiagnosticReport)
+*/
+group Flag(source src : FlagR4, target tgt : FlagR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.period -> tgt.period;
+  src.encounter -> tgt.encounter;
+  src.author -> tgt.author;
+}

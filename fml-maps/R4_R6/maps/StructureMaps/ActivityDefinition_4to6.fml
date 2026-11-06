@@ -1,0 +1,88 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ActivityDefinition4to6'
+/// name = 'ActivityDefinition4to6'
+/// title = 'ActivityDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ActivityDefinition" alias ActivityDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ActivityDefinition" alias ActivityDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    ActivityDefinition.versionAlgorithm[x] string,Coding[0..1]
+    ActivityDefinition.copyrightLabel string[0..1]
+    ActivityDefinition.asNeeded[x] boolean,CodeableConcept[0..1]
+    ActivityDefinition.participant.typeCanonical canonical[0..1] (ActorDefinition,CapabilityStatement,DeviceDefinition,Group,SpecimenDefinition,StructureDefinition)
+    ActivityDefinition.participant.typeReference Reference[0..1] (BiologicallyDerivedProduct,CareTeam,Device,Endpoint,HealthcareService,Location,Medication,MedicinalProductDefinition,Organization,Patient,Practitioner,PractitionerRole,RelatedPerson,Specimen,Substance,SubstanceDefinition)
+    ActivityDefinition.participant.function CodeableConcept[0..1]
+*/
+group ActivityDefinition(source src : ActivityDefinitionR4, target tgt : ActivityDefinitionR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.subtitle -> tgt.subtitle;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.usage -> tgt.usage;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.topic -> tgt.topic;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+  src.relatedArtifact -> tgt.relatedArtifact;
+  src.library -> tgt.library;
+  src.kind -> tgt.kind;
+  src.profile -> tgt.profile;
+  src.code -> tgt.code;
+  src.intent -> tgt.intent;
+  src.priority -> tgt.priority;
+  src.doNotPerform -> tgt.doNotPerform;
+  src.timing : Timing -> tgt.timing;
+  src.timing : Age -> tgt.timing;
+  src.timing : Range -> tgt.timing;
+  src.timing : Duration -> tgt.timing;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ActivityDefinition.timing[x]') -> tgt.timing = (e.value) "xverTimingDateTime";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ActivityDefinition.timing[x]') -> tgt.timing = (e.value) "xverTimingPeriod";
+// rule changed to Timing,dateTime,Age,Period,Range,Duration -> Timing,Age,Range,Duration,RelativeTime
+// src.timing -> tgt.timing; // Warning: Source Type unsupported: dateTime,Period  (Timing,dateTime,Age,Period,Range,Duration -> Timing,Age,Range,Duration,RelativeTime)
+  src.location -> tgt.location;
+  src.participant as s -> tgt.participant as t then ActivityDefinitionParticipant(s, t);
+  src.product -> tgt.product; // Warning: Source TargetProfile unsupported: Substance  (Medication,Substance -> Medication,MedicinalProductDefinition,Ingredient,SubstanceDefinition)
+  src.quantity -> tgt.quantity;
+  src.bodySite -> tgt.bodySite;
+  src.specimenRequirement -> tgt.specimenRequirement;
+  src.observationRequirement -> tgt.observationRequirement;
+  src.observationResultRequirement -> tgt.observationResultRequirement;
+  src.transform -> tgt.transform;
+  src.dynamicValue as s -> tgt.dynamicValue as t then ActivityDefinitionDynamicValue(s, t);
+	src where (dosage.exists()) -> tgt.dosageInstruction as di then {
+		// each dosage goes into a new step, and the dosage is mapped to the component of that step
+		src.dosage as sd -> di.step as s, s.component = sd;
+  } "mapDosageInstructions";
+}
+
+
+group ActivityDefinitionParticipant(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.role -> tgt.role;
+}
+
+
+group ActivityDefinitionDynamicValue(source src, target tgt) extends BackboneElement {
+  src.path -> tgt.path;
+  src.expression -> tgt.expression;
+}

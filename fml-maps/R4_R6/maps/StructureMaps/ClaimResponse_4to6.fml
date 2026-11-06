@@ -1,0 +1,218 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ClaimResponse4to6'
+/// name = 'ClaimResponse4to6'
+/// title = 'ClaimResponse Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ClaimResponse" alias ClaimResponseR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ClaimResponse" alias ClaimResponseR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ClaimResponse.patient Reference[1..1] (Patient)
+    ClaimResponse.addItem.subSite CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    ClaimResponse.traceNumber Identifier[0..*]
+    ClaimResponse.statusReason string[0..1]
+    ClaimResponse.subject Reference[1..1] (Patient,Group)
+    ClaimResponse.decision CodeableConcept[0..1]
+    ClaimResponse.event BackboneElement[0..*]
+    ClaimResponse.event.type CodeableConcept[1..1]
+    ClaimResponse.event.when[x] dateTime,Period[1..1]
+    ClaimResponse.encounter Reference[0..*] (Encounter)
+    ClaimResponse.diagnosisRelatedGroup CodeableConcept[0..1]
+    ClaimResponse.supportingInfo BackboneElement[0..*]
+    ClaimResponse.supportingInfo.sequence positiveInt[1..1]
+    ClaimResponse.supportingInfo.category CodeableConcept[1..1]
+    ClaimResponse.supportingInfo.subCategory CodeableConcept[0..1]
+    ClaimResponse.supportingInfo.code CodeableConcept[0..1]
+    ClaimResponse.supportingInfo.timing[x] dateTime,Period,Timing[0..1]
+    ClaimResponse.supportingInfo.value[x] base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,integer64,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,CodeableReference,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,RatioRange,Reference,SampledData,Signature,Timing,ContactDetail,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Availability,ExtendedContactDetail,VirtualServiceDetail,Dosage,Meta[0..1]
+    ClaimResponse.supportingInfo.reason CodeableConcept[0..1]
+    ClaimResponse.item.traceNumber Identifier[0..*]
+    ClaimResponse.item.informationSequence positiveInt[0..*]
+    ClaimResponse.item.reviewOutcome BackboneElement[0..1]
+    ClaimResponse.item.reviewOutcome.decision CodeableConcept[0..1]
+    ClaimResponse.item.reviewOutcome.reason CodeableConcept[0..*]
+    ClaimResponse.item.reviewOutcome.preAuthRef string[0..1]
+    ClaimResponse.item.reviewOutcome.preAuthPeriod Period[0..1]
+    ClaimResponse.item.adjudication.decisionDate dateTime[0..1]
+    ClaimResponse.item.detail.traceNumber Identifier[0..*]
+    ClaimResponse.item.detail.reviewOutcome [0..1]
+    ClaimResponse.item.detail.subDetail.traceNumber Identifier[0..*]
+    ClaimResponse.item.detail.subDetail.reviewOutcome [0..1]
+    ClaimResponse.addItem.traceNumber Identifier[0..*]
+    ClaimResponse.addItem.subject Reference[0..1] (Patient,Group)
+    ClaimResponse.addItem.informationSequence positiveInt[0..*]
+    ClaimResponse.addItem.revenue CodeableConcept[0..1]
+    ClaimResponse.addItem.category CodeableConcept[0..1]
+    ClaimResponse.addItem.productOrServiceEnd CodeableConcept[0..1]
+    ClaimResponse.addItem.request Reference[0..*] (DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest,VisionPrescription)
+    ClaimResponse.addItem.tax Money[0..1]
+    ClaimResponse.addItem.bodySite BackboneElement[0..*]
+    ClaimResponse.addItem.bodySite.subSite CodeableConcept[0..*]
+    ClaimResponse.addItem.reviewOutcome [0..1]
+    ClaimResponse.addItem.detail.traceNumber Identifier[0..*]
+    ClaimResponse.addItem.detail.revenue CodeableConcept[0..1]
+    ClaimResponse.addItem.detail.productOrServiceEnd CodeableConcept[0..1]
+    ClaimResponse.addItem.detail.tax Money[0..1]
+    ClaimResponse.addItem.detail.reviewOutcome [0..1]
+    ClaimResponse.addItem.detail.subDetail.traceNumber Identifier[0..*]
+    ClaimResponse.addItem.detail.subDetail.revenue CodeableConcept[0..1]
+    ClaimResponse.addItem.detail.subDetail.productOrServiceEnd CodeableConcept[0..1]
+    ClaimResponse.addItem.detail.subDetail.tax Money[0..1]
+    ClaimResponse.addItem.detail.subDetail.reviewOutcome [0..1]
+    ClaimResponse.processNote.class CodeableConcept[0..1]
+    ClaimResponse.error.expression string[0..*]
+*/
+group ClaimResponse(source src : ClaimResponseR4, target tgt : ClaimResponseR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.subType -> tgt.subType;
+  src.use -> tgt.use;
+  src.created -> tgt.created;
+  src.insurer -> tgt.insurer;
+  src.requestor -> tgt.requestor;
+  src.request -> tgt.request;
+  src.outcome -> tgt.outcome;
+  src.disposition -> tgt.disposition;
+  src.preAuthRef -> tgt.preAuthRef;
+  src.preAuthPeriod -> tgt.preAuthPeriod;
+  src.payeeType -> tgt.payeeType;
+  src.item as s -> tgt.item as t then ClaimResponseItem(s, t);
+  src.addItem as s -> tgt.addItem as t then ClaimResponseAddItem(s, t);
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+  src.total as s -> tgt.total as t then ClaimResponseTotal(s, t);
+  src.payment as s -> tgt.payment as t then ClaimResponsePayment(s, t);
+  src.fundsReserve -> tgt.fundsReserve;
+  src.formCode -> tgt.formCode;
+  src.form -> tgt.form;
+  src.processNote as s -> tgt.processNote as t then ClaimResponseProcessNote(s, t);
+  src.communicationRequest -> tgt.communicationRequest;
+  src.insurance as s -> tgt.insurance as t then ClaimResponseInsurance(s, t);
+  src.error as s -> tgt.error as t then ClaimResponseError(s, t);
+}
+
+
+group ClaimResponseItem(source src, target tgt) extends BackboneElement {
+  src.itemSequence -> tgt.itemSequence;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+  src.detail as s -> tgt.detail as t then ClaimResponseItemDetail(s, t);
+}
+
+
+group ClaimResponseItemAdjudication(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.reason -> tgt.reason;
+  src.amount -> tgt.amount;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ClaimResponse.item.adjudication.quantity') -> tgt.quantity = (e.value.ofType(Quantity)) "xverValueDecimal";
+// rule changed to decimal -> Quantity
+// src.value -> tgt.quantity; // renamed // Warning: Source Type unsupported: decimal  (decimal -> Quantity)
+}
+
+
+group ClaimResponseItemDetail(source src, target tgt) extends BackboneElement {
+  src.detailSequence -> tgt.detailSequence;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+  src.subDetail as s -> tgt.subDetail as t then ClaimResponseItemDetailSubDetail(s, t);
+}
+
+
+group ClaimResponseItemDetailSubDetail(source src, target tgt) extends BackboneElement {
+  src.subDetailSequence -> tgt.subDetailSequence;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+}
+
+
+group ClaimResponseAddItem(source src, target tgt) extends BackboneElement {
+  src.itemSequence -> tgt.itemSequence;
+  src.detailSequence -> tgt.detailSequence;
+  src.subdetailSequence -> tgt.subdetailSequence;
+  src.provider -> tgt.provider;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.serviced -> tgt.serviced;
+  src.location -> tgt.location;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.bodySite /* [0..1] */ -> tgt.bodySite.site /* [1..*] */; // renamed // Warning: source optional, target mandatory
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+  src.detail as s -> tgt.detail as t then ClaimResponseAddItemDetail(s, t);
+}
+
+
+group ClaimResponseAddItemDetail(source src, target tgt) extends BackboneElement {
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+  src.subDetail as s -> tgt.subDetail as t then ClaimResponseAddItemDetailSubDetail(s, t);
+}
+
+
+group ClaimResponseAddItemDetailSubDetail(source src, target tgt) extends BackboneElement {
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ClaimResponseItemAdjudication(s, t);
+}
+
+
+group ClaimResponseTotal(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.amount -> tgt.amount;
+}
+
+
+group ClaimResponsePayment(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.adjustment -> tgt.adjustment;
+  src.adjustmentReason -> tgt.adjustmentReason;
+  src.date -> tgt.date;
+  src.amount -> tgt.amount;
+  src.identifier -> tgt.identifier;
+}
+
+
+group ClaimResponseProcessNote(source src, target tgt) extends BackboneElement {
+  src.number -> tgt.number;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ClaimResponse.processNote.type') -> tgt.type = (e.value.ofType(CodeableConcept)) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.text -> tgt.text;
+  src.language -> tgt.language;
+}
+
+
+group ClaimResponseInsurance(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.focal -> tgt.focal;
+  src.coverage -> tgt.coverage;
+  src.businessArrangement -> tgt.businessArrangement;
+  src.claimResponse -> tgt.claimResponse;
+}
+
+
+group ClaimResponseError(source src, target tgt) extends BackboneElement {
+  src.itemSequence -> tgt.itemSequence;
+  src.detailSequence -> tgt.detailSequence;
+  src.subDetailSequence -> tgt.subDetailSequence;
+  src.code -> tgt.code;
+}

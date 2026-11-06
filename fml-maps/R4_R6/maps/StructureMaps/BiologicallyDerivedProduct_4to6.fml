@@ -1,0 +1,58 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BiologicallyDerivedProduct4to6'
+/// name = 'BiologicallyDerivedProduct4to6'
+/// title = 'BiologicallyDerivedProduct Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/BiologicallyDerivedProduct" alias BiologicallyDerivedProductR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/BiologicallyDerivedProduct" alias BiologicallyDerivedProductR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    BiologicallyDerivedProduct.status code[0..1]
+    BiologicallyDerivedProduct.quantity integer[0..1]
+    BiologicallyDerivedProduct.processing BackboneElement[0..*]
+    BiologicallyDerivedProduct.processing.description string[0..1]
+    BiologicallyDerivedProduct.processing.procedure CodeableConcept[0..1]
+    BiologicallyDerivedProduct.processing.additive Reference[0..1] (Substance)
+    BiologicallyDerivedProduct.processing.time[x] dateTime,Period[0..1]
+    BiologicallyDerivedProduct.manipulation BackboneElement[0..1]
+    BiologicallyDerivedProduct.manipulation.description string[0..1]
+    BiologicallyDerivedProduct.manipulation.time[x] dateTime,Period[0..1]
+    BiologicallyDerivedProduct.storage BackboneElement[0..*]
+    BiologicallyDerivedProduct.storage.description string[0..1]
+    BiologicallyDerivedProduct.storage.temperature decimal[0..1]
+    BiologicallyDerivedProduct.storage.scale code[0..1]
+    BiologicallyDerivedProduct.storage.duration Period[0..1]
+*/
+/* The following target properties were not populated:
+    BiologicallyDerivedProduct.therapyIdentifier Identifier[0..*]
+    BiologicallyDerivedProduct.biologicalSourceEvent Identifier[0..1]
+    BiologicallyDerivedProduct.processingFacility Reference[0..*] (Organization)
+    BiologicallyDerivedProduct.division string[0..1]
+    BiologicallyDerivedProduct.productStatus Coding[0..1]
+    BiologicallyDerivedProduct.expirationDate dateTime[0..1]
+    BiologicallyDerivedProduct.collection.sourceOrganization Reference[0..1] (Organization)
+    BiologicallyDerivedProduct.collection.procedure Reference[0..1] (Procedure)
+    BiologicallyDerivedProduct.storageTempRequirements Range[0..1]
+    BiologicallyDerivedProduct.property BackboneElement[0..*]
+    BiologicallyDerivedProduct.property.type CodeableConcept[1..1]
+    BiologicallyDerivedProduct.property.value[x] boolean,integer,CodeableConcept,Period,Quantity,Range,Ratio,string,Attachment[1..1]
+*/
+group BiologicallyDerivedProduct(source src : BiologicallyDerivedProductR4, target tgt : BiologicallyDerivedProductR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BiologicallyDerivedProduct.productCategory') -> tgt.productCategory = (e.value) "xverProductCategoryCode";
+// rule changed to code -> CodeableConcept
+// src.productCategory -> tgt.productCategory; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.productCode -> tgt.productCode;
+  src.request -> tgt.request;
+  src.parent -> tgt.parent;
+  src.collection as s -> tgt.collection as t then BiologicallyDerivedProductCollection(s, t);
+}
+
+
+group BiologicallyDerivedProductCollection(source src, target tgt) extends BackboneElement {
+  src.collector -> tgt.collector;
+  src.source -> tgt.sourcePatient; // renamed // Warning: Source TargetProfile unsupported: Organization  (Patient,Organization -> Patient)
+  src.collected -> tgt.collected;
+}

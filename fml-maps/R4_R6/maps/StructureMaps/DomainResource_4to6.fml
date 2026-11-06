@@ -1,0 +1,17 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DomainResource4to6'
+/// name = 'DomainResource4to6'
+/// title = 'DomainResource Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DomainResource" alias DomainResourceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DomainResource" alias DomainResourceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group DomainResource(source src : DomainResourceR4, target tgt : DomainResourceR6) extends Resource <<type+>> {
+  src.text -> tgt.text;
+  src.contained -> tgt.contained;
+  src.extension where (url.startsWith('http://hl7.org/fhir/5.0/StructureDefinition/extension-').not()) -> tgt.extension;
+  src.modifierExtension where (url.startsWith('http://hl7.org/fhir/5.0/StructureDefinition/extension-').not()) -> tgt.modifierExtension;
+}

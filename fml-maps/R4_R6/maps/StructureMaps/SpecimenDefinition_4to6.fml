@@ -1,0 +1,86 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/SpecimenDefinition4to6'
+/// name = 'SpecimenDefinition4to6'
+/// title = 'SpecimenDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/SpecimenDefinition" alias SpecimenDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/SpecimenDefinition" alias SpecimenDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    SpecimenDefinition.typeTested.container.material CodeableConcept[0..1]
+    SpecimenDefinition.typeTested.container.type CodeableConcept[0..1]
+    SpecimenDefinition.typeTested.container.cap CodeableConcept[0..1]
+    SpecimenDefinition.typeTested.container.description string[0..1]
+    SpecimenDefinition.typeTested.container.capacity Quantity[0..1]
+    SpecimenDefinition.typeTested.container.additive.additive[x] CodeableConcept,Reference[1..1] (Substance)
+*/
+/* The following target properties were not populated:
+    SpecimenDefinition.url uri[0..1]
+    SpecimenDefinition.version string[0..1]
+    SpecimenDefinition.versionAlgorithm[x] string,Coding[0..1]
+    SpecimenDefinition.name string[0..1]
+    SpecimenDefinition.title string[0..1]
+    SpecimenDefinition.derivedFromCanonical canonical[0..*] (SpecimenDefinition)
+    SpecimenDefinition.derivedFromUri uri[0..*]
+    SpecimenDefinition.status code[1..1]
+    SpecimenDefinition.experimental boolean[0..1]
+    SpecimenDefinition.subjectReference Reference[0..1] (Group)
+    SpecimenDefinition.date dateTime[0..1]
+    SpecimenDefinition.publisher string[0..1]
+    SpecimenDefinition.contact ContactDetail[0..*]
+    SpecimenDefinition.description markdown[0..1]
+    SpecimenDefinition.useContext UsageContext[0..*]
+    SpecimenDefinition.jurisdiction CodeableConcept[0..*]
+    SpecimenDefinition.purpose markdown[0..1]
+    SpecimenDefinition.copyright markdown[0..1]
+    SpecimenDefinition.copyrightLabel string[0..1]
+    SpecimenDefinition.approvalDate date[0..1]
+    SpecimenDefinition.lastReviewDate date[0..1]
+    SpecimenDefinition.effectivePeriod Period[0..1]
+    SpecimenDefinition.typeTested.container.device[x] CodeableConcept,canonical[0..1] (DeviceDefinition)
+    SpecimenDefinition.typeTested.container.additive.type CodeableReference[1..1] (SubstanceDefinition)
+    SpecimenDefinition.typeTested.container.additive.quantity Quantity[0..1]
+    SpecimenDefinition.typeTested.singleUse boolean[0..1]
+    SpecimenDefinition.typeTested.testingDestination CodeableConcept[0..*]
+*/
+group SpecimenDefinition(source src : SpecimenDefinitionR4, target tgt : SpecimenDefinitionR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.typeCollected -> tgt.typeCollected;
+  src.patientPreparation -> tgt.patientPreparation;
+  src.timeAspect -> tgt.timeAspect;
+  src.collection -> tgt.collection;
+  src.typeTested as s -> tgt.typeTested as t then SpecimenDefinitionTypeTested(s, t);
+}
+
+
+group SpecimenDefinitionTypeTested(source src, target tgt) extends BackboneElement {
+  src.isDerived -> tgt.isDerived;
+  src.type -> tgt.type;
+  src.preference -> tgt.preference;
+  src.container as s -> tgt.container as t then SpecimenDefinitionTypeTestedContainer(s, t);
+  src.requirement -> tgt.requirement;
+  src.retentionTime -> tgt.retentionTime;
+  src.rejectionCriterion -> tgt.rejectionCriterion;
+  src.handling as s -> tgt.handling as t then SpecimenDefinitionTypeTestedHandling(s, t);
+}
+
+
+group SpecimenDefinitionTypeTestedContainer(source src, target tgt) extends BackboneElement {
+  src.minimumVolume -> tgt.minimumVolume;
+  src.additive as s -> tgt.additive as t then SpecimenDefinitionTypeTestedContainerAdditive(s, t);
+  src.preparation -> tgt.preparation;
+}
+
+
+group SpecimenDefinitionTypeTestedContainerAdditive(source src, target tgt) extends BackboneElement {
+}
+
+
+group SpecimenDefinitionTypeTestedHandling(source src, target tgt) extends BackboneElement {
+  src.temperatureQualifier -> tgt.temperatureQualifier;
+  src.temperatureRange -> tgt.temperatureRange;
+  src.maxDuration -> tgt.maxDuration;
+  src.instruction -> tgt.instruction;
+}

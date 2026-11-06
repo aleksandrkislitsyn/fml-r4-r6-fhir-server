@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/boolean4to6'
+/// name = 'boolean4to6'
+/// title = 'boolean Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/boolean" alias booleanR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/boolean" alias booleanR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Boolean(source src : booleanR4, target tgt : booleanR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+}

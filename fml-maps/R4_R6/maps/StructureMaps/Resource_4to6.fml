@@ -1,0 +1,17 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Resource4to6'
+/// name = 'Resource4to6'
+/// title = 'Resource Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Resource" alias ResourceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Resource" alias ResourceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Resource(source src : ResourceR4, target tgt : ResourceR6) {
+  src.id -> tgt.id;
+  src.meta -> tgt.meta;
+  src.implicitRules -> tgt.implicitRules;
+  src.language -> tgt.language;
+}

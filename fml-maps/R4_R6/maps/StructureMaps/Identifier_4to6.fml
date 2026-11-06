@@ -1,0 +1,19 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Identifier4to6'
+/// name = 'Identifier4to6'
+/// title = 'Identifier Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Identifier" alias IdentifierR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Identifier" alias IdentifierR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Identifier(source src : IdentifierR4, target tgt : IdentifierR6) extends Element <<type+>> {
+  src.use -> tgt.use;
+  src.type -> tgt.type;
+  src.system -> tgt.system;
+  src.value -> tgt.value;
+  src.period -> tgt.period;
+  src.assigner -> tgt.assigner;
+}

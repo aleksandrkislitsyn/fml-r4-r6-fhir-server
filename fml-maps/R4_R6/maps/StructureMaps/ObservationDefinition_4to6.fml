@@ -1,0 +1,89 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ObservationDefinition4to6'
+/// name = 'ObservationDefinition4to6'
+/// title = 'ObservationDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ObservationDefinition" alias ObservationDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ObservationDefinition" alias ObservationDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ObservationDefinition.quantitativeDetails BackboneElement[0..1]
+    ObservationDefinition.quantitativeDetails.customaryUnit CodeableConcept[0..1]
+    ObservationDefinition.quantitativeDetails.unit CodeableConcept[0..1]
+    ObservationDefinition.quantitativeDetails.conversionFactor decimal[0..1]
+    ObservationDefinition.quantitativeDetails.decimalPrecision integer[0..1]
+    ObservationDefinition.qualifiedInterval BackboneElement[0..*]
+    ObservationDefinition.qualifiedInterval.category code[0..1]
+    ObservationDefinition.qualifiedInterval.range Range[0..1]
+    ObservationDefinition.qualifiedInterval.context CodeableConcept[0..1]
+    ObservationDefinition.qualifiedInterval.appliesTo CodeableConcept[0..*]
+    ObservationDefinition.qualifiedInterval.gender code[0..1]
+    ObservationDefinition.qualifiedInterval.age Range[0..1]
+    ObservationDefinition.qualifiedInterval.gestationalAge Range[0..1]
+    ObservationDefinition.qualifiedInterval.condition string[0..1]
+    ObservationDefinition.validCodedValueSet Reference[0..1] (ValueSet)
+    ObservationDefinition.normalCodedValueSet Reference[0..1] (ValueSet)
+    ObservationDefinition.abnormalCodedValueSet Reference[0..1] (ValueSet)
+    ObservationDefinition.criticalCodedValueSet Reference[0..1] (ValueSet)
+*/
+/* The following target properties were not populated:
+    ObservationDefinition.url uri[0..1]
+    ObservationDefinition.version string[0..1]
+    ObservationDefinition.versionAlgorithm[x] string,Coding[0..1]
+    ObservationDefinition.name string[0..1]
+    ObservationDefinition.title string[0..1]
+    ObservationDefinition.status code[1..1]
+    ObservationDefinition.experimental boolean[0..1]
+    ObservationDefinition.date dateTime[0..1]
+    ObservationDefinition.publisher string[0..1]
+    ObservationDefinition.contact ContactDetail[0..*]
+    ObservationDefinition.description markdown[0..1]
+    ObservationDefinition.useContext UsageContext[0..*]
+    ObservationDefinition.jurisdiction CodeableConcept[0..*]
+    ObservationDefinition.purpose markdown[0..1]
+    ObservationDefinition.copyright markdown[0..1]
+    ObservationDefinition.copyrightLabel string[0..1]
+    ObservationDefinition.approvalDate date[0..1]
+    ObservationDefinition.lastReviewDate date[0..1]
+    ObservationDefinition.effectivePeriod Period[0..1]
+    ObservationDefinition.derivedFromCanonical canonical[0..*] (ObservationDefinition)
+    ObservationDefinition.derivedFromUri uri[0..*]
+    ObservationDefinition.subject CodeableConcept[0..*]
+    ObservationDefinition.performerType CodeableConcept[0..1]
+    ObservationDefinition.bodyStructure CodeableReference[0..*] (BodyStructure)
+    ObservationDefinition.specimen Reference[0..*] (SpecimenDefinition)
+    ObservationDefinition.device[x] Reference,canonical[0..1] (Device,DeviceDefinition)
+    ObservationDefinition.supportingDevice CodeableReference[0..*] (DeviceDefinition)
+    ObservationDefinition.permittedUnit Coding[0..*]
+    ObservationDefinition.qualifiedValue BackboneElement[0..*]
+    ObservationDefinition.qualifiedValue.context CodeableConcept[0..1]
+    ObservationDefinition.qualifiedValue.appliesTo CodeableConcept[0..*]
+    ObservationDefinition.qualifiedValue.sexParameterForClinicalUse code[0..1]
+    ObservationDefinition.qualifiedValue.age Range[0..1]
+    ObservationDefinition.qualifiedValue.gestationalAge Range[0..1]
+    ObservationDefinition.qualifiedValue.condition string[0..1]
+    ObservationDefinition.qualifiedValue.rangeCategory code[0..1]
+    ObservationDefinition.qualifiedValue.range Range[0..1]
+    ObservationDefinition.qualifiedValue.validCodedValueSet canonical[0..1] (ValueSet)
+    ObservationDefinition.qualifiedValue.normalCodedValueSet canonical[0..1] (ValueSet)
+    ObservationDefinition.qualifiedValue.abnormalCodedValueSet canonical[0..1] (ValueSet)
+    ObservationDefinition.qualifiedValue.criticalCodedValueSet canonical[0..1] (ValueSet)
+    ObservationDefinition.qualifiedValue.interpretation CodeableConcept[0..*]
+    ObservationDefinition.hasMember Reference[0..*] (ObservationDefinition,Questionnaire)
+    ObservationDefinition.component BackboneElement[0..*]
+    ObservationDefinition.component.code CodeableConcept[1..1]
+    ObservationDefinition.component.permittedDataType code[0..*]
+    ObservationDefinition.component.permittedUnit Coding[0..*]
+    ObservationDefinition.component.qualifiedValue [0..*]
+*/
+group ObservationDefinition(source src : ObservationDefinitionR4, target tgt : ObservationDefinitionR6) extends DomainResource <<type+>> {
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.identifier -> tgt.identifier;
+  src.permittedDataType -> tgt.permittedDataType;
+  src.multipleResultsAllowed -> tgt.multipleResultsAllowed;
+  src.method -> tgt.method;
+  src.preferredReportName -> tgt.preferredReportName;
+}

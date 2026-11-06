@@ -1,0 +1,77 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Appointment4to6'
+/// name = 'Appointment4to6'
+/// title = 'Appointment Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Appointment" alias AppointmentR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Appointment" alias AppointmentR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Appointment.class CodeableConcept[0..*]
+    Appointment.replaces Reference[0..*] (Appointment)
+    Appointment.virtualService VirtualServiceDetail[0..*]
+    Appointment.previousAppointment Reference[0..1] (Appointment)
+    Appointment.originatingAppointment Reference[0..1] (Appointment)
+    Appointment.account Reference[0..*] (Account)
+    Appointment.cancellationDate dateTime[0..1]
+    Appointment.subject Reference[0..1] (Patient,Group)
+    Appointment.recurrenceId positiveInt[0..1]
+    Appointment.occurrenceChanged boolean[0..1]
+    Appointment.recurrenceTemplate BackboneElement[0..*]
+    Appointment.recurrenceTemplate.timezone CodeableConcept[0..1]
+    Appointment.recurrenceTemplate.recurrenceType CodeableConcept[1..1]
+    Appointment.recurrenceTemplate.lastOccurrenceDate date[0..1]
+    Appointment.recurrenceTemplate.occurrenceCount positiveInt[0..1]
+    Appointment.recurrenceTemplate.occurrenceDate date[0..*]
+    Appointment.recurrenceTemplate.weeklyTemplate BackboneElement[0..1]
+    Appointment.recurrenceTemplate.weeklyTemplate.daysOfWeek code[1..*]
+    Appointment.recurrenceTemplate.weeklyTemplate.weekInterval positiveInt[0..1]
+    Appointment.recurrenceTemplate.monthlyTemplate BackboneElement[0..1]
+    Appointment.recurrenceTemplate.monthlyTemplate.dayOfMonth positiveInt[0..1]
+    Appointment.recurrenceTemplate.monthlyTemplate.nthWeekOfMonth code[0..1]
+    Appointment.recurrenceTemplate.monthlyTemplate.dayOfWeek code[0..1]
+    Appointment.recurrenceTemplate.monthlyTemplate.monthInterval positiveInt[1..1]
+    Appointment.recurrenceTemplate.yearlyTemplate BackboneElement[0..1]
+    Appointment.recurrenceTemplate.yearlyTemplate.yearInterval positiveInt[1..1]
+    Appointment.recurrenceTemplate.excludingDate date[0..*]
+    Appointment.recurrenceTemplate.excludingRecurrenceId positiveInt[0..*]
+*/
+group Appointment(source src : AppointmentR4, target tgt : AppointmentR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.cancelationReason -> tgt.cancellationReason; // renamed
+  src.serviceCategory -> tgt.serviceCategory;
+  src.serviceType -> tgt.serviceType;
+  src.specialty -> tgt.specialty;
+  src.appointmentType -> tgt.appointmentType;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed // Warning: Source TargetProfile unsupported: ImmunizationRecommendation  (Condition,Procedure,Observation,ImmunizationRecommendation -> Condition,DiagnosticReport,Procedure,Observation)
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Appointment.priority') -> tgt.priority = (e.value) "xverPriorityUnsignedInt";
+// rule changed to unsignedInt -> CodeableConcept
+// src.priority -> tgt.priority; // Warning: Source Type unsupported: unsignedInt  (unsignedInt -> CodeableConcept)
+  src.description -> tgt.description;
+  src.supportingInformation -> tgt.supportingInformation;
+  src.start -> tgt.start;
+  src.end -> tgt.end;
+  src.minutesDuration -> tgt.minutesDuration;
+  src.slot -> tgt.slot;
+  src.created -> tgt.created;
+  src.comment -> tgt.note; // renamed
+  src.patientInstruction -> tgt.patientInstruction;
+  src.basedOn -> tgt.basedOn;
+  src.participant as s -> tgt.participant as t then AppointmentParticipant(s, t);
+  src.requestedPeriod -> tgt.requestedPeriod;
+}
+
+
+group AppointmentParticipant(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.actor -> tgt.actor;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Appointment.participant.required') -> tgt.required = (e.value) "xverRequiredCode";
+// rule changed to code -> boolean
+// src.required -> tgt.required; // Warning: Source Type unsupported: code  (code -> boolean)
+  src.status -> tgt.status;
+  src.period -> tgt.period;
+}

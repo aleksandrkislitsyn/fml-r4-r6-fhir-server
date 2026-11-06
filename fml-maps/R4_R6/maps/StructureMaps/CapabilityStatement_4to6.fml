@@ -1,0 +1,157 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/CapabilityStatement4to6'
+/// name = 'CapabilityStatement4to6'
+/// title = 'CapabilityStatement Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/CapabilityStatement" alias CapabilityStatementR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CapabilityStatement" alias CapabilityStatementR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    CapabilityStatement.identifier Identifier[0..*]
+    CapabilityStatement.versionAlgorithm[x] string,Coding[0..1]
+    CapabilityStatement.actorDefinition canonical[0..*] (ActorDefinition)
+    CapabilityStatement.copyrightLabel string[0..1]
+    CapabilityStatement.acceptLanguage code[0..*]
+    CapabilityStatement.rest.resource.definition canonical[0..1] (StructureDefinition)
+    CapabilityStatement.rest.resource.conditionalPatch boolean[0..1]
+*/
+group CapabilityStatement(source src : CapabilityStatementR4, target tgt : CapabilityStatementR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.copyright -> tgt.copyright;
+  src.kind -> tgt.kind;
+  src.instantiates -> tgt.instantiates;
+  src.imports -> tgt.imports;
+  src.software as s -> tgt.software as t then CapabilityStatementSoftware(s, t);
+  src.implementation as s -> tgt.implementation as t then CapabilityStatementImplementation(s, t);
+  src.fhirVersion -> tgt.fhirVersion;
+  src.format -> tgt.format;
+  src.patchFormat -> tgt.patchFormat;
+  src.implementationGuide -> tgt.implementationGuide;
+  src.rest as s -> tgt.rest as t then CapabilityStatementRest(s, t);
+  src.messaging as s -> tgt.messaging as t then CapabilityStatementMessaging(s, t);
+  src.document as s -> tgt.document as t then CapabilityStatementDocument(s, t);
+}
+
+
+group CapabilityStatementSoftware(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.version -> tgt.version;
+  src.releaseDate -> tgt.releaseDate;
+}
+
+
+group CapabilityStatementImplementation(source src, target tgt) extends BackboneElement {
+  src.description -> tgt.description;
+  src.url -> tgt.url;
+  src.custodian -> tgt.custodian;
+}
+
+
+group CapabilityStatementRest(source src, target tgt) extends BackboneElement {
+  src.mode -> tgt.mode;
+  src.documentation -> tgt.documentation;
+  src.security as s -> tgt.security as t then CapabilityStatementRestSecurity(s, t);
+  src.resource as s -> tgt.resource as t then CapabilityStatementRestResource(s, t);
+  src.interaction as s -> tgt.interaction as t then CapabilityStatementRestInteraction(s, t);
+  src.searchParam as s -> tgt.searchParam as t then CapabilityStatementRestResourceSearchParam(s, t);
+  src.operation as s -> tgt.operation as t then CapabilityStatementRestResourceOperation(s, t);
+  src.compartment -> tgt.compartment;
+}
+
+
+group CapabilityStatementRestSecurity(source src, target tgt) extends BackboneElement {
+  src.cors -> tgt.cors;
+  src.service -> tgt.service;
+  src.description -> tgt.description;
+}
+
+
+group CapabilityStatementRestResource(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-CapabilityStatement.rest.resource.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> uri
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> uri)
+  src.profile -> tgt.profile;
+  src.supportedProfile -> tgt.supportedProfile;
+  src.documentation -> tgt.documentation;
+  src.interaction as s -> tgt.interaction as t then CapabilityStatementRestResourceInteraction(s, t);
+  src.versioning -> tgt.versioning;
+  src.readHistory -> tgt.readHistory;
+  src.updateCreate -> tgt.updateCreate;
+  src.conditionalCreate -> tgt.conditionalCreate;
+  src.conditionalRead -> tgt.conditionalRead;
+  src.conditionalUpdate -> tgt.conditionalUpdate;
+  src.conditionalDelete -> tgt.conditionalDelete;
+  src.referencePolicy -> tgt.referencePolicy;
+  src.searchInclude -> tgt.searchInclude;
+  src.searchRevInclude -> tgt.searchRevInclude;
+  src.searchParam as s -> tgt.searchParam as t then CapabilityStatementRestResourceSearchParam(s, t);
+  src.operation as s -> tgt.operation as t then CapabilityStatementRestResourceOperation(s, t);
+}
+
+
+group CapabilityStatementRestResourceInteraction(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.documentation -> tgt.documentation;
+}
+
+
+group CapabilityStatementRestResourceSearchParam(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.definition -> tgt.definition;
+  src.type -> tgt.type;
+  src.documentation -> tgt.documentation;
+}
+
+
+group CapabilityStatementRestResourceOperation(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.definition -> tgt.definition;
+  src.documentation -> tgt.documentation;
+}
+
+
+group CapabilityStatementRestInteraction(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.documentation -> tgt.documentation;
+}
+
+
+group CapabilityStatementMessaging(source src, target tgt) extends BackboneElement {
+  src.endpoint as s -> tgt.endpoint as t then CapabilityStatementMessagingEndpoint(s, t);
+  src.reliableCache -> tgt.reliableCache;
+  src.documentation -> tgt.documentation;
+  src.supportedMessage as s -> tgt.supportedMessage as t then CapabilityStatementMessagingSupportedMessage(s, t);
+}
+
+
+group CapabilityStatementMessagingEndpoint(source src, target tgt) extends BackboneElement {
+  src.protocol -> tgt.protocol;
+  src.address -> tgt.address;
+}
+
+
+group CapabilityStatementMessagingSupportedMessage(source src, target tgt) extends BackboneElement {
+  src.mode -> tgt.mode;
+  src.definition -> tgt.definition;
+}
+
+
+group CapabilityStatementDocument(source src, target tgt) extends BackboneElement {
+  src.mode -> tgt.mode;
+  src.documentation -> tgt.documentation;
+  src.profile -> tgt.profile;
+}

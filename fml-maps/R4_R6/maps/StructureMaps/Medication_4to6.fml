@@ -1,0 +1,43 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Medication4to6'
+/// name = 'Medication4to6'
+/// title = 'Medication Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Medication" alias MedicationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Medication" alias MedicationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Medication.amount Ratio[0..1]
+*/
+/* The following target properties were not populated:
+    Medication.packageSize BackboneElement[0..1]
+    Medication.packageSize.numberOfItems Quantity[0..1]
+    Medication.packageSize.amountPerItem Ratio[0..1]
+    Medication.ingredient.role CodeableConcept[0..1]
+    Medication.instance.identifier Identifier[0..*]
+    Medication.definition Reference[0..1] (MedicinalProductDefinition,AdministrableProductDefinition,PackagedProductDefinition,ManufacturedItemDefinition)
+*/
+group Medication(source src : MedicationR4, target tgt : MedicationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.code -> tgt.code;
+  src.status -> tgt.status;
+  src.manufacturer -> tgt.marketingAuthorizationHolder; // renamed
+  src.form -> tgt.doseForm; // renamed
+  src.ingredient as s -> tgt.ingredient as t then MedicationIngredient(s, t);
+  src.batch as s -> tgt.instance as t then MedicationBatch(s, t); // renamed
+}
+
+
+group MedicationIngredient(source src, target tgt) extends BackboneElement {
+  src.item -> tgt.item;
+  src.isActive -> tgt.isActive;
+  src.strength -> tgt.strength;
+}
+
+
+group MedicationBatch(source src, target tgt) extends BackboneElement {
+  src.lotNumber -> tgt.lotNumber; // renamed
+  src.expirationDate -> tgt.expirationDate; // renamed
+}

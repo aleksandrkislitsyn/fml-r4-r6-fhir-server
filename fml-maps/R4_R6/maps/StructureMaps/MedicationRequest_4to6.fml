@@ -1,0 +1,83 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MedicationRequest4to6'
+/// name = 'MedicationRequest4to6'
+/// title = 'MedicationRequest Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MedicationRequest" alias MedicationRequestR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MedicationRequest" alias MedicationRequestR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MedicationRequest.instantiatesCanonical canonical[0..*]
+    MedicationRequest.instantiatesUri uri[0..*]
+    MedicationRequest.detectedIssue Reference[0..*] (DetectedIssue)
+*/
+/* The following target properties were not populated:
+    MedicationRequest.statusChanged dateTime[0..1]
+    MedicationRequest.informationSource Reference[0..*] (Patient,Practitioner,PractitionerRole,RelatedPerson,Organization,Group)
+    MedicationRequest.device CodeableReference[0..*] (DeviceDefinition)
+    MedicationRequest.effectiveTiming[x] Duration,Range,Period[0..1]
+    MedicationRequest.dispenseRequest.dispenserInstruction CodeableConcept[0..*]
+    MedicationRequest.dispenseRequest.doseAdministrationAid CodeableConcept[0..1]
+    MedicationRequest.dispenseRequest.destination Reference[0..1] (Location)
+*/
+group MedicationRequest(source src : MedicationRequestR4, target tgt : MedicationRequestR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.intent -> tgt.intent;
+  src.category -> tgt.category;
+  src.priority -> tgt.priority;
+  src.doNotPerform -> tgt.doNotPerform;
+  src.reported : boolean -> tgt.isRecordOfRequest;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-MedicationRequest.isRecordOfRequest') -> tgt.isRecordOfRequest = (e.value) "xverReportedReference";
+// rule changed to boolean,Reference -> boolean
+// src.reported -> tgt.isRecordOfRequest; // renamed // Warning: Source Type unsupported: Reference  (boolean,Reference -> boolean)
+  src.medication -> tgt.medication;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.supportingInformation -> tgt.supportingInformation;
+  src.authoredOn -> tgt.authoredOn;
+  src.requester -> tgt.requester;
+  src.performer -> tgt.performer; // Warning: Source TargetProfile unsupported: Device  (Practitioner,PractitionerRole,Organization,Patient,Device,RelatedPerson,CareTeam -> Practitioner,PractitionerRole,Organization,Patient,DeviceDefinition,RelatedPerson,CareTeam,HealthcareService,Group)
+  src.performerType -> tgt.performerType;
+  src.recorder -> tgt.recorder;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: ImmunizationRecommendation  (CarePlan,MedicationRequest,ServiceRequest,ImmunizationRecommendation -> CarePlan,MedicationRequest,ServiceRequest,RequestOrchestration)
+  src.groupIdentifier -> tgt.groupIdentifier;
+  src.courseOfTherapyType -> tgt.courseOfTherapyType;
+  src.insurance -> tgt.insurance;
+  src.note -> tgt.note;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-MedicationRequest.dosageInstruction') -> tgt.dosageInstruction = (e.value) "xverDosageInstructionDosage";
+// rule changed to Dosage -> DosageDetails
+// src.dosageInstruction /* [0..*] */ -> tgt.dosageInstruction /* [0..1] */; // Warning: source repeating, target single-valued    Source Type unsupported: Dosage  (Dosage -> DosageDetails)
+  src.dispenseRequest as s -> tgt.dispenseRequest as t then MedicationRequestDispenseRequest(s, t);
+  src.substitution as s -> tgt.substitution as t then MedicationRequestSubstitution(s, t);
+  src.priorPrescription -> tgt.priorPrescription;
+  src.eventHistory -> tgt.eventHistory;
+}
+
+
+group MedicationRequestDispenseRequest(source src, target tgt) extends BackboneElement {
+  src.initialFill as s -> tgt.initialFill as t then MedicationRequestDispenseRequestInitialFill(s, t);
+  src.dispenseInterval -> tgt.dispenseInterval;
+  src.validityPeriod -> tgt.validityPeriod;
+  src.numberOfRepeatsAllowed -> tgt.numberOfRepeatsAllowed;
+  src.quantity -> tgt.quantity;
+  src.expectedSupplyDuration -> tgt.expectedSupplyDuration;
+  src.performer -> tgt.dispenser; // renamed
+}
+
+
+group MedicationRequestDispenseRequestInitialFill(source src, target tgt) extends BackboneElement {
+  src.quantity -> tgt.quantity;
+  src.duration -> tgt.duration;
+}
+
+
+group MedicationRequestSubstitution(source src, target tgt) extends BackboneElement {
+  src.allowed -> tgt.allowed;
+  src.reason -> tgt.reason;
+}

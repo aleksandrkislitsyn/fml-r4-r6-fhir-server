@@ -1,0 +1,18 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Basic4to6'
+/// name = 'Basic4to6'
+/// title = 'Basic Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Basic" alias BasicR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Basic" alias BasicR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Basic(source src : BasicR4, target tgt : BasicR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.created -> tgt.created;
+  src.author -> tgt.author;
+}

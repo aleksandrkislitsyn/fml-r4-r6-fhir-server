@@ -1,0 +1,81 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Specimen4to6'
+/// name = 'Specimen4to6'
+/// title = 'Specimen Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Specimen" alias SpecimenR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Specimen" alias SpecimenR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Specimen.accessionIdentifier Identifier[0..1]
+    Specimen.processing.procedure CodeableConcept[0..1]
+    Specimen.processing.additive.reference string[0..1]
+    Specimen.processing.additive.identifier Identifier[0..1]
+    Specimen.processing.additive.display string[0..1]
+    Specimen.container.identifier Identifier[0..*]
+    Specimen.container.description string[0..1]
+    Specimen.container.type CodeableConcept[0..1]
+    Specimen.container.capacity Quantity[0..1]
+    Specimen.container.additive[x] CodeableConcept,Reference[0..1] (Substance)
+*/
+/* The following target properties were not populated:
+    Specimen.focus Reference[0..1] (Patient,Group,Device,BiologicallyDerivedProduct,Substance,Location,NutritionProduct,RelatedPerson)
+    Specimen.combined code[0..1]
+    Specimen.role CodeableConcept[0..*]
+    Specimen.feature BackboneElement[0..*]
+    Specimen.feature.type CodeableConcept[1..1]
+    Specimen.feature.description string[1..1]
+    Specimen.collection.device CodeableReference[0..1] (Device)
+    Specimen.collection.procedure Reference[0..1] (Procedure)
+    Specimen.processing.method CodeableConcept[0..1]
+    Specimen.processing.performer Reference[0..1] (Practitioner,PractitionerRole,Patient,RelatedPerson)
+    Specimen.processing.device CodeableReference[0..1] (Device)
+    Specimen.processing.additive.quantity Quantity[0..1]
+    Specimen.container.device CodeableReference[1..1] (Device)
+*/
+group Specimen(source src : SpecimenR4, target tgt : SpecimenR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.subject -> tgt.subject;
+  src.receivedTime -> tgt.receivedTime;
+  src.parent -> tgt.parent;
+  src.request -> tgt.request;
+  src.collection as s -> tgt.collection as t then SpecimenCollection(s, t);
+  src.processing as s -> tgt.processing as t then SpecimenProcessing(s, t);
+  src.container as s -> tgt.container as t then SpecimenContainer(s, t);
+  src.condition -> tgt.condition;
+  src.note -> tgt.note;
+}
+
+
+group SpecimenCollection(source src, target tgt) extends BackboneElement {
+  src.collector -> tgt.collector;
+  src.collected -> tgt.collected;
+  src.duration -> tgt.duration;
+  src.quantity -> tgt.quantity;
+  src.method -> tgt.method;
+  src.bodySite -> tgt.bodyStructure; // renamed
+  src.fastingStatus -> tgt.fastingStatus;
+}
+
+
+group SpecimenProcessing(source src, target tgt) extends BackboneElement {
+  src.description -> tgt.description;
+  src.additive as s -> tgt.additive as t then SpecimenProcessingAdditive(s, t); // Warning: type changed (Reference -> BackboneElement)
+  src.time -> tgt.time;
+}
+
+
+group SpecimenProcessingAdditive(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Specimen.processing.additive.type') -> tgt.type = (e.value) "xverTypeUri";
+// rule changed to uri -> CodeableReference
+// src.type /* [0..1] */ -> tgt.type /* [1..1] */; // Warning: source optional, target mandatory    Source Type unsupported: uri  (uri -> CodeableReference)
+}
+
+
+group SpecimenContainer(source src, target tgt) extends BackboneElement {
+  src.specimenQuantity -> tgt.specimenQuantity;
+}

@@ -1,0 +1,183 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Task4to6'
+/// name = 'Task4to6'
+/// title = 'Task Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Task" alias TaskR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Task" alias TaskR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Task.instantiatesCanonical canonical[0..1] (ActivityDefinition)
+    Task.instantiatesUri uri[0..1]
+    Task.focus.reference string[0..1]
+    Task.focus.type uri[0..1]
+    Task.focus.identifier Identifier[0..1]
+    Task.focus.display string[0..1]
+    Task.performerType CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    Task.doNotPerform boolean[0..1]
+    Task.focus.value[x] Reference,canonical[1..1] (Resource,CanonicalResource)
+    Task.requestedPeriod Period[0..1]
+    Task.requestedPerformer CodeableReference[0..*] (Practitioner,PractitionerRole,Organization,CareTeam,HealthcareService,Patient,Device,RelatedPerson,Group)
+    Task.performer BackboneElement[0..*]
+    Task.performer.function CodeableConcept[0..1]
+    Task.performer.actor Reference[1..1] (Practitioner,Device,Organization,PractitionerRole,CareTeam,Patient,RelatedPerson,Group)
+*/
+group Task(source src : TaskR4, target tgt : TaskR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.groupIdentifier -> tgt.groupIdentifier;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.businessStatus -> tgt.businessStatus;
+  src.intent -> tgt.intent;
+  src.priority -> tgt.priority;
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.focus as s -> tgt.focus as t then TaskFocus(s, t); // Warning: type changed (Reference -> BackboneElement)
+  src.for -> tgt.for;
+  src.encounter -> tgt.encounter;
+  src.executionPeriod -> tgt.executionPeriod;
+  src.authoredOn -> tgt.authoredOn;
+  src.lastModified -> tgt.lastModified;
+  src.requester -> tgt.requester;
+  src.owner -> tgt.owner; // Warning: Source TargetProfile unsupported: HealthcareService,Device  (Practitioner,PractitionerRole,Organization,CareTeam,HealthcareService,Patient,Device,RelatedPerson -> Practitioner,PractitionerRole,Organization,CareTeam,Patient,RelatedPerson,Group)
+  src.location -> tgt.location;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.insurance -> tgt.insurance;
+  src.note -> tgt.note;
+  src.relevantHistory -> tgt.relevantHistory;
+  src.restriction as s -> tgt.restriction as t then TaskRestriction(s, t);
+  src.input as s -> tgt.input as t then TaskInput(s, t);
+  src.output as s -> tgt.output as t then TaskOutput(s, t);
+}
+
+
+group TaskFocus(source src, target tgt) extends BackboneElement {
+}
+
+
+group TaskRestriction(source src, target tgt) extends BackboneElement {
+  src.repetitions -> tgt.repetitions;
+  src.period -> tgt.period;
+  src.recipient -> tgt.recipient;
+}
+
+
+group TaskInput(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.value : base64Binary -> tgt.value;
+  src.value : boolean -> tgt.value;
+  src.value : canonical -> tgt.value;
+  src.value : code -> tgt.value;
+  src.value : date -> tgt.value;
+  src.value : dateTime -> tgt.value;
+  src.value : decimal -> tgt.value;
+  src.value : id -> tgt.value;
+  src.value : instant -> tgt.value;
+  src.value : integer -> tgt.value;
+  src.value : markdown -> tgt.value;
+  src.value : oid -> tgt.value;
+  src.value : positiveInt -> tgt.value;
+  src.value : string -> tgt.value;
+  src.value : time -> tgt.value;
+  src.value : unsignedInt -> tgt.value;
+  src.value : uri -> tgt.value;
+  src.value : url -> tgt.value;
+  src.value : uuid -> tgt.value;
+  src.value : Address -> tgt.value;
+  src.value : Age -> tgt.value;
+  src.value : Annotation -> tgt.value;
+  src.value : Attachment -> tgt.value;
+  src.value : CodeableConcept -> tgt.value;
+  src.value : Coding -> tgt.value;
+  src.value : ContactPoint -> tgt.value;
+  src.value : Count -> tgt.value;
+  src.value : Distance -> tgt.value;
+  src.value : Duration -> tgt.value;
+  src.value : HumanName -> tgt.value;
+  src.value : Identifier -> tgt.value;
+  src.value : Money -> tgt.value;
+  src.value : Period -> tgt.value;
+  src.value : Quantity -> tgt.value;
+  src.value : Range -> tgt.value;
+  src.value : Ratio -> tgt.value;
+  src.value : Reference -> tgt.value;
+  src.value : SampledData -> tgt.value;
+  src.value : Signature -> tgt.value;
+  src.value : Timing -> tgt.value;
+  src.value : ContactDetail -> tgt.value;
+  src.value : DataRequirement -> tgt.value;
+  src.value : Expression -> tgt.value;
+  src.value : ParameterDefinition -> tgt.value;
+  src.value : RelatedArtifact -> tgt.value;
+  src.value : TriggerDefinition -> tgt.value;
+  src.value : UsageContext -> tgt.value;
+  src.value : Dosage -> tgt.value;
+  src.value : Meta -> tgt.value;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Task.input.value[x]') -> tgt.value = (e.value) "xverValueContributor";
+// rule changed to base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,Reference,SampledData,Signature,Timing,ContactDetail,Contributor,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Dosage,Meta -> base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,integer64,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,CodeableReference,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,RatioRange,Reference,SampledData,Signature,Timing,ContactDetail,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Availability,ExtendedContactDetail,VirtualServiceDetail,Dosage,Meta
+// src.value -> tgt.value; // Warning: Source Type unsupported: Contributor  (base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,Reference,SampledData,Signature,Timing,ContactDetail,Contributor,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Dosage,Meta -> base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,integer64,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,CodeableReference,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,RatioRange,Reference,SampledData,Signature,Timing,ContactDetail,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Availability,ExtendedContactDetail,VirtualServiceDetail,Dosage,Meta)
+}
+
+
+group TaskOutput(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.value : base64Binary -> tgt.value;
+  src.value : boolean -> tgt.value;
+  src.value : canonical -> tgt.value;
+  src.value : code -> tgt.value;
+  src.value : date -> tgt.value;
+  src.value : dateTime -> tgt.value;
+  src.value : decimal -> tgt.value;
+  src.value : id -> tgt.value;
+  src.value : instant -> tgt.value;
+  src.value : integer -> tgt.value;
+  src.value : markdown -> tgt.value;
+  src.value : oid -> tgt.value;
+  src.value : positiveInt -> tgt.value;
+  src.value : string -> tgt.value;
+  src.value : time -> tgt.value;
+  src.value : unsignedInt -> tgt.value;
+  src.value : uri -> tgt.value;
+  src.value : url -> tgt.value;
+  src.value : uuid -> tgt.value;
+  src.value : Address -> tgt.value;
+  src.value : Age -> tgt.value;
+  src.value : Annotation -> tgt.value;
+  src.value : Attachment -> tgt.value;
+  src.value : CodeableConcept -> tgt.value;
+  src.value : Coding -> tgt.value;
+  src.value : ContactPoint -> tgt.value;
+  src.value : Count -> tgt.value;
+  src.value : Distance -> tgt.value;
+  src.value : Duration -> tgt.value;
+  src.value : HumanName -> tgt.value;
+  src.value : Identifier -> tgt.value;
+  src.value : Money -> tgt.value;
+  src.value : Period -> tgt.value;
+  src.value : Quantity -> tgt.value;
+  src.value : Range -> tgt.value;
+  src.value : Ratio -> tgt.value;
+  src.value : Reference -> tgt.value;
+  src.value : SampledData -> tgt.value;
+  src.value : Signature -> tgt.value;
+  src.value : Timing -> tgt.value;
+  src.value : ContactDetail -> tgt.value;
+  src.value : DataRequirement -> tgt.value;
+  src.value : Expression -> tgt.value;
+  src.value : ParameterDefinition -> tgt.value;
+  src.value : RelatedArtifact -> tgt.value;
+  src.value : TriggerDefinition -> tgt.value;
+  src.value : UsageContext -> tgt.value;
+  src.value : Dosage -> tgt.value;
+  src.value : Meta -> tgt.value;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Task.output.value[x]') -> tgt.value = (e.value) "xverValueContributor";
+// rule changed to base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,Reference,SampledData,Signature,Timing,ContactDetail,Contributor,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Dosage,Meta -> base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,integer64,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,CodeableReference,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,RatioRange,Reference,SampledData,Signature,Timing,ContactDetail,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Availability,ExtendedContactDetail,VirtualServiceDetail,Dosage,Meta
+// src.value -> tgt.value; // Warning: Source Type unsupported: Contributor  (base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,Reference,SampledData,Signature,Timing,ContactDetail,Contributor,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Dosage,Meta -> base64Binary,boolean,canonical,code,date,dateTime,decimal,id,instant,integer,integer64,markdown,oid,positiveInt,string,time,unsignedInt,uri,url,uuid,Address,Age,Annotation,Attachment,CodeableConcept,CodeableReference,Coding,ContactPoint,Count,Distance,Duration,HumanName,Identifier,Money,Period,Quantity,Range,Ratio,RatioRange,Reference,SampledData,Signature,Timing,ContactDetail,DataRequirement,Expression,ParameterDefinition,RelatedArtifact,TriggerDefinition,UsageContext,Availability,ExtendedContactDetail,VirtualServiceDetail,Dosage,Meta)
+}

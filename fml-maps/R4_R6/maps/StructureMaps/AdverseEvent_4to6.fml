@@ -1,0 +1,62 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/AdverseEvent4to6'
+/// name = 'AdverseEvent4to6'
+/// title = 'AdverseEvent Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/AdverseEvent" alias AdverseEventR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/AdverseEvent" alias AdverseEventR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    AdverseEvent.severity CodeableConcept[0..1]
+    AdverseEvent.contributor Reference[0..*] (Practitioner,PractitionerRole,Device)
+    AdverseEvent.suspectEntity.causality.productRelatedness string[0..1]
+    AdverseEvent.suspectEntity.causality.method CodeableConcept[0..1]
+    AdverseEvent.subjectMedicalHistory Reference[0..*] (Condition,Observation,AllergyIntolerance,FamilyMemberHistory,Immunization,Procedure,Media,DocumentReference)
+    AdverseEvent.referenceDocument Reference[0..*] (DocumentReference)
+*/
+/* The following target properties were not populated:
+    AdverseEvent.status code[1..1]
+    AdverseEvent.participant BackboneElement[0..*]
+    AdverseEvent.participant.function CodeableConcept[0..1]
+    AdverseEvent.participant.actor Reference[1..1] (Practitioner,PractitionerRole,Organization,CareTeam,Patient,Device,RelatedPerson,Group)
+    AdverseEvent.expectedInResearchStudy boolean[0..1]
+    AdverseEvent.suspectEntity.causality.entityRelatedness CodeableConcept[0..1]
+    AdverseEvent.suspectEntity.occurrence[x] dateTime,Period[0..1]
+    AdverseEvent.contributingFactor CodeableReference[0..*] (Condition,Observation,AllergyIntolerance,FamilyMemberHistory,Immunization,Procedure,Device,DocumentReference,MedicationAdministration,MedicationStatement)
+    AdverseEvent.preventiveAction CodeableReference[0..*] (Immunization,Procedure,DocumentReference,MedicationAdministration,MedicationRequest)
+    AdverseEvent.mitigatingAction CodeableReference[0..*] (Procedure,DocumentReference,MedicationAdministration,MedicationRequest)
+    AdverseEvent.supportingInfo CodeableReference[0..*] (Condition,Observation,AllergyIntolerance,FamilyMemberHistory,Immunization,Procedure,DocumentReference,MedicationAdministration,MedicationStatement,QuestionnaireResponse)
+    AdverseEvent.note Annotation[0..*]
+*/
+group AdverseEvent(source src : AdverseEventR4, target tgt : AdverseEventR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.actuality -> tgt.actuality;
+  src.category -> tgt.category;
+  src.event -> tgt.code; // renamed
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.date -> tgt.effect; // renamed
+  src.detected -> tgt.detected;
+  src.recordedDate -> tgt.recordedDate;
+  src.resultingCondition -> tgt.resultingEffect; // renamed
+  src.location -> tgt.location;
+  src.seriousness -> tgt.seriousness;
+  src.outcome -> tgt.outcome;
+  src.recorder -> tgt.recorder;
+  src.suspectEntity as s -> tgt.suspectEntity as t then AdverseEventSuspectEntity(s, t);
+  src.study -> tgt.study;
+}
+
+
+group AdverseEventSuspectEntity(source src, target tgt) extends BackboneElement {
+  src.instance -> tgt.instance;
+  src.causality as s /* [0..*] */ -> tgt.causality as t /* [0..1] */ then AdverseEventSuspectEntityCausality(s, t); // Warning: source repeating, target single-valued
+}
+
+
+group AdverseEventSuspectEntityCausality(source src, target tgt) extends BackboneElement {
+  src.assessment -> tgt.assessmentMethod; // renamed
+  src.author -> tgt.author;
+}

@@ -1,0 +1,51 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/FamilyMemberHistory4to6'
+/// name = 'FamilyMemberHistory4to6'
+/// title = 'FamilyMemberHistory Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/FamilyMemberHistory" alias FamilyMemberHistoryR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/FamilyMemberHistory" alias FamilyMemberHistoryR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    FamilyMemberHistory.instantiatesCanonical canonical[0..*] (PlanDefinition,Questionnaire,ActivityDefinition,Measure,OperationDefinition)
+    FamilyMemberHistory.instantiatesUri uri[0..*]
+    FamilyMemberHistory.estimatedAge boolean[0..1]
+*/
+/* The following target properties were not populated:
+    FamilyMemberHistory.recorder Reference[0..1] (Practitioner,PractitionerRole,Patient,RelatedPerson,Organization,CareTeam,Group)
+    FamilyMemberHistory.asserter Reference[0..1] (Practitioner,PractitionerRole,Patient,RelatedPerson,Organization,CareTeam,Device,Group)
+    FamilyMemberHistory.procedure BackboneElement[0..*]
+    FamilyMemberHistory.procedure.code CodeableConcept[1..1]
+    FamilyMemberHistory.procedure.outcome CodeableConcept[0..1]
+    FamilyMemberHistory.procedure.contributedToDeath boolean[0..1]
+    FamilyMemberHistory.procedure.performed[x] Age,Range,Period,string,dateTime[0..1]
+    FamilyMemberHistory.procedure.note Annotation[0..*]
+*/
+group FamilyMemberHistory(source src : FamilyMemberHistoryR4, target tgt : FamilyMemberHistoryR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.dataAbsentReason -> tgt.dataAbsentReason;
+  src.patient -> tgt.patient;
+  src.date -> tgt.date;
+  src.name -> tgt.name;
+  src.relationship -> tgt.relationship;
+  src.sex -> tgt.sex;
+  src.born -> tgt.born;
+  src.age -> tgt.age;
+  src.deceased -> tgt.deceased;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.note -> tgt.note;
+  src.condition as s -> tgt.condition as t then FamilyMemberHistoryCondition(s, t);
+}
+
+
+group FamilyMemberHistoryCondition(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.outcome -> tgt.outcome;
+  src.contributedToDeath -> tgt.contributedToDeath;
+  src.onset -> tgt.onset;
+  src.note -> tgt.note;
+}

@@ -1,0 +1,101 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MeasureReport4to6'
+/// name = 'MeasureReport4to6'
+/// title = 'MeasureReport Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MeasureReport" alias MeasureReportR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MeasureReport" alias MeasureReportR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MeasureReport.improvementNotation CodeableConcept[0..1]
+*/
+/* The following target properties were not populated:
+    MeasureReport.category CodeableConcept[0..1]
+    MeasureReport.messages Reference[0..1] (OperationOutcome)
+    MeasureReport.dataUpdateType code[0..1]
+    MeasureReport.reportingVendor Reference[0..1] (Organization)
+    MeasureReport.location Reference[0..*] (Location)
+    MeasureReport.inputParameters Reference[0..1] (Parameters)
+    MeasureReport.group.linkId string[0..1]
+    MeasureReport.group.title string[0..1]
+    MeasureReport.group.calculatedDate dateTime[0..1]
+    MeasureReport.group.description markdown[0..1]
+    MeasureReport.group.type CodeableConcept[0..1]
+    MeasureReport.group.subject Reference[0..1] (CareTeam,Device,Group,HealthcareService,Location,Organization,Patient,Practitioner,PractitionerRole,RelatedPerson)
+    MeasureReport.group.scoring CodeableConcept[0..1]
+    MeasureReport.group.compositeScoring CodeableConcept[0..1]
+    MeasureReport.group.improvementNotation CodeableConcept[0..1]
+    MeasureReport.group.improvementNotationGuidance markdown[0..1]
+    MeasureReport.group.population.linkId string[0..1]
+    MeasureReport.group.population.title string[0..1]
+    MeasureReport.group.population.description markdown[0..1]
+    MeasureReport.group.population.countQuantity Quantity[0..1]
+    MeasureReport.group.population.subjectReport Reference[0..*] (MeasureReport)
+    MeasureReport.group.population.subjects Reference[0..1] (Group)
+    MeasureReport.group.stratifier.linkId string[0..1]
+    MeasureReport.group.stratifier.title string[0..1]
+    MeasureReport.group.stratifier.description markdown[0..1]
+    MeasureReport.group.stratifier.stratum.component.linkId string[0..1]
+    MeasureReport.group.stratifier.stratum.component.description markdown[0..1]
+    MeasureReport.group.stratifier.stratum.population.linkId string[0..1]
+    MeasureReport.group.stratifier.stratum.population.countQuantity Quantity[0..1]
+    MeasureReport.group.stratifier.stratum.population.subjectReport Reference[0..*] (MeasureReport)
+    MeasureReport.group.stratifier.stratum.population.subjects Reference[0..1] (Group)
+    MeasureReport.supplementalData Reference[0..*] (Resource)
+*/
+group MeasureReport(source src : MeasureReportR4, target tgt : MeasureReportR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.measure -> tgt.measure;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.reporter -> tgt.reporter; // Warning: Source TargetProfile unsupported: Location  (Practitioner,PractitionerRole,Location,Organization -> Practitioner,PractitionerRole,Organization)
+  src.period -> tgt.period;
+  src.group as s -> tgt.group as t then MeasureReportGroup(s, t);
+  src.evaluatedResource -> tgt.evaluatedResource;
+}
+
+
+group MeasureReportGroup(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.population as s -> tgt.population as t then MeasureReportGroupPopulation(s, t);
+  src.measureScore -> tgt.measureScore;
+  src.stratifier as s -> tgt.stratifier as t then MeasureReportGroupStratifier(s, t);
+}
+
+
+group MeasureReportGroupPopulation(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.count -> tgt.count;
+  src.subjectResults -> tgt.subjectResults;
+}
+
+
+group MeasureReportGroupStratifier(source src, target tgt) extends BackboneElement {
+  src.code /* [0..*] */ -> tgt.code /* [0..1] */; // Warning: source repeating, target single-valued
+  src.stratum as s -> tgt.stratum as t then MeasureReportGroupStratifierStratum(s, t);
+}
+
+
+group MeasureReportGroupStratifierStratum(source src, target tgt) extends BackboneElement {
+  src.value -> tgt.value;
+  src.component as s -> tgt.component as t then MeasureReportGroupStratifierStratumComponent(s, t);
+  src.population as s -> tgt.population as t then MeasureReportGroupStratifierStratumPopulation(s, t);
+  src.measureScore -> tgt.measureScore;
+}
+
+
+group MeasureReportGroupStratifierStratumComponent(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.value -> tgt.value;
+}
+
+
+group MeasureReportGroupStratifierStratumPopulation(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.count -> tgt.count;
+  src.subjectResults -> tgt.subjectResults;
+}

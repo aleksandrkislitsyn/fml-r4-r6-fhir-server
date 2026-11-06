@@ -1,0 +1,90 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/AuditEvent4to6'
+/// name = 'AuditEvent4to6'
+/// title = 'AuditEvent Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/AuditEvent" alias AuditEventR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/AuditEvent" alias AuditEventR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    AuditEvent.outcomeDesc string[0..1]
+    AuditEvent.purposeOfEvent CodeableConcept[0..*]
+    AuditEvent.agent.altId string[0..1]
+    AuditEvent.agent.name string[0..1]
+    AuditEvent.agent.media Coding[0..1]
+    AuditEvent.agent.network.address string[0..1]
+    AuditEvent.agent.purposeOfUse CodeableConcept[0..*]
+    AuditEvent.entity.type Coding[0..1]
+    AuditEvent.entity.lifecycle Coding[0..1]
+    AuditEvent.entity.name string[0..1]
+*/
+/* The following target properties were not populated:
+    AuditEvent.severity code[0..1]
+    AuditEvent.outcome.code Coding[1..1]
+    AuditEvent.outcome.detail CodeableConcept[0..*]
+    AuditEvent.authorization CodeableConcept[0..*]
+    AuditEvent.basedOn Reference[0..*] (Resource)
+    AuditEvent.patient Reference[0..1] (Patient)
+    AuditEvent.encounter Reference[0..1] (Encounter)
+    AuditEvent.agent.authorization CodeableConcept[0..*]
+    AuditEvent.entity.agent [0..*]
+    AuditEvent.agent.network[x].reference string[0..1]
+    AuditEvent.agent.network[x].identifier Identifier[0..1]
+    AuditEvent.agent.network[x].display string[0..1]
+*/
+group AuditEvent(source src : AuditEventR4, target tgt : AuditEventR6) extends DomainResource <<type+>> {
+  src.type -> tgt.type;
+  src.subtype -> tgt.subtype;
+  src.action -> tgt.action;
+  src.period -> tgt.occurred; // renamed
+  src.recorded -> tgt.recorded;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-AuditEvent.outcome') -> tgt.outcome = (e.value) "xverOutcomeCode";
+// rule changed to code -> BackboneElement
+// src.outcome -> tgt.outcome; // Warning: Source Type unsupported: code  (code -> BackboneElement)
+  src.agent as s -> tgt.agent as t then AuditEventAgent(s, t);
+  src.source as s -> tgt.source as t then AuditEventSource(s, t);
+  src.entity as s -> tgt.entity as t then AuditEventEntity(s, t);
+}
+
+
+group AuditEventAgent(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.role -> tgt.role;
+  src.who /* [0..1] */ -> tgt.who /* [1..1] */; // Warning: source optional, target mandatory
+  src.requestor -> tgt.requestor;
+  src.location -> tgt.location;
+  src.policy -> tgt.policy;
+  src.network as s -> tgt.network as t then AuditEventAgentNetwork(s, t); // Warning: type changed (BackboneElement -> Reference,uri,string)
+}
+
+
+group AuditEventAgentNetwork(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-AuditEvent.agent.network[x].type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> uri
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> uri)
+}
+
+
+group AuditEventSource(source src, target tgt) extends BackboneElement {
+  src.site as s -> tgt.site as t, t.reference = s;
+  src.observer -> tgt.observer;
+  src.type -> tgt.type;
+}
+
+
+group AuditEventEntity(source src, target tgt) extends BackboneElement {
+  src.what -> tgt.what;
+  src.role -> tgt.role;
+  src.securityLabel -> tgt.securityLabel;
+  src.description -> tgt.description;
+  src.query -> tgt.query;
+  src.detail as s -> tgt.detail as t then AuditEventEntityDetail(s, t);
+}
+
+
+group AuditEventEntityDetail(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.value -> tgt.value;
+}

@@ -1,0 +1,110 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Evidence4to6'
+/// name = 'Evidence4to6'
+/// title = 'Evidence Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Evidence" alias EvidenceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Evidence" alias EvidenceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Evidence.shortTitle string[0..1]
+    Evidence.subtitle string[0..1]
+    Evidence.jurisdiction CodeableConcept[0..*]
+    Evidence.effectivePeriod Period[0..1]
+    Evidence.topic CodeableConcept[0..*]
+    Evidence.relatedArtifact RelatedArtifact[0..*]
+    Evidence.exposureBackground Reference[1..1] (EvidenceVariable)
+    Evidence.exposureVariant Reference[0..*] (EvidenceVariable)
+    Evidence.outcome Reference[0..*] (EvidenceVariable)
+*/
+/* The following target properties were not populated:
+    Evidence.versionAlgorithm[x] string,Coding[0..1]
+    Evidence.citeAs markdown[0..1]
+    Evidence.experimental boolean[0..1]
+    Evidence.recorder ContactDetail[0..*]
+    Evidence.purpose markdown[0..1]
+    Evidence.copyrightLabel string[0..1]
+    Evidence.relatesTo BackboneElement[0..*]
+    Evidence.relatesTo.type CodeableConcept[1..1]
+    Evidence.relatesTo.target[x] uri,Attachment,canonical,Reference,markdown[1..1] (Resource,Resource)
+    Evidence.assertion markdown[0..1]
+    Evidence.classification BackboneElement[0..*]
+    Evidence.classification.type CodeableConcept[0..1]
+    Evidence.classification.classifier CodeableReference[0..*] (Resource)
+    Evidence.variableDefinition BackboneElement[0..*]
+    Evidence.variableDefinition.description markdown[0..1]
+    Evidence.variableDefinition.note Annotation[0..*]
+    Evidence.variableDefinition.variableRole code[1..1]
+    Evidence.variableDefinition.roleSubtype CodeableConcept[0..1]
+    Evidence.variableDefinition.comparatorCategory string[0..1]
+    Evidence.variableDefinition.observed Reference[0..1] (Group,EvidenceVariable)
+    Evidence.variableDefinition.intended Reference[0..1] (Group,EvidenceVariable)
+    Evidence.variableDefinition.directnessMatch CodeableConcept[0..1]
+    Evidence.synthesisType CodeableConcept[0..*]
+    Evidence.studyDesign CodeableConcept[0..*]
+    Evidence.statistic BackboneElement[0..*]
+    Evidence.statistic.description markdown[0..1]
+    Evidence.statistic.note Annotation[0..*]
+    Evidence.statistic.statisticType CodeableConcept[0..1]
+    Evidence.statistic.category CodeableConcept[0..1]
+    Evidence.statistic.quantity Quantity[0..1]
+    Evidence.statistic.numberOfEvents unsignedInt[0..1]
+    Evidence.statistic.numberAffected unsignedInt[0..1]
+    Evidence.statistic.sampleSize BackboneElement[0..1]
+    Evidence.statistic.sampleSize.description markdown[0..1]
+    Evidence.statistic.sampleSize.note Annotation[0..*]
+    Evidence.statistic.sampleSize.numberOfStudies unsignedInt[0..1]
+    Evidence.statistic.sampleSize.numberOfParticipants unsignedInt[0..1]
+    Evidence.statistic.sampleSize.knownDataCount unsignedInt[0..1]
+    Evidence.statistic.sampleSize.numberAnalyzed unsignedInt[0..1]
+    Evidence.statistic.attributeEstimate BackboneElement[0..*]
+    Evidence.statistic.attributeEstimate.description markdown[0..1]
+    Evidence.statistic.attributeEstimate.note Annotation[0..*]
+    Evidence.statistic.attributeEstimate.type CodeableConcept[0..1]
+    Evidence.statistic.attributeEstimate.quantity Quantity[0..1]
+    Evidence.statistic.attributeEstimate.level decimal[0..1]
+    Evidence.statistic.attributeEstimate.range Range[0..1]
+    Evidence.statistic.attributeEstimate.attributeEstimate [0..*]
+    Evidence.statistic.modelCharacteristic BackboneElement[0..*]
+    Evidence.statistic.modelCharacteristic.code CodeableConcept[1..1]
+    Evidence.statistic.modelCharacteristic.value[x] Quantity,Range,CodeableConcept[0..1]
+    Evidence.statistic.modelCharacteristic.intended boolean[0..1]
+    Evidence.statistic.modelCharacteristic.applied boolean[0..1]
+    Evidence.statistic.modelCharacteristic.variable BackboneElement[0..*]
+    Evidence.statistic.modelCharacteristic.variable.variableDefinition Reference[1..1] (Group,EvidenceVariable)
+    Evidence.statistic.modelCharacteristic.variable.handling CodeableConcept[0..1]
+    Evidence.statistic.modelCharacteristic.variable.valueCategory CodeableConcept[0..*]
+    Evidence.statistic.modelCharacteristic.variable.valueQuantity Quantity[0..*]
+    Evidence.statistic.modelCharacteristic.variable.valueRange Range[0..*]
+    Evidence.statistic.modelCharacteristic.attribute [0..*]
+    Evidence.certainty BackboneElement[0..*]
+    Evidence.certainty.description markdown[0..1]
+    Evidence.certainty.note Annotation[0..*]
+    Evidence.certainty.type CodeableConcept[0..1]
+    Evidence.certainty.rating CodeableConcept[0..1]
+    Evidence.certainty.rater string[0..*]
+    Evidence.certainty.subcomponent [0..*]
+*/
+group Evidence(source src : EvidenceR4, target tgt : EvidenceR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.status -> tgt.status;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.note -> tgt.note;
+  src.useContext -> tgt.useContext;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+}

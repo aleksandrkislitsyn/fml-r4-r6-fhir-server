@@ -1,0 +1,86 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/HealthcareService4to6'
+/// name = 'HealthcareService4to6'
+/// title = 'HealthcareService Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/HealthcareService" alias HealthcareServiceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/HealthcareService" alias HealthcareServiceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    HealthcareService.availableTime.daysOfWeek code[0..*]
+    HealthcareService.availableTime.allDay boolean[0..1]
+    HealthcareService.availableTime.availableStartTime time[0..1]
+    HealthcareService.availableTime.availableEndTime time[0..1]
+    HealthcareService.notAvailable.description string[1..1]
+    HealthcareService.notAvailable.during Period[0..1]
+*/
+/* The following target properties were not populated:
+    HealthcareService.offeredIn Reference[0..*] (HealthcareService)
+    HealthcareService.eligibility.value[x] CodeableConcept,boolean,Quantity,Range,Reference[0..1]
+    HealthcareService.eligibility.period Period[0..1]
+    HealthcareService.referralRequired boolean[0..1]
+    HealthcareService.availability.period Period[0..1]
+    HealthcareService.availability.availableTime Element[0..*]
+    HealthcareService.availability.availableTime.daysOfWeek code[0..*]
+    HealthcareService.availability.availableTime.allDay boolean[0..1]
+    HealthcareService.availability.availableTime.availableStartTime time[0..1]
+    HealthcareService.availability.availableTime.availableEndTime time[0..1]
+    HealthcareService.availability.notAvailableTime Element[0..*]
+    HealthcareService.availability.notAvailableTime.description string[0..1]
+    HealthcareService.availability.notAvailableTime.during Period[0..1]
+    HealthcareService.availability.period Period[0..1]
+    HealthcareService.availability.availableTime Element[0..*]
+    HealthcareService.availability.availableTime.daysOfWeek code[0..*]
+    HealthcareService.availability.availableTime.allDay boolean[0..1]
+    HealthcareService.availability.availableTime.availableStartTime time[0..1]
+    HealthcareService.availability.availableTime.availableEndTime time[0..1]
+    HealthcareService.availability.notAvailableTime Element[0..*]
+    HealthcareService.availability.notAvailableTime.description string[0..1]
+    HealthcareService.availability.notAvailableTime.during Period[0..1]
+*/
+group HealthcareService(source src : HealthcareServiceR4, target tgt : HealthcareServiceR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.providedBy -> tgt.providedBy;
+  src.category -> tgt.category;
+  src.type -> tgt.type;
+  src.specialty -> tgt.specialty;
+  src.location -> tgt.location;
+  src.name -> tgt.name;
+  src.comment -> tgt.comment;
+  src.extraDetails -> tgt.extraDetails;
+  src.photo -> tgt.photo;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-HealthcareService.contact') -> tgt.contact = (e.value) "xverTelecomContactPoint";
+// rule changed to ContactPoint -> ExtendedContactDetail
+// src.telecom -> tgt.contact; // renamed // Warning: Source Type unsupported: ContactPoint  (ContactPoint -> ExtendedContactDetail)
+  src.coverageArea -> tgt.coverageArea;
+  src.serviceProvisionCode -> tgt.serviceProvisionCode;
+  src.eligibility as s -> tgt.eligibility as t then HealthcareServiceEligibility(s, t);
+  src.program -> tgt.program;
+  src.characteristic -> tgt.characteristic;
+  src.communication -> tgt.communication;
+  src.referralMethod -> tgt.referralMethod;
+  src.appointmentRequired -> tgt.appointmentRequired;
+  src.availableTime as s /* [0..*] */ -> tgt.availability as t /* [0..1] */ then HealthcareServiceAvailableTime(s, t); // renamed // Warning: type changed (BackboneElement -> Availability) // Warning: source repeating, target single-valued
+  src.notAvailable as s /* [0..*] */ -> tgt.availability as t /* [0..1] */ then HealthcareServiceNotAvailable(s, t); // renamed // Warning: type changed (BackboneElement -> Availability) // Warning: source repeating, target single-valued
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-HealthcareService.availability') -> tgt.availability = (e.value) "xverAvailabilityExceptionsString";
+// rule changed to string -> Availability
+// src.availabilityExceptions -> tgt.availability; // renamed // Warning: Source Type unsupported: string  (string -> Availability)
+  src.endpoint -> tgt.endpoint;
+}
+
+
+group HealthcareServiceEligibility(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.comment -> tgt.comment;
+}
+
+
+group HealthcareServiceAvailableTime(source src, target tgt) extends BackboneElement {
+}
+
+
+group HealthcareServiceNotAvailable(source src, target tgt) extends BackboneElement {
+}

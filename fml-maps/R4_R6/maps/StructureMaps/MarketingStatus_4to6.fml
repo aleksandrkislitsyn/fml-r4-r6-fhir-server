@@ -1,0 +1,18 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MarketingStatus4to6'
+/// name = 'MarketingStatus4to6'
+/// title = 'MarketingStatus Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MarketingStatus" alias MarketingStatusR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MarketingStatus" alias MarketingStatusR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group MarketingStatus(source src : MarketingStatusR4, target tgt : MarketingStatusR6) extends BackboneElement <<type+>> {
+  src.country -> tgt.country;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.status -> tgt.status;
+  src.dateRange -> tgt.dateRange;
+  src.restoreDate -> tgt.restoreDate;
+}

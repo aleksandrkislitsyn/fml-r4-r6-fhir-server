@@ -1,0 +1,13 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/positiveInt4to6'
+/// name = 'positiveInt4to6'
+/// title = 'positiveInt Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/positiveInt" alias positiveIntR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/positiveInt" alias positiveIntR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group PositiveInt(source src : positiveIntR4, target tgt : positiveIntR6) extends Integer <<type+>> {
+}

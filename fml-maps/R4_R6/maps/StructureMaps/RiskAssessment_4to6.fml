@@ -1,0 +1,40 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/RiskAssessment4to6'
+/// name = 'RiskAssessment4to6'
+/// title = 'RiskAssessment Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/RiskAssessment" alias RiskAssessmentR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/RiskAssessment" alias RiskAssessmentR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group RiskAssessment(source src : RiskAssessmentR4, target tgt : RiskAssessmentR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.parent -> tgt.parent;
+  src.status -> tgt.status;
+  src.method -> tgt.method;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.occurrence -> tgt.occurrence;
+  src.condition -> tgt.condition;
+  src.performer -> tgt.performer;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.basis -> tgt.basis;
+  src.prediction as s -> tgt.prediction as t then RiskAssessmentPrediction(s, t);
+  src.mitigation -> tgt.mitigation;
+  src.note -> tgt.note;
+}
+
+
+group RiskAssessmentPrediction(source src, target tgt) extends BackboneElement {
+  src.outcome -> tgt.outcome;
+  src.probability -> tgt.probability;
+  src.qualitativeRisk -> tgt.qualitativeRisk;
+  src.relativeRisk -> tgt.relativeRisk;
+  src.when -> tgt.when;
+  src.rationale -> tgt.rationale;
+}

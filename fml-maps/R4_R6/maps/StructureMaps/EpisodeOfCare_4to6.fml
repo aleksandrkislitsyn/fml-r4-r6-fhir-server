@@ -1,0 +1,45 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/EpisodeOfCare4to6'
+/// name = 'EpisodeOfCare4to6'
+/// title = 'EpisodeOfCare Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/EpisodeOfCare" alias EpisodeOfCareR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/EpisodeOfCare" alias EpisodeOfCareR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    EpisodeOfCare.diagnosis.rank positiveInt[0..1]
+    EpisodeOfCare.patient Reference[1..1] (Patient)
+*/
+/* The following target properties were not populated:
+    EpisodeOfCare.reason BackboneElement[0..*]
+    EpisodeOfCare.reason.use CodeableConcept[0..*]
+    EpisodeOfCare.reason.value CodeableReference[0..*] (Condition,DiagnosticReport,Procedure,Observation,HealthcareService)
+    EpisodeOfCare.subject Reference[1..1] (Patient,Group)
+*/
+group EpisodeOfCare(source src : EpisodeOfCareR4, target tgt : EpisodeOfCareR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.statusHistory as s -> tgt.statusHistory as t then EpisodeOfCareStatusHistory(s, t);
+  src.type -> tgt.type;
+  src.diagnosis as s -> tgt.diagnosis as t then EpisodeOfCareDiagnosis(s, t);
+  src.managingOrganization -> tgt.managingOrganization;
+  src.period -> tgt.period;
+  src.referralRequest -> tgt.referralRequest;
+  src.careManager -> tgt.careManager;
+  src.team -> tgt.careTeam; // renamed
+  src.account -> tgt.account;
+}
+
+
+group EpisodeOfCareStatusHistory(source src, target tgt) extends BackboneElement {
+  src.status -> tgt.status;
+  src.period -> tgt.period;
+}
+
+
+group EpisodeOfCareDiagnosis(source src, target tgt) extends BackboneElement {
+  src.condition -> tgt.condition;
+  src.role -> tgt.use; // renamed
+}

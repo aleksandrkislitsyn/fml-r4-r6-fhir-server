@@ -1,0 +1,13 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Count4to6'
+/// name = 'Count4to6'
+/// title = 'Count Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Count" alias CountR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Count" alias CountR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Count(source src : CountR4, target tgt : CountR6) extends Quantity <<type+>> {
+}

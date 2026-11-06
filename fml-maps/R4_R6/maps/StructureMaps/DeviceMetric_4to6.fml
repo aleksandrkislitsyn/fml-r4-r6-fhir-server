@@ -1,0 +1,44 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DeviceMetric4to6'
+/// name = 'DeviceMetric4to6'
+/// title = 'DeviceMetric Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DeviceMetric" alias DeviceMetricR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DeviceMetric" alias DeviceMetricR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    DeviceMetric.source Reference[0..1] (Device)
+    DeviceMetric.measurementPeriod Timing[0..1]
+*/
+/* The following target properties were not populated:
+    DeviceMetric.status code[1..1]
+    DeviceMetric.measurementFrequency Quantity[0..1]
+    DeviceMetric.availability CodeableConcept[0..1]
+*/
+group DeviceMetric(source src : DeviceMetricR4, target tgt : DeviceMetricR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.type -> tgt.type;
+  src.unit -> tgt.unit;
+  src.parent /* [0..1] */ -> tgt.device /* [1..1] */; // renamed // Warning: source optional, target mandatory
+  src.operationalStatus -> tgt.operationalStatus;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceMetric.color') -> tgt.color = (e.value) "xverColorCode";
+// rule changed to code -> CodeableConcept
+// src.color -> tgt.color; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceMetric.category') -> tgt.category = (e.value) "xverCategoryCode";
+// rule changed to code -> CodeableConcept
+// src.category -> tgt.category; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.calibration as s -> tgt.calibration as t then DeviceMetricCalibration(s, t);
+}
+
+
+group DeviceMetricCalibration(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceMetric.calibration.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceMetric.calibration.state') -> tgt.state = (e.value) "xverStateCode";
+// rule changed to code -> CodeableConcept
+// src.state -> tgt.state; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.time -> tgt.time;
+}

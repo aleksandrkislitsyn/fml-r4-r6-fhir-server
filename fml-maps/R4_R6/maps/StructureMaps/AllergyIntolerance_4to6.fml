@@ -1,0 +1,44 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/AllergyIntolerance4to6'
+/// name = 'AllergyIntolerance4to6'
+/// title = 'AllergyIntolerance Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/AllergyIntolerance" alias AllergyIntoleranceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/AllergyIntolerance" alias AllergyIntoleranceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group AllergyIntolerance(source src : AllergyIntoleranceR4, target tgt : AllergyIntoleranceR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.clinicalStatus -> tgt.clinicalStatus;
+  src.verificationStatus -> tgt.verificationStatus;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-AllergyIntolerance.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-AllergyIntolerance.category') -> tgt.category = (e.value) "xverCategoryCode";
+// rule changed to code -> CodeableConcept
+// src.category -> tgt.category; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.criticality -> tgt.criticality;
+  src.code -> tgt.code;
+  src.patient -> tgt.patient;
+  src.encounter -> tgt.encounter;
+  src.onset -> tgt.onset;
+  src.recordedDate -> tgt.recordedDate;
+  src.recorder -> tgt.recorder;
+  src.asserter -> tgt.asserter;
+  src.lastOccurrence -> tgt.lastOccurrence;
+  src.note -> tgt.note;
+  src.reaction as s -> tgt.reaction as t then AllergyIntoleranceReaction(s, t);
+}
+
+
+group AllergyIntoleranceReaction(source src, target tgt) extends BackboneElement {
+  src.substance -> tgt.substance;
+  src.manifestation -> tgt.manifestation;
+  src.description -> tgt.description;
+  src.onset -> tgt.onset;
+  src.severity -> tgt.severity;
+  src.exposureRoute -> tgt.exposureRoute;
+  src.note -> tgt.note;
+}

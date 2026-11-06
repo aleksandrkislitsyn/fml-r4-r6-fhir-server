@@ -1,0 +1,195 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/PlanDefinition4to6'
+/// name = 'PlanDefinition4to6'
+/// title = 'PlanDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/PlanDefinition" alias PlanDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/PlanDefinition" alias PlanDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    PlanDefinition.action.input.type code[1..1]
+    PlanDefinition.action.input.profile canonical[0..*] (StructureDefinition)
+    PlanDefinition.action.input.subject[x] CodeableConcept,Reference[0..1] (Group)
+    PlanDefinition.action.input.mustSupport string[0..*]
+    PlanDefinition.action.input.codeFilter Element[0..*]
+    PlanDefinition.action.input.codeFilter.path string[0..1]
+    PlanDefinition.action.input.codeFilter.searchParam string[0..1]
+    PlanDefinition.action.input.codeFilter.valueSet canonical[0..1] (ValueSet)
+    PlanDefinition.action.input.codeFilter.code Coding[0..*]
+    PlanDefinition.action.input.dateFilter Element[0..*]
+    PlanDefinition.action.input.dateFilter.path string[0..1]
+    PlanDefinition.action.input.dateFilter.searchParam string[0..1]
+    PlanDefinition.action.input.dateFilter.value[x] dateTime,Period,Duration[0..1]
+    PlanDefinition.action.input.limit positiveInt[0..1]
+    PlanDefinition.action.input.sort Element[0..*]
+    PlanDefinition.action.input.sort.path string[1..1]
+    PlanDefinition.action.input.sort.direction code[1..1]
+    PlanDefinition.action.output.type code[1..1]
+    PlanDefinition.action.output.profile canonical[0..*] (StructureDefinition)
+    PlanDefinition.action.output.subject[x] CodeableConcept,Reference[0..1] (Group)
+    PlanDefinition.action.output.mustSupport string[0..*]
+    PlanDefinition.action.output.codeFilter Element[0..*]
+    PlanDefinition.action.output.codeFilter.path string[0..1]
+    PlanDefinition.action.output.codeFilter.searchParam string[0..1]
+    PlanDefinition.action.output.codeFilter.valueSet canonical[0..1] (ValueSet)
+    PlanDefinition.action.output.codeFilter.code Coding[0..*]
+    PlanDefinition.action.output.dateFilter Element[0..*]
+    PlanDefinition.action.output.dateFilter.path string[0..1]
+    PlanDefinition.action.output.dateFilter.searchParam string[0..1]
+    PlanDefinition.action.output.dateFilter.value[x] dateTime,Period,Duration[0..1]
+    PlanDefinition.action.output.limit positiveInt[0..1]
+    PlanDefinition.action.output.sort Element[0..*]
+    PlanDefinition.action.output.sort.path string[1..1]
+    PlanDefinition.action.output.sort.direction code[1..1]
+*/
+/* The following target properties were not populated:
+    PlanDefinition.versionAlgorithm[x] string,Coding[0..1]
+    PlanDefinition.copyrightLabel string[0..1]
+    PlanDefinition.actor BackboneElement[0..*]
+    PlanDefinition.actor.title string[0..1]
+    PlanDefinition.actor.description markdown[0..1]
+    PlanDefinition.actor.option BackboneElement[1..*]
+    PlanDefinition.actor.option.type code[0..1]
+    PlanDefinition.actor.option.typeCanonical canonical[0..1] (ActorDefinition,CapabilityStatement,DeviceDefinition,Group,SpecimenDefinition,StructureDefinition)
+    PlanDefinition.actor.option.typeReference Reference[0..1] (BiologicallyDerivedProduct,CareTeam,Device,Endpoint,HealthcareService,Location,Medication,MedicinalProductDefinition,Organization,Patient,Practitioner,PractitionerRole,RelatedPerson,Specimen,Substance,SubstanceDefinition)
+    PlanDefinition.actor.option.role CodeableConcept[0..1]
+    PlanDefinition.action.linkId string[0..1]
+    PlanDefinition.action.input.title string[0..1]
+    PlanDefinition.action.input.requirement DataRequirement[0..1]
+    PlanDefinition.action.input.relatedData string[0..1]
+    PlanDefinition.action.output.title string[0..1]
+    PlanDefinition.action.output.requirement DataRequirement[0..1]
+    PlanDefinition.action.output.relatedData string[0..1]
+    PlanDefinition.action.relatedAction.endRelationship code[0..1]
+    PlanDefinition.action.location CodeableReference[0..1] (Location)
+    PlanDefinition.action.participant.actorId string[0..1]
+    PlanDefinition.action.participant.typeCanonical canonical[0..1] (ActorDefinition,CapabilityStatement,DeviceDefinition,Group,SpecimenDefinition,StructureDefinition)
+    PlanDefinition.action.participant.typeReference Reference[0..1] (BiologicallyDerivedProduct,CareTeam,Device,Endpoint,HealthcareService,Location,Medication,MedicinalProductDefinition,Organization,Patient,Practitioner,PractitionerRole,RelatedPerson,Specimen,Substance,SubstanceDefinition)
+    PlanDefinition.action.participant.function CodeableConcept[0..1]
+    PlanDefinition.action.applicabilityBehavior code[0..1]
+    PlanDefinition.asNeeded[x] boolean,CodeableConcept[0..1]
+*/
+group PlanDefinition(source src : PlanDefinitionR4, target tgt : PlanDefinitionR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.subtitle -> tgt.subtitle;
+  src.type -> tgt.type;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.usage -> tgt.usage;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.topic -> tgt.topic;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+  src.relatedArtifact -> tgt.relatedArtifact;
+  src.library -> tgt.library;
+  src.goal as s -> tgt.goal as t then PlanDefinitionGoal(s, t);
+  src.action as s -> tgt.action as t then PlanDefinitionAction(s, t);
+}
+
+
+group PlanDefinitionGoal(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.description -> tgt.description;
+  src.priority -> tgt.priority;
+  src.start -> tgt.start;
+  src.addresses -> tgt.addresses;
+  src.documentation -> tgt.documentation;
+  src.target as s -> tgt.target as t then PlanDefinitionGoalTarget(s, t);
+}
+
+
+group PlanDefinitionGoalTarget(source src, target tgt) extends BackboneElement {
+  src.measure -> tgt.measure;
+  src.detail -> tgt.detail;
+  src.due -> tgt.due;
+}
+
+
+group PlanDefinitionAction(source src, target tgt) extends BackboneElement {
+  src.prefix -> tgt.prefix;
+  src.title -> tgt.title;
+  src.description -> tgt.description;
+  src.textEquivalent -> tgt.textEquivalent;
+  src.priority -> tgt.priority;
+  src.code /* [0..*] */ -> tgt.code /* [0..1] */; // Warning: source repeating, target single-valued
+  src.reason -> tgt.reason;
+  src.documentation -> tgt.documentation;
+  src.goalId -> tgt.goalId;
+  src.subject -> tgt.subject;
+  src.trigger -> tgt.trigger;
+  src.condition as s -> tgt.condition as t then PlanDefinitionActionCondition(s, t);
+  src.input as s -> tgt.input as t then PlanDefinitionActionInput(s, t); // Warning: type changed (DataRequirement -> BackboneElement)
+  src.output as s -> tgt.output as t then PlanDefinitionActionOutput(s, t); // Warning: type changed (DataRequirement -> BackboneElement)
+  src.relatedAction as s -> tgt.relatedAction as t then PlanDefinitionActionRelatedAction(s, t);
+  src.timing : Age -> tgt.timing;
+  src.timing : Duration -> tgt.timing;
+  src.timing : Range -> tgt.timing;
+  src.timing : Timing -> tgt.timing;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-PlanDefinition.action.timing[x]') -> tgt.timing = (e.value) "xverTimingDateTime";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-PlanDefinition.action.timing[x]') -> tgt.timing = (e.value) "xverTimingPeriod";
+// rule changed to dateTime,Age,Period,Duration,Range,Timing -> Age,Duration,Range,Timing,RelativeTime
+// src.timing -> tgt.timing; // Warning: Source Type unsupported: dateTime,Period  (dateTime,Age,Period,Duration,Range,Timing -> Age,Duration,Range,Timing,RelativeTime)
+  src.participant as s -> tgt.participant as t then PlanDefinitionActionParticipant(s, t);
+  src.type -> tgt.type;
+  src.groupingBehavior -> tgt.groupingBehavior;
+  src.selectionBehavior -> tgt.selectionBehavior;
+  src.requiredBehavior -> tgt.requiredBehavior;
+  src.precheckBehavior -> tgt.precheckBehavior;
+  src.cardinalityBehavior -> tgt.cardinalityBehavior;
+  src.definition -> tgt.definition;
+  src.transform -> tgt.transform;
+  src.dynamicValue as s -> tgt.dynamicValue as t then PlanDefinitionActionDynamicValue(s, t);
+  src.action as s -> tgt.action as t then PlanDefinitionAction(s, t);
+}
+
+
+group PlanDefinitionActionCondition(source src, target tgt) extends BackboneElement {
+  src.kind -> tgt.kind;
+  src.expression -> tgt.expression;
+}
+
+
+group PlanDefinitionActionInput(source src, target tgt) extends BackboneElement {
+}
+
+
+group PlanDefinitionActionOutput(source src, target tgt) extends BackboneElement {
+}
+
+
+group PlanDefinitionActionRelatedAction(source src, target tgt) extends BackboneElement {
+  src.actionId -> tgt.targetId; // renamed
+  src.relationship -> tgt.relationship;
+  src.offset -> tgt.offset;
+}
+
+
+group PlanDefinitionActionParticipant(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.role -> tgt.role;
+}
+
+
+group PlanDefinitionActionDynamicValue(source src, target tgt) extends BackboneElement {
+  src.path -> tgt.path;
+  src.expression -> tgt.expression;
+}

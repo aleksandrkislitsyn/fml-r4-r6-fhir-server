@@ -1,0 +1,42 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Communication4to6'
+/// name = 'Communication4to6'
+/// title = 'Communication Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Communication" alias CommunicationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Communication" alias CommunicationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Communication.instantiatesCanonical canonical[0..*] (PlanDefinition,ActivityDefinition,Measure,OperationDefinition,Questionnaire)
+    Communication.instantiatesUri uri[0..*]
+*/
+group Communication(source src : CommunicationR4, target tgt : CommunicationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: Resource  (Resource -> CarePlan,CommunicationRequest,DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest,Task,VisionPrescription)
+  src.partOf -> tgt.partOf;
+  src.inResponseTo -> tgt.inResponseTo;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.category -> tgt.category;
+  src.priority -> tgt.priority;
+  src.medium -> tgt.medium;
+  src.subject -> tgt.subject;
+  src.topic -> tgt.topic;
+  src.about -> tgt.about;
+  src.encounter -> tgt.encounter;
+  src.sent -> tgt.sent;
+  src.received -> tgt.received;
+  src.recipient -> tgt.recipient;
+  src.sender -> tgt.sender;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed // Warning: Source TargetProfile unsupported: Condition,Observation,DiagnosticReport,DocumentReference  (Condition,Observation,DiagnosticReport,DocumentReference -> Resource)
+  src.payload as s -> tgt.payload as t then CommunicationPayload(s, t);
+  src.note -> tgt.note;
+}
+
+
+group CommunicationPayload(source src, target tgt) extends BackboneElement {
+  src.content -> tgt.content;
+}

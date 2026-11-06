@@ -1,0 +1,28 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/OrganizationAffiliation4to6'
+/// name = 'OrganizationAffiliation4to6'
+/// title = 'OrganizationAffiliation Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/OrganizationAffiliation" alias OrganizationAffiliationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/OrganizationAffiliation" alias OrganizationAffiliationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    OrganizationAffiliation.network Reference[0..*] (Organization)
+*/
+group OrganizationAffiliation(source src : OrganizationAffiliationR4, target tgt : OrganizationAffiliationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.period -> tgt.period;
+  src.organization -> tgt.organization;
+  src.participatingOrganization -> tgt.participatingOrganization;
+  src.code -> tgt.code;
+  src.specialty -> tgt.specialty;
+  src.location -> tgt.location;
+  src.healthcareService -> tgt.healthcareService;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-OrganizationAffiliation.contact') -> tgt.contact = (e.value) "xverTelecomContactPoint";
+// rule changed to ContactPoint -> ExtendedContactDetail
+// src.telecom -> tgt.contact; // renamed // Warning: Source Type unsupported: ContactPoint  (ContactPoint -> ExtendedContactDetail)
+  src.endpoint -> tgt.endpoint;
+}

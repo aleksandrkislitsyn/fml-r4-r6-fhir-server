@@ -1,0 +1,62 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MedicationDispense4to6'
+/// name = 'MedicationDispense4to6'
+/// title = 'MedicationDispense Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MedicationDispense" alias MedicationDispenseR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MedicationDispense" alias MedicationDispenseR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MedicationDispense.statusReason[x] CodeableConcept,Reference[0..1] (DetectedIssue)
+    MedicationDispense.detectedIssue Reference[0..*] (DetectedIssue)
+*/
+/* The following target properties were not populated:
+    MedicationDispense.basedOn Reference[0..*] (CarePlan)
+    MedicationDispense.notPerformedReason CodeableReference[0..1] (DetectedIssue)
+    MedicationDispense.statusChanged dateTime[0..1]
+    MedicationDispense.fillNumber positiveInt[0..1]
+    MedicationDispense.recorded dateTime[0..1]
+    MedicationDispense.doseAdministrationAid CodeableConcept[0..1]
+*/
+group MedicationDispense(source src : MedicationDispenseR4, target tgt : MedicationDispenseR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.medication -> tgt.medication;
+  src.subject /* [0..1] */ -> tgt.subject /* [1..1] */; // Warning: source optional, target mandatory
+  src.context -> tgt.encounter; // renamed // Warning: Source TargetProfile unsupported: EpisodeOfCare  (Encounter,EpisodeOfCare -> Encounter)
+  src.supportingInformation -> tgt.supportingInformation;
+  src.performer as s -> tgt.performer as t then MedicationDispensePerformer(s, t);
+  src.location -> tgt.location;
+  src.authorizingPrescription -> tgt.authorizingPrescription;
+  src.type -> tgt.type;
+  src.quantity -> tgt.quantity;
+  src.daysSupply -> tgt.daysSupply;
+  src.whenPrepared -> tgt.whenPrepared;
+  src.whenHandedOver -> tgt.whenHandedOver;
+  src.destination -> tgt.destination;
+  src.receiver -> tgt.receiver;
+  src.note -> tgt.note;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-MedicationDispense.dosageInstruction') -> tgt.dosageInstruction = (e.value) "xverDosageInstructionDosage";
+// rule changed to Dosage -> DosageDetails
+// src.dosageInstruction /* [0..*] */ -> tgt.dosageInstruction /* [0..1] */; // Warning: source repeating, target single-valued    Source Type unsupported: Dosage  (Dosage -> DosageDetails)
+  src.substitution as s -> tgt.substitution as t then MedicationDispenseSubstitution(s, t);
+  src.eventHistory -> tgt.eventHistory;
+}
+
+
+group MedicationDispensePerformer(source src, target tgt) extends BackboneElement {
+  src.function -> tgt.function;
+  src.actor -> tgt.actor;
+}
+
+
+group MedicationDispenseSubstitution(source src, target tgt) extends BackboneElement {
+  src.wasSubstituted -> tgt.wasSubstituted;
+  src.type -> tgt.type;
+  src.reason -> tgt.reason;
+  src.responsibleParty /* [0..*] */ -> tgt.responsibleParty /* [0..1] */; // Warning: source repeating, target single-valued
+}

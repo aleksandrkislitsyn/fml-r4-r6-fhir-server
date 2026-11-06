@@ -1,0 +1,73 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ImagingStudy4to6'
+/// name = 'ImagingStudy4to6'
+/// title = 'ImagingStudy Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ImagingStudy" alias ImagingStudyR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ImagingStudy" alias ImagingStudyR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ImagingStudy.interpreter Reference[0..*] (Practitioner,PractitionerRole)
+    ImagingStudy.series.laterality Coding[0..1]
+*/
+/* The following target properties were not populated:
+    ImagingStudy.series.instance.numberOfFrames unsignedInt[0..1]
+*/
+group ImagingStudy(source src : ImagingStudyR4, target tgt : ImagingStudyR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.modality -> tgt.modality;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.started -> tgt.started;
+  src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: AppointmentResponse  (CarePlan,ServiceRequest,Appointment,AppointmentResponse,Task -> CarePlan,ServiceRequest,Appointment,Task)
+  src.referrer -> tgt.referrer;
+  src.endpoint -> tgt.endpoint;
+  src.numberOfSeries -> tgt.numberOfSeries;
+  src.numberOfInstances -> tgt.numberOfInstances;
+  src.procedureReference -> tgt.procedure; // renamed
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ImagingStudy.procedure') -> tgt.procedure = (e.value) "xverProcedureCodeCodeableConcept";
+// rule changed to CodeableConcept -> Reference
+// src.procedureCode -> tgt.procedure; // renamed // Warning: Source Type unsupported: CodeableConcept  (CodeableConcept -> Reference)
+  src.location -> tgt.location;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed // Warning: Source TargetProfile unsupported: Media  (Condition,Observation,Media,DiagnosticReport,DocumentReference -> Condition,Observation,DiagnosticReport,DocumentReference)
+  src.note -> tgt.note;
+  src.description -> tgt.description;
+  src.series as s -> tgt.series as t then ImagingStudySeries(s, t);
+}
+
+
+group ImagingStudySeries(source src, target tgt) extends BackboneElement {
+  src.uid -> tgt.uid;
+  src.number -> tgt.number;
+  src.modality -> tgt.modality;
+  src.description -> tgt.description;
+  src.numberOfInstances -> tgt.numberOfInstances;
+  src.endpoint -> tgt.endpoint;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ImagingStudy.series.bodySite') -> tgt.bodySite = (e.value) "xverBodySiteCoding";
+// rule changed to Coding -> CodeableReference
+// src.bodySite -> tgt.bodySite; // Warning: Source Type unsupported: Coding  (Coding -> CodeableReference)
+  src.specimen -> tgt.specimen;
+  src.started -> tgt.started;
+  src.performer as s -> tgt.performer as t then ImagingStudySeriesPerformer(s, t);
+  src.instance as s -> tgt.instance as t then ImagingStudySeriesInstance(s, t);
+}
+
+
+group ImagingStudySeriesPerformer(source src, target tgt) extends BackboneElement {
+  src.function -> tgt.function;
+  src.actor -> tgt.actor;
+}
+
+
+group ImagingStudySeriesInstance(source src, target tgt) extends BackboneElement {
+  src.uid -> tgt.uid;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ImagingStudy.series.instance.sopClass') -> tgt.sopClass = (e.value) "xverSopClassCoding";
+// rule changed to Coding -> oid
+// src.sopClass -> tgt.sopClass; // Warning: Source Type unsupported: Coding  (Coding -> oid)
+  src.number -> tgt.number;
+  src.title -> tgt.title;
+}

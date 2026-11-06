@@ -1,0 +1,42 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Dosage4to6'
+/// name = 'Dosage4to6'
+/// title = 'Dosage Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Dosage" alias DosageR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Dosage" alias DosageR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Dosage.sequence integer[0..1]
+    Dosage.maxDosePerPeriod Ratio[0..1]
+    Dosage.maxDosePerAdministration Quantity[0..1]
+    Dosage.maxDosePerLifetime Quantity[0..1]
+*/
+/* The following target properties were not populated:
+    Dosage.condition DosageCondition[0..*]
+    Dosage.asNeededFor CodeableConcept[0..*]
+    Dosage.safety DosageSafety[0..1]
+*/
+group Dosage(source src : DosageR4, target tgt : DosageR6) extends BackboneElement <<type+>> {
+  src.text -> tgt.text;
+  src.additionalInstruction -> tgt.additionalInstruction;
+  src.patientInstruction -> tgt.patientInstruction;
+  src.timing -> tgt.timing;
+  src.asNeeded : boolean -> tgt.asNeeded;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Dosage.asNeeded') -> tgt.asNeeded = (e.value) "xverAsNeededCodeableConcept";
+// rule changed to boolean,CodeableConcept -> boolean
+// src.asNeeded -> tgt.asNeeded; // Warning: Source Type unsupported: CodeableConcept  (boolean,CodeableConcept -> boolean)
+  src.site -> tgt.site;
+  src.route -> tgt.route;
+  src.method -> tgt.method;
+  src.doseAndRate as s -> tgt.doseAndRate as t then DosageDoseAndRate(s, t);
+}
+
+
+group DosageDoseAndRate(source src, target tgt) extends Element {
+  src.type -> tgt.type;
+  src.dose -> tgt.dose;
+  src.rate -> tgt.rate;
+}

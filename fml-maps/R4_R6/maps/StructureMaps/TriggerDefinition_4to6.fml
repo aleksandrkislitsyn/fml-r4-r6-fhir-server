@@ -1,0 +1,26 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/TriggerDefinition4to6'
+/// name = 'TriggerDefinition4to6'
+/// title = 'TriggerDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/TriggerDefinition" alias TriggerDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/TriggerDefinition" alias TriggerDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    TriggerDefinition.code CodeableConcept[0..1]
+    TriggerDefinition.subscriptionTopic canonical[0..1] (SubscriptionTopic)
+*/
+group TriggerDefinition(source src : TriggerDefinitionR4, target tgt : TriggerDefinitionR6) extends Element <<type+>> {
+  src.type -> tgt.type;
+  src.name -> tgt.name;
+  src.timing : Timing -> tgt.timing;
+  src.timing : date -> tgt.timing;
+  src.timing : dateTime -> tgt.timing;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-TriggerDefinition.timing[x]') -> tgt.timing = (e.value) "xverTimingReference";
+// rule changed to Timing,Reference,date,dateTime -> Timing,date,dateTime
+// src.timing -> tgt.timing; // Warning: Source Type unsupported: Reference  (Timing,Reference,date,dateTime -> Timing,date,dateTime)
+  src.data -> tgt.data;
+  src.condition -> tgt.condition;
+}

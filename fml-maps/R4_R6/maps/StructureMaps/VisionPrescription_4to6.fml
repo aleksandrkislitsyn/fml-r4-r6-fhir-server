@@ -1,0 +1,51 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/VisionPrescription4to6'
+/// name = 'VisionPrescription4to6'
+/// title = 'VisionPrescription Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/VisionPrescription" alias VisionPrescriptionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/VisionPrescription" alias VisionPrescriptionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    VisionPrescription.basedOn Reference[0..*] (CarePlan,RequestOrchestration,NutritionOrder,ServiceRequest,VisionPrescription)
+    VisionPrescription.groupIdentifier Identifier[0..1]
+    VisionPrescription.intent code[1..1]
+    VisionPrescription.priority code[0..1]
+    VisionPrescription.effectiveEndDate dateTime[0..1]
+*/
+group VisionPrescription(source src : VisionPrescriptionR4, target tgt : VisionPrescriptionR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.created -> tgt.created;
+  src.patient -> tgt.patient;
+  src.encounter -> tgt.encounter;
+  src.dateWritten -> tgt.dateWritten;
+  src.prescriber -> tgt.prescriber;
+  src.lensSpecification as s -> tgt.lensSpecification as t then VisionPrescriptionLensSpecification(s, t);
+}
+
+
+group VisionPrescriptionLensSpecification(source src, target tgt) extends BackboneElement {
+  src.product -> tgt.product;
+  src.eye -> tgt.eye;
+  src.sphere -> tgt.sphere;
+  src.cylinder -> tgt.cylinder;
+  src.axis -> tgt.axis;
+  src.prism as s -> tgt.prism as t then VisionPrescriptionLensSpecificationPrism(s, t);
+  src.add -> tgt.add;
+  src.power -> tgt.power;
+  src.backCurve -> tgt.backCurve;
+  src.diameter -> tgt.diameter;
+  src.duration -> tgt.duration;
+  src.color -> tgt.color;
+  src.brand -> tgt.brand;
+  src.note -> tgt.note;
+}
+
+
+group VisionPrescriptionLensSpecificationPrism(source src, target tgt) extends BackboneElement {
+  src.amount -> tgt.amount;
+  src.base -> tgt.base;
+}

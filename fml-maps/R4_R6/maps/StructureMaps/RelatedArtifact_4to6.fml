@@ -1,0 +1,23 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/RelatedArtifact4to6'
+/// name = 'RelatedArtifact4to6'
+/// title = 'RelatedArtifact Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/RelatedArtifact" alias RelatedArtifactR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/RelatedArtifact" alias RelatedArtifactR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    RelatedArtifact.url url[0..1]
+    RelatedArtifact.resourceReference Reference[0..1] (Resource)
+*/
+group RelatedArtifact(source src : RelatedArtifactR4, target tgt : RelatedArtifactR6) extends Element <<type+>> {
+  src.type -> tgt.type;
+  src.label -> tgt.label;
+  src.display -> tgt.display;
+  src.citation -> tgt.citation;
+	src.url as u where (src.document.empty()) -> tgt.document as d, d.url = u "setUrl";
+  src.document -> tgt.document;
+  src.resource -> tgt.resource;
+}

@@ -1,0 +1,78 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Questionnaire4to6'
+/// name = 'Questionnaire4to6'
+/// title = 'Questionnaire Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Questionnaire" alias QuestionnaireR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Questionnaire" alias QuestionnaireR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Questionnaire.versionAlgorithm[x] string,Coding[0..1]
+    Questionnaire.copyrightLabel string[0..1]
+    Questionnaire.item.disabledDisplay code[0..1]
+    Questionnaire.item.answerConstraint code[0..1]
+*/
+group Questionnaire(source src : QuestionnaireR4, target tgt : QuestionnaireR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.derivedFrom -> tgt.derivedFrom;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.subjectType -> tgt.subjectType;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.code -> tgt.code;
+  src.item as s -> tgt.item as t then QuestionnaireItem(s, t);
+}
+
+
+group QuestionnaireItem(source src, target tgt) extends BackboneElement {
+  src.linkId -> tgt.linkId;
+  src.definition -> tgt.definition;
+  src.code -> tgt.code;
+  src.prefix -> tgt.prefix;
+  src.text -> tgt.text;
+  src.type -> tgt.type;
+  src.enableWhen as s -> tgt.enableWhen as t then QuestionnaireItemEnableWhen(s, t);
+  src.enableBehavior -> tgt.enableBehavior;
+  src.required -> tgt.required;
+  src.repeats -> tgt.repeats;
+  src.readOnly -> tgt.readOnly;
+  src.maxLength -> tgt.maxLength;
+  src.answerValueSet -> tgt.answerValueSet;
+  src.answerOption as s -> tgt.answerOption as t then QuestionnaireItemAnswerOption(s, t);
+  src.initial as s -> tgt.initial as t then QuestionnaireItemInitial(s, t);
+  src.item as s -> tgt.item as t then QuestionnaireItem(s, t);
+}
+
+
+group QuestionnaireItemEnableWhen(source src, target tgt) extends BackboneElement {
+  src.question -> tgt.question;
+  src.operator -> tgt.operator;
+  src.answer -> tgt.answer;
+}
+
+
+group QuestionnaireItemAnswerOption(source src, target tgt) extends BackboneElement {
+  src.value -> tgt.value;
+  src.initialSelected -> tgt.initialSelected;
+}
+
+
+group QuestionnaireItemInitial(source src, target tgt) extends BackboneElement {
+  src.value -> tgt.value;
+}

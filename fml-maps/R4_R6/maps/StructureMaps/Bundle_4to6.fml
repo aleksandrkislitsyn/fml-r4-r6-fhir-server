@@ -1,0 +1,67 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Bundle4to6'
+/// name = 'Bundle4to6'
+/// title = 'Bundle Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Bundle" alias BundleR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Bundle" alias BundleR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Bundle.signature Signature[0..1]
+*/
+/* The following target properties were not populated:
+    Bundle.issues Resource[0..1]
+*/
+group Bundle(source src : BundleR4, target tgt : BundleR6) extends Resource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.type -> tgt.type;
+  src.timestamp -> tgt.timestamp;
+  src.total -> tgt.total;
+  src.link as s -> tgt.link as t then BundleLink(s, t);
+  src.entry as s -> tgt.entry as t then BundleEntry(s, t);
+}
+
+
+group BundleLink(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Bundle.link.relation') -> tgt.relation = (e.value) "xverRelationString";
+// rule changed to string -> code
+// src.relation -> tgt.relation; // Warning: Source Type unsupported: string  (string -> code)
+  src.url -> tgt.url;
+}
+
+
+group BundleEntry(source src, target tgt) extends BackboneElement {
+  src.link as s -> tgt.link as t then BundleLink(s, t);
+  src.fullUrl -> tgt.fullUrl;
+  src.resource -> tgt.resource;
+  src.search as s -> tgt.search as t then BundleEntrySearch(s, t);
+  src.request as s -> tgt.request as t then BundleEntryRequest(s, t);
+  src.response as s -> tgt.response as t then BundleEntryResponse(s, t);
+}
+
+
+group BundleEntrySearch(source src, target tgt) extends BackboneElement {
+  src.mode -> tgt.mode;
+  src.score -> tgt.score;
+}
+
+
+group BundleEntryRequest(source src, target tgt) extends BackboneElement {
+  src.method -> tgt.method;
+  src.url -> tgt.url;
+  src.ifNoneMatch -> tgt.ifNoneMatch;
+  src.ifModifiedSince -> tgt.ifModifiedSince;
+  src.ifMatch -> tgt.ifMatch;
+  src.ifNoneExist -> tgt.ifNoneExist;
+}
+
+
+group BundleEntryResponse(source src, target tgt) extends BackboneElement {
+  src.status -> tgt.status;
+  src.location -> tgt.location;
+  src.etag -> tgt.etag;
+  src.lastModified -> tgt.lastModified;
+  src.outcome -> tgt.outcome;
+}

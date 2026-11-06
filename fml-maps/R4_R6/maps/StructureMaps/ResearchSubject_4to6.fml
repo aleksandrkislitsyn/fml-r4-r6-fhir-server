@@ -1,0 +1,34 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ResearchSubject4to6'
+/// name = 'ResearchSubject4to6'
+/// title = 'ResearchSubject Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ResearchSubject" alias ResearchSubjectR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ResearchSubject" alias ResearchSubjectR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ResearchSubject.assignedArm string[0..1]
+    ResearchSubject.actualArm string[0..1]
+*/
+/* The following target properties were not populated:
+    ResearchSubject.subjectState BackboneElement[0..*]
+    ResearchSubject.subjectState.code CodeableConcept[1..1]
+    ResearchSubject.subjectState.startDate dateTime[1..1]
+    ResearchSubject.subjectState.endDate dateTime[0..1]
+    ResearchSubject.subjectState.reason CodeableConcept[0..1]
+    ResearchSubject.subjectMilestone BackboneElement[0..*]
+    ResearchSubject.subjectMilestone.milestone CodeableConcept[1..1]
+    ResearchSubject.subjectMilestone.date dateTime[0..1]
+    ResearchSubject.subjectMilestone.reason CodeableConcept[0..*]
+    ResearchSubject.comparisonGroup CodeableReference[0..*] (Group)
+*/
+group ResearchSubject(source src : ResearchSubjectR4, target tgt : ResearchSubjectR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.period -> tgt.period;
+  src.study -> tgt.study;
+  src.individual -> tgt.subject; // renamed
+  src.consent -> tgt.consent;
+}

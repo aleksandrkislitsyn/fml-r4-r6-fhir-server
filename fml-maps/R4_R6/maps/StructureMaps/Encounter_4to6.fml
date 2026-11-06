@@ -1,0 +1,93 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Encounter4to6'
+/// name = 'Encounter4to6'
+/// title = 'Encounter Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Encounter" alias EncounterR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Encounter" alias EncounterR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Encounter.statusHistory BackboneElement[0..*]
+    Encounter.statusHistory.status code[1..1]
+    Encounter.statusHistory.period Period[1..1]
+    Encounter.classHistory BackboneElement[0..*]
+    Encounter.classHistory.class Coding[1..1]
+    Encounter.classHistory.period Period[1..1]
+    Encounter.reasonCode CodeableConcept[0..*]
+    Encounter.reasonReference Reference[0..*] (Condition,Procedure,Observation,ImmunizationRecommendation)
+    Encounter.diagnosis.rank positiveInt[0..1]
+    Encounter.hospitalization.dietPreference CodeableConcept[0..*]
+    Encounter.hospitalization.specialCourtesy CodeableConcept[0..*]
+    Encounter.hospitalization.specialArrangement CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    Encounter.businessStatus BackboneElement[0..*]
+    Encounter.businessStatus.code CodeableConcept[1..1]
+    Encounter.businessStatus.type CodeableConcept[0..1]
+    Encounter.businessStatus.effectiveDate dateTime[0..1]
+    Encounter.subjectStatus CodeableConcept[0..1]
+    Encounter.careTeam Reference[0..*] (CareTeam)
+    Encounter.virtualService VirtualServiceDetail[0..*]
+    Encounter.plannedStartDate dateTime[0..1]
+    Encounter.plannedEndDate dateTime[0..1]
+    Encounter.reason BackboneElement[0..*]
+    Encounter.reason.use CodeableConcept[0..*]
+    Encounter.reason.value CodeableReference[0..*] (Condition,DiagnosticReport,Observation,Procedure)
+    Encounter.dietPreference CodeableConcept[0..*]
+    Encounter.specialArrangement CodeableConcept[0..*]
+    Encounter.specialCourtesy CodeableConcept[0..*]
+*/
+group Encounter(source src : EncounterR4, target tgt : EncounterR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.class -> tgt.class;
+  src.type -> tgt.type;
+  src.serviceType -> tgt.serviceType;
+  src.priority -> tgt.priority;
+  src.subject -> tgt.subject;
+  src.episodeOfCare -> tgt.episodeOfCare;
+  src.basedOn -> tgt.basedOn;
+  src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
+  src.appointment -> tgt.appointment;
+  src.period -> tgt.actualPeriod; // renamed
+  src.length -> tgt.length;
+  src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
+  src.account -> tgt.account;
+  src.hospitalization as s -> tgt.admission as t then EncounterHospitalization(s, t); // renamed
+  src.location as s -> tgt.location as t then EncounterLocation(s, t);
+  src.serviceProvider -> tgt.serviceProvider;
+  src.partOf -> tgt.partOf;
+}
+
+
+group EncounterParticipant(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.period -> tgt.period;
+  src.individual -> tgt.actor; // renamed
+}
+
+
+group EncounterDiagnosis(source src, target tgt) extends BackboneElement {
+  src.condition -> tgt.condition; // Warning: Source TargetProfile unsupported: Procedure  (Condition,Procedure -> Condition)
+  src.use -> tgt.use;
+}
+
+
+group EncounterHospitalization(source src, target tgt) extends BackboneElement {
+  src.preAdmissionIdentifier -> tgt.preAdmissionIdentifier; // renamed
+  src.origin -> tgt.origin; // renamed
+  src.admitSource -> tgt.admitSource; // renamed
+  src.reAdmission -> tgt.reAdmission; // renamed
+  src.destination -> tgt.destination; // renamed
+  src.dischargeDisposition -> tgt.dischargeDisposition; // renamed
+}
+
+
+group EncounterLocation(source src, target tgt) extends BackboneElement {
+  src.location -> tgt.location;
+  src.status -> tgt.status;
+  src.physicalType -> tgt.form; // renamed
+  src.period -> tgt.period;
+}

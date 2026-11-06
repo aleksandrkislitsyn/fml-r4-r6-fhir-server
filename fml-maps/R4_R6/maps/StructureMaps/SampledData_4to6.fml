@@ -1,0 +1,24 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/SampledData4to6'
+/// name = 'SampledData4to6'
+/// title = 'SampledData Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/SampledData" alias SampledDataR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/SampledData" alias SampledDataR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    SampledData.intervalUnit code[1..1]
+    SampledData.codeMap canonical[0..1] (ConceptMap)
+    SampledData.offsets string[0..1]
+*/
+group SampledData(source src : SampledDataR4, target tgt : SampledDataR6) extends Element <<type+>> {
+  src.origin -> tgt.origin;
+  src.period -> tgt.interval; // renamed
+  src.factor -> tgt.factor;
+  src.lowerLimit -> tgt.lowerLimit;
+  src.upperLimit -> tgt.upperLimit;
+  src.dimensions -> tgt.dimensions;
+  src.data -> tgt.data;
+}

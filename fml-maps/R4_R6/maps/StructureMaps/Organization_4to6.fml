@@ -1,0 +1,43 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Organization4to6'
+/// name = 'Organization4to6'
+/// title = 'Organization Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Organization" alias OrganizationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Organization" alias OrganizationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Organization.telecom ContactPoint[0..*]
+    Organization.address Address[0..*]
+*/
+/* The following target properties were not populated:
+    Organization.description markdown[0..1]
+    Organization.qualification BackboneElement[0..*]
+    Organization.qualification.identifier Identifier[0..*]
+    Organization.qualification.code CodeableConcept[1..1]
+    Organization.qualification.status CodeableConcept[0..1]
+    Organization.qualification.period Period[0..1]
+    Organization.qualification.issuer Reference[0..1] (Organization)
+    Organization.contact.organization Reference[0..1] (Organization)
+    Organization.contact.period Period[0..1]
+*/
+group Organization(source src : OrganizationR4, target tgt : OrganizationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.type -> tgt.type;
+  src.name -> tgt.name;
+  src.alias -> tgt.alias;
+  src.partOf -> tgt.partOf;
+  src.contact as s -> tgt.contact as t then OrganizationContact(s, t); // Warning: type changed (BackboneElement -> ExtendedContactDetail)
+  src.endpoint -> tgt.endpoint;
+}
+
+
+group OrganizationContact(source src, target tgt) extends BackboneElement {
+  src.purpose -> tgt.purpose;
+  src.name -> tgt.name;
+  src.telecom -> tgt.telecom;
+  src.address -> tgt.address;
+}

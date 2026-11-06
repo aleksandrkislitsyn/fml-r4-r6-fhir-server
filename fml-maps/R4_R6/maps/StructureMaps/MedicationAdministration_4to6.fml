@@ -1,0 +1,55 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MedicationAdministration4to6'
+/// name = 'MedicationAdministration4to6'
+/// title = 'MedicationAdministration Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MedicationAdministration" alias MedicationAdministrationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MedicationAdministration" alias MedicationAdministrationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MedicationAdministration.instantiates uri[0..*]
+*/
+/* The following target properties were not populated:
+    MedicationAdministration.basedOn Reference[0..*] (CarePlan)
+    MedicationAdministration.recorded dateTime[0..1]
+    MedicationAdministration.isSubPotent boolean[0..1]
+    MedicationAdministration.subPotentReason CodeableConcept[0..*]
+*/
+group MedicationAdministration(source src : MedicationAdministrationR4, target tgt : MedicationAdministrationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.category -> tgt.category;
+  src.medication -> tgt.medication;
+  src.subject -> tgt.subject;
+  src.context -> tgt.encounter; // renamed // Warning: Source TargetProfile unsupported: EpisodeOfCare  (Encounter,EpisodeOfCare -> Encounter)
+  src.supportingInformation -> tgt.supportingInformation;
+  src.effective -> tgt.occurrence; // renamed
+  src.performer as s -> tgt.performer as t then MedicationAdministrationPerformer(s, t);
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.request -> tgt.request;
+  src.device -> tgt.device;
+  src.note -> tgt.note;
+  src.dosage as s -> tgt.dosage as t then MedicationAdministrationDosage(s, t);
+  src.eventHistory -> tgt.eventHistory;
+}
+
+
+group MedicationAdministrationPerformer(source src, target tgt) extends BackboneElement {
+  src.function -> tgt.function;
+  src.actor -> tgt.actor;
+}
+
+
+group MedicationAdministrationDosage(source src, target tgt) extends BackboneElement {
+  src.text -> tgt.text;
+  src.site -> tgt.site;
+  src.route -> tgt.route;
+  src.method -> tgt.method;
+  src.dose -> tgt.dose;
+  src.rate -> tgt.rate;
+}

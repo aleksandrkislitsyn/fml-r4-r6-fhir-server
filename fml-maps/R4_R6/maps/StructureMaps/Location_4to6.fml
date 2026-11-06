@@ -1,0 +1,50 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Location4to6'
+/// name = 'Location4to6'
+/// title = 'Location Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Location" alias LocationR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Location" alias LocationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Location.hoursOfOperation.daysOfWeek code[0..*]
+    Location.hoursOfOperation.allDay boolean[0..1]
+    Location.hoursOfOperation.openingTime time[0..1]
+    Location.hoursOfOperation.closingTime time[0..1]
+*/
+/* The following target properties were not populated:
+    Location.code CodeableConcept[0..*]
+    Location.characteristic CodeableConcept[0..*]
+    Location.virtualService VirtualServiceDetail[0..*]
+*/
+group Location(source src : LocationR4, target tgt : LocationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.operationalStatus -> tgt.operationalStatus;
+  src.name -> tgt.name;
+  src.alias -> tgt.alias;
+  src.description -> tgt.description;
+  src.mode -> tgt.mode;
+  src.type -> tgt.type;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Location.contact') -> tgt.contact = (e.value) "xverTelecomContactPoint";
+// rule changed to ContactPoint -> ExtendedContactDetail
+// src.telecom -> tgt.contact; // renamed // Warning: Source Type unsupported: ContactPoint  (ContactPoint -> ExtendedContactDetail)
+  src.address -> tgt.address;
+  src.physicalType -> tgt.form; // renamed
+  src.position as s -> tgt.position as t then LocationPosition(s, t);
+  src.managingOrganization -> tgt.managingOrganization;
+  src.partOf -> tgt.partOf;
+  src.endpoint -> tgt.endpoint;
+  src where (%hoursOfOperation.exists() or %availabilityExceptions.exists()) -> tgt.hoursOfOperation as ho then {
+	src.hoursOfOperation as h -> ho;
+  } "mapHoursOfOperation";
+}
+
+
+group LocationPosition(source src, target tgt) extends BackboneElement {
+  src.longitude -> tgt.longitude;
+  src.latitude -> tgt.latitude;
+  src.altitude -> tgt.altitude;
+}

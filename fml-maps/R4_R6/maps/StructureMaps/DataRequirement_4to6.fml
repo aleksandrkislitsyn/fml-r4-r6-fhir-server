@@ -1,0 +1,48 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DataRequirement4to6'
+/// name = 'DataRequirement4to6'
+/// title = 'DataRequirement Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DataRequirement" alias DataRequirementR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DataRequirement" alias DataRequirementR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    DataRequirement.valueFilter Element[0..*]
+    DataRequirement.valueFilter.path string[0..1]
+    DataRequirement.valueFilter.searchParam string[0..1]
+    DataRequirement.valueFilter.comparator code[0..1]
+    DataRequirement.valueFilter.value[x] boolean,integer,string,Quantity,Range,Ratio,RatioRange[0..1]
+*/
+group DataRequirement(source src : DataRequirementR4, target tgt : DataRequirementR6) extends Element <<type+>> {
+  src.type -> tgt.type;
+  src.profile -> tgt.profile;
+  src.subject -> tgt.subject;
+  src.mustSupport -> tgt.mustSupport;
+  src.codeFilter as s -> tgt.codeFilter as t then DataRequirementCodeFilter(s, t);
+  src.dateFilter as s -> tgt.dateFilter as t then DataRequirementDateFilter(s, t);
+  src.limit -> tgt.limit;
+  src.sort as s -> tgt.sort as t then DataRequirementSort(s, t);
+}
+
+
+group DataRequirementCodeFilter(source src, target tgt) extends Element {
+  src.path -> tgt.path;
+  src.searchParam -> tgt.searchParam;
+  src.valueSet -> tgt.valueSet;
+  src.code -> tgt.code;
+}
+
+
+group DataRequirementDateFilter(source src, target tgt) extends Element {
+  src.path -> tgt.path;
+  src.searchParam -> tgt.searchParam;
+  src.value -> tgt.value;
+}
+
+
+group DataRequirementSort(source src, target tgt) extends Element {
+  src.path -> tgt.path;
+  src.direction -> tgt.direction;
+}

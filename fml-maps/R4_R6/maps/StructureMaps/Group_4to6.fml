@@ -1,0 +1,67 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Group4to6'
+/// name = 'Group4to6'
+/// title = 'Group Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Group" alias GroupR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Group" alias GroupR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Group.active boolean[0..1]
+    Group.actual boolean[1..1]
+*/
+/* The following target properties were not populated:
+    Group.url uri[0..1]
+    Group.version string[0..1]
+    Group.versionAlgorithm[x] string,Coding[0..1]
+    Group.title string[0..1]
+    Group.status code[0..1]
+    Group.experimental boolean[0..1]
+    Group.date dateTime[0..1]
+    Group.publisher string[0..1]
+    Group.contact ContactDetail[0..*]
+    Group.description markdown[0..1]
+    Group.useContext UsageContext[0..*]
+    Group.purpose markdown[0..1]
+    Group.copyright markdown[0..1]
+    Group.copyrightLabel string[0..1]
+    Group.membership code[0..1]
+    Group.combinationMethod code[0..1]
+    Group.combinationThreshold positiveInt[0..1]
+    Group.characteristic.description markdown[0..1]
+    Group.characteristic.method CodeableConcept[0..*]
+    Group.characteristic.formula Expression[0..1]
+    Group.characteristic.determiner Reference[0..1] (Practitioner,PractitionerRole,Organization,Device,DeviceDefinition)
+    Group.characteristic.offset CodeableConcept[0..1]
+    Group.characteristic.instances[x] unsignedInt,Range[0..1]
+    Group.characteristic.duration[x] Duration,Range[0..1]
+    Group.characteristic.relativeTime RelativeTime[0..*]
+    Group.member.involvement CodeableConcept[0..*]
+*/
+group Group(source src : GroupR4, target tgt : GroupR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.type -> tgt.type;
+  src.code -> tgt.code;
+  src.name -> tgt.name;
+  src.quantity -> tgt.quantity;
+  src.managingEntity -> tgt.managingEntity;
+  src.characteristic as s -> tgt.characteristic as t then GroupCharacteristic(s, t);
+  src.member as s -> tgt.member as t then GroupMember(s, t);
+}
+
+
+group GroupCharacteristic(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.value -> tgt.value;
+  src.exclude -> tgt.exclude;
+  src.period -> tgt.period;
+}
+
+
+group GroupMember(source src, target tgt) extends BackboneElement {
+  src.entity -> tgt.entity;
+  src.period -> tgt.period;
+  src.inactive -> tgt.inactive;
+}

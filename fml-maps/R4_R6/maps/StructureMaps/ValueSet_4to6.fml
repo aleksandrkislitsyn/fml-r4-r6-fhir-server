@@ -1,0 +1,123 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ValueSet4to6'
+/// name = 'ValueSet4to6'
+/// title = 'ValueSet Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ValueSet" alias ValueSetR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ValueSet" alias ValueSetR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    ValueSet.versionAlgorithm[x] string,Coding[0..1]
+    ValueSet.copyrightLabel string[0..1]
+    ValueSet.approvalDate date[0..1]
+    ValueSet.lastReviewDate date[0..1]
+    ValueSet.effectivePeriod Period[0..1]
+    ValueSet.topic CodeableConcept[0..*]
+    ValueSet.author ContactDetail[0..*]
+    ValueSet.editor ContactDetail[0..*]
+    ValueSet.reviewer ContactDetail[0..*]
+    ValueSet.endorser ContactDetail[0..*]
+    ValueSet.relatedArtifact RelatedArtifact[0..*]
+    ValueSet.compose.include.concept.designation.additionalUse Coding[0..*]
+    ValueSet.compose.include.filter.filter [0..*]
+    ValueSet.compose.include.copyright markdown[0..1]
+    ValueSet.compose.property string[0..*]
+    ValueSet.expansion.next uri[0..1]
+    ValueSet.expansion.property BackboneElement[0..*]
+    ValueSet.expansion.property.code code[1..1]
+    ValueSet.expansion.property.uri uri[0..1]
+    ValueSet.expansion.contains.property BackboneElement[0..*]
+    ValueSet.expansion.contains.property.code code[1..1]
+    ValueSet.expansion.contains.property.value[x] code,Coding,string,integer,boolean,dateTime,decimal[1..1]
+    ValueSet.expansion.contains.property.subProperty BackboneElement[0..*]
+    ValueSet.expansion.contains.property.subProperty.code code[1..1]
+    ValueSet.expansion.contains.property.subProperty.value[x] code,Coding,string,integer,boolean,dateTime,decimal[1..1]
+*/
+group ValueSet(source src : ValueSetR4, target tgt : ValueSetR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.immutable -> tgt.immutable;
+  src.purpose -> tgt.purpose;
+  src.copyright -> tgt.copyright;
+  src.compose as s -> tgt.compose as t then ValueSetCompose(s, t);
+  src.expansion as s -> tgt.expansion as t then ValueSetExpansion(s, t);
+}
+
+
+group ValueSetCompose(source src, target tgt) extends BackboneElement {
+  src.lockedDate -> tgt.lockedDate;
+  src.inactive -> tgt.inactive;
+  src.include as s -> tgt.include as t then ValueSetComposeInclude(s, t);
+  src.exclude as s -> tgt.exclude as t then ValueSetComposeInclude(s, t);
+}
+
+
+group ValueSetComposeInclude(source src, target tgt) extends BackboneElement {
+  src.system -> tgt.system;
+  src.version -> tgt.version;
+  src.concept as s -> tgt.concept as t then ValueSetComposeIncludeConcept(s, t);
+  src.filter as s -> tgt.filter as t then ValueSetComposeIncludeFilter(s, t);
+  src.valueSet -> tgt.valueSet;
+}
+
+
+group ValueSetComposeIncludeConcept(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.designation as s -> tgt.designation as t then ValueSetComposeIncludeConceptDesignation(s, t);
+}
+
+
+group ValueSetComposeIncludeConceptDesignation(source src, target tgt) extends BackboneElement {
+  src.language -> tgt.language;
+  src.use -> tgt.use;
+  src.value -> tgt.value;
+}
+
+
+group ValueSetComposeIncludeFilter(source src, target tgt) extends BackboneElement {
+  src.property -> tgt.property;
+  src.op -> tgt.op;
+  src.value -> tgt.value;
+}
+
+
+group ValueSetExpansion(source src, target tgt) extends BackboneElement {
+  src.identifier -> tgt.identifier;
+  src.timestamp -> tgt.timestamp;
+  src.total -> tgt.total;
+  src.offset -> tgt.offset;
+  src.parameter as s -> tgt.parameter as t then ValueSetExpansionParameter(s, t);
+  src.contains as s -> tgt.contains as t then ValueSetExpansionContains(s, t);
+}
+
+
+group ValueSetExpansionParameter(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.value -> tgt.value;
+}
+
+
+group ValueSetExpansionContains(source src, target tgt) extends BackboneElement {
+  src.system -> tgt.system;
+  src.abstract -> tgt.abstract;
+  src.inactive -> tgt.inactive;
+  src.version -> tgt.version;
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.designation as s -> tgt.designation as t then ValueSetComposeIncludeConceptDesignation(s, t);
+  src.contains as s -> tgt.contains as t then ValueSetExpansionContains(s, t);
+}

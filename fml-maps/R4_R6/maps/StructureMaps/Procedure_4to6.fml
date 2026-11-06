@@ -1,0 +1,62 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Procedure4to6'
+/// name = 'Procedure4to6'
+/// title = 'Procedure Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Procedure" alias ProcedureR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Procedure" alias ProcedureR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Procedure.instantiatesCanonical canonical[0..*] (PlanDefinition,ActivityDefinition,Measure,OperationDefinition,Questionnaire)
+    Procedure.instantiatesUri uri[0..*]
+    Procedure.bodySite CodeableConcept[0..*]
+    Procedure.complicationDetail Reference[0..*] (Condition)
+*/
+/* The following target properties were not populated:
+    Procedure.focus Reference[0..1] (Patient,Group,RelatedPerson,Practitioner,Organization,CareTeam,PractitionerRole,Specimen)
+    Procedure.recorded dateTime[0..1]
+    Procedure.performer.period Period[0..1]
+    Procedure.bodyStructure CodeableReference[0..*] (BodyStructure)
+    Procedure.supportingInfo Reference[0..*] (Resource)
+*/
+group Procedure(source src : ProcedureR4, target tgt : ProcedureR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.statusReason -> tgt.statusReason;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.performed -> tgt.occurrence; // renamed
+  src.recorder -> tgt.recorder;
+  src.asserter -> tgt.reported; // renamed
+  src.performer as s -> tgt.performer as t then ProcedurePerformer(s, t);
+  src.location -> tgt.location;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.outcome -> tgt.outcome;
+  src.report -> tgt.report;
+  src.complication -> tgt.complication;
+  src.followUp -> tgt.followUp;
+  src.note -> tgt.note;
+  src.focalDevice as s -> tgt.focalDevice as t then ProcedureFocalDevice(s, t);
+  src.usedReference -> tgt.used; // renamed
+  src.usedCode -> tgt.used; // renamed
+}
+
+
+group ProcedurePerformer(source src, target tgt) extends BackboneElement {
+  src.function -> tgt.function;
+  src.actor -> tgt.actor;
+  src.onBehalfOf -> tgt.onBehalfOf;
+}
+
+
+group ProcedureFocalDevice(source src, target tgt) extends BackboneElement {
+  src.action -> tgt.action;
+  src.manipulated -> tgt.manipulated;
+}

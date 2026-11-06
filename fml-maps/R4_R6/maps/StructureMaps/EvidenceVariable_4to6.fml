@@ -1,0 +1,92 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/EvidenceVariable4to6'
+/// name = 'EvidenceVariable4to6'
+/// title = 'EvidenceVariable Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/EvidenceVariable" alias EvidenceVariableR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/EvidenceVariable" alias EvidenceVariableR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    EvidenceVariable.subtitle string[0..1]
+    EvidenceVariable.jurisdiction CodeableConcept[0..*]
+    EvidenceVariable.topic CodeableConcept[0..*]
+    EvidenceVariable.relatedArtifact RelatedArtifact[0..*]
+    EvidenceVariable.type code[0..1]
+    EvidenceVariable.characteristic BackboneElement[1..*]
+    EvidenceVariable.characteristic.description string[0..1]
+    EvidenceVariable.characteristic.definition[x] Reference,canonical,CodeableConcept,Expression,DataRequirement,TriggerDefinition[1..1] (Group,ActivityDefinition)
+    EvidenceVariable.characteristic.usageContext UsageContext[0..*]
+    EvidenceVariable.characteristic.exclude boolean[0..1]
+    EvidenceVariable.characteristic.participantEffective[x] dateTime,Period,Duration,Timing[0..1]
+    EvidenceVariable.characteristic.timeFromStart Duration[0..1]
+    EvidenceVariable.characteristic.groupMeasure code[0..1]
+*/
+/* The following target properties were not populated:
+    EvidenceVariable.versionAlgorithm[x] string,Coding[0..1]
+    EvidenceVariable.citeAs markdown[0..1]
+    EvidenceVariable.experimental boolean[0..1]
+    EvidenceVariable.recorder ContactDetail[0..*]
+    EvidenceVariable.purpose markdown[0..1]
+    EvidenceVariable.copyrightLabel string[0..1]
+    EvidenceVariable.relatesTo BackboneElement[0..*]
+    EvidenceVariable.relatesTo.type CodeableConcept[1..1]
+    EvidenceVariable.relatesTo.target[x] uri,Attachment,canonical,Reference,markdown[1..1] (Resource,Resource)
+    EvidenceVariable.actual boolean[0..1]
+    EvidenceVariable.definition CodeableReference[0..1] (Group)
+    EvidenceVariable.definitionModifier BackboneElement[0..*]
+    EvidenceVariable.definitionModifier.code CodeableConcept[1..1]
+    EvidenceVariable.definitionModifier.value[x] CodeableConcept,boolean,Quantity,Range,Period,RelativeTime,Reference,Expression,uri[1..1] (Resource)
+    EvidenceVariable.handling CodeableConcept[0..1]
+    EvidenceVariable.category BackboneElement[0..*]
+    EvidenceVariable.category.name string[0..1]
+    EvidenceVariable.category.value[x] CodeableConcept,Quantity,Range,Reference[0..1] (Group)
+    EvidenceVariable.conditional Expression[0..1]
+    EvidenceVariable.classifier CodeableConcept[0..*]
+    EvidenceVariable.dataStorage BackboneElement[0..*]
+    EvidenceVariable.dataStorage.datatype CodeableConcept[0..1]
+    EvidenceVariable.dataStorage.path string[0..1]
+    EvidenceVariable.dataStorage.delimiter string[0..1]
+    EvidenceVariable.dataStorage.component [0..*]
+    EvidenceVariable.timing RelativeTime[0..1]
+    EvidenceVariable.period Period[0..1]
+    EvidenceVariable.constraint BackboneElement[0..*]
+    EvidenceVariable.constraint.conditional CodeableConcept[0..1]
+    EvidenceVariable.constraint.minimumQuantity Quantity[0..1]
+    EvidenceVariable.constraint.maximumQuantity Quantity[0..1]
+    EvidenceVariable.constraint.earliestDateTime dateTime[0..1]
+    EvidenceVariable.constraint.latestDateTime dateTime[0..1]
+    EvidenceVariable.constraint.minimumStringLength unsignedInt[0..1]
+    EvidenceVariable.constraint.maximumStringLength positiveInt[0..1]
+    EvidenceVariable.constraint.code CodeableConcept[0..1]
+    EvidenceVariable.constraint.expression Expression[0..1]
+    EvidenceVariable.constraint.expectedValueSet Reference[0..1] (ValueSet)
+    EvidenceVariable.constraint.expectedUnitsValueSet Reference[0..1] (ValueSet)
+    EvidenceVariable.constraint.anyValueAllowed boolean[0..1]
+    EvidenceVariable.missingDataMeaning CodeableConcept[0..*]
+    EvidenceVariable.unacceptableDataHandling CodeableConcept[0..*]
+*/
+group EvidenceVariable(source src : EvidenceVariableR4, target tgt : EvidenceVariableR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.shortTitle -> tgt.shortTitle;
+  src.status -> tgt.status;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.note -> tgt.note;
+  src.useContext -> tgt.useContext;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+}

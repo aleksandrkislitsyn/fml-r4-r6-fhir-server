@@ -1,0 +1,41 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/CompartmentDefinition4to6'
+/// name = 'CompartmentDefinition4to6'
+/// title = 'CompartmentDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/CompartmentDefinition" alias CompartmentDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CompartmentDefinition" alias CompartmentDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    CompartmentDefinition.resource.documentation string[0..1]
+*/
+/* The following target properties were not populated:
+    CompartmentDefinition.versionAlgorithm[x] string,Coding[0..1]
+    CompartmentDefinition.title string[0..1]
+    CompartmentDefinition.resource.startParam uri[0..1]
+    CompartmentDefinition.resource.endParam uri[0..1]
+*/
+group CompartmentDefinition(source src : CompartmentDefinitionR4, target tgt : CompartmentDefinitionR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.purpose -> tgt.purpose;
+  src.code -> tgt.code;
+  src.search -> tgt.search;
+  src.resource as s -> tgt.resource as t then CompartmentDefinitionResource(s, t);
+}
+
+
+group CompartmentDefinitionResource(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.param -> tgt.param;
+}

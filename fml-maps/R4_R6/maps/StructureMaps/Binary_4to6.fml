@@ -1,0 +1,16 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Binary4to6'
+/// name = 'Binary4to6'
+/// title = 'Binary Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Binary" alias BinaryR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Binary" alias BinaryR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Binary(source src : BinaryR4, target tgt : BinaryR6) extends Resource <<type+>> {
+  src.contentType -> tgt.contentType;
+  src.securityContext -> tgt.securityContext;
+  src.data -> tgt.data;
+}

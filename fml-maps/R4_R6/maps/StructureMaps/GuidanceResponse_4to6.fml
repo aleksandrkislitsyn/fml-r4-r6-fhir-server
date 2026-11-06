@@ -1,0 +1,33 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/GuidanceResponse4to6'
+/// name = 'GuidanceResponse4to6'
+/// title = 'GuidanceResponse Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/GuidanceResponse" alias GuidanceResponseR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/GuidanceResponse" alias GuidanceResponseR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    GuidanceResponse.topic CodeableConcept[0..*]
+    GuidanceResponse.location Reference[0..1] (Location)
+    GuidanceResponse.inputParameters Reference[0..1] (Parameters)
+    GuidanceResponse.indicator CodeableConcept[0..1]
+*/
+group GuidanceResponse(source src : GuidanceResponseR4, target tgt : GuidanceResponseR6) extends DomainResource <<type+>> {
+  src.requestIdentifier -> tgt.requestIdentifier;
+  src.identifier -> tgt.identifier;
+  src.module -> tgt.module;
+  src.status -> tgt.status;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.occurrenceDateTime -> tgt.occurrenceDateTime;
+  src.performer -> tgt.performer;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.note -> tgt.note;
+  src.evaluationMessage -> tgt.evaluationMessage;
+  src.outputParameters -> tgt.outputParameters;
+  src.result -> tgt.result; // Warning: Source TargetProfile unsupported: RequestGroup  (CarePlan,RequestGroup -> Appointment,AppointmentResponse,CarePlan,Claim,CommunicationRequest,CoverageEligibilityRequest,DeviceRequest,MedicationRequest,NutritionOrder,RequestOrchestration,ServiceRequest,Task,VisionPrescription)
+  src.dataRequirement -> tgt.dataRequirement;
+}

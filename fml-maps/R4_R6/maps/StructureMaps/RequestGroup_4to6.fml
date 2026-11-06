@@ -1,0 +1,93 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/RequestGroup4to6'
+/// name = 'RequestGroup4to6'
+/// title = 'RequestGroup Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/RequestGroup" alias RequestGroupR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/RequestOrchestration" alias RequestOrchestrationR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    RequestOrchestration.goal Reference[0..*] (Goal)
+    RequestOrchestration.action.linkId string[0..1]
+    RequestOrchestration.action.goal Reference[0..*] (Goal)
+    RequestOrchestration.action.input BackboneElement[0..*]
+    RequestOrchestration.action.input.title string[0..1]
+    RequestOrchestration.action.input.requirement DataRequirement[0..1]
+    RequestOrchestration.action.input.relatedData id[0..1]
+    RequestOrchestration.action.output BackboneElement[0..*]
+    RequestOrchestration.action.output.title string[0..1]
+    RequestOrchestration.action.output.requirement DataRequirement[0..1]
+    RequestOrchestration.action.output.relatedData string[0..1]
+    RequestOrchestration.action.relatedAction.endRelationship code[0..1]
+    RequestOrchestration.action.location CodeableReference[0..1] (Location)
+    RequestOrchestration.action.participant BackboneElement[0..*]
+    RequestOrchestration.action.participant.type code[0..1]
+    RequestOrchestration.action.participant.typeCanonical canonical[0..1] (ActorDefinition,CapabilityStatement,DeviceDefinition,Group,SpecimenDefinition,StructureDefinition)
+    RequestOrchestration.action.participant.typeReference Reference[0..1] (BiologicallyDerivedProduct,CareTeam,Device,Endpoint,HealthcareService,Location,Medication,MedicinalProductDefinition,Organization,Patient,Practitioner,PractitionerRole,RelatedPerson,Specimen,Substance,SubstanceDefinition)
+    RequestOrchestration.action.participant.role CodeableConcept[0..1]
+    RequestOrchestration.action.participant.function CodeableConcept[0..1]
+    RequestOrchestration.action.applicabilityBehavior code[0..1]
+    RequestOrchestration.action.definition[x] canonical,uri[0..1] (ActivityDefinition,Measure,MessageDefinition,ObservationDefinition,OperationDefinition,PlanDefinition,Questionnaire,SpecimenDefinition)
+    RequestOrchestration.action.transform canonical[0..1]
+    RequestOrchestration.action.dynamicValue BackboneElement[0..*]
+    RequestOrchestration.action.dynamicValue.path string[0..1]
+    RequestOrchestration.action.dynamicValue.expression Expression[0..1]
+*/
+group RequestGroup(source src : RequestGroupR4, target tgt : RequestOrchestrationR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier; // renamed
+  src.instantiatesCanonical -> tgt.instantiatesCanonical; // renamed
+  src.instantiatesUri -> tgt.instantiatesUri; // renamed
+  src.basedOn -> tgt.basedOn; // renamed
+  src.replaces -> tgt.replaces; // renamed
+  src.groupIdentifier -> tgt.groupIdentifier; // renamed
+  src.status -> tgt.status; // renamed
+  src.intent -> tgt.intent; // renamed
+  src.priority -> tgt.priority; // renamed
+  src.code -> tgt.code; // renamed
+  src.subject -> tgt.subject; // renamed
+  src.encounter -> tgt.encounter; // renamed
+  src.authoredOn -> tgt.authoredOn; // renamed
+  src.author -> tgt.author; // renamed
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.note -> tgt.note; // renamed
+  src.action as s -> tgt.action as t then RequestGroupAction(s, t);
+}
+
+
+group RequestGroupAction(source src, target tgt) extends BackboneElement {
+  src.prefix -> tgt.prefix; // renamed
+  src.title -> tgt.title; // renamed
+  src.description -> tgt.description; // renamed
+  src.textEquivalent -> tgt.textEquivalent; // renamed
+  src.priority -> tgt.priority; // renamed
+  src.code -> tgt.code; // renamed
+  src.documentation -> tgt.documentation; // renamed
+  src.condition as s -> tgt.condition as t then RequestGroupActionCondition(s, t);
+  src.relatedAction as s -> tgt.relatedAction as t then RequestGroupActionRelatedAction(s, t);
+  src.timing -> tgt.timing; // renamed
+  src.participant /* [0..*] */ -> tgt.participant.actor /* [0..1] */; // renamed // Warning: source repeating, target single-valued
+  src.type -> tgt.type; // renamed
+  src.groupingBehavior -> tgt.groupingBehavior; // renamed
+  src.selectionBehavior -> tgt.selectionBehavior; // renamed
+  src.requiredBehavior -> tgt.requiredBehavior; // renamed
+  src.precheckBehavior -> tgt.precheckBehavior; // renamed
+  src.cardinalityBehavior -> tgt.cardinalityBehavior; // renamed
+  src.resource -> tgt.resource; // renamed
+  src.action as s -> tgt.action as t then   RequestGroupAction(s, t);
+}
+
+
+group RequestGroupActionCondition(source src, target tgt) extends BackboneElement {
+  src.kind -> tgt.kind; // renamed
+  src.expression -> tgt.expression; // renamed
+}
+
+
+group RequestGroupActionRelatedAction(source src, target tgt) extends BackboneElement {
+  src.actionId -> tgt.targetId; // renamed
+  src.relationship -> tgt.relationship; // renamed
+  src.offset -> tgt.offset; // renamed
+}

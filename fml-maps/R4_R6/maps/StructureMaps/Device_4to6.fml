@@ -1,0 +1,89 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Device4to6'
+/// name = 'Device4to6'
+/// title = 'Device Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Device" alias DeviceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Device" alias DeviceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Device.statusReason CodeableConcept[0..*]
+    Device.distinctIdentifier string[0..1]
+    Device.specialization BackboneElement[0..*]
+    Device.specialization.systemType CodeableConcept[1..1]
+    Device.specialization.version string[0..1]
+    Device.version BackboneElement[0..*]
+    Device.version.type CodeableConcept[0..1]
+    Device.version.component Identifier[0..1]
+    Device.version.value string[1..1]
+    Device.patient Reference[0..1] (Patient)
+    Device.owner Reference[0..1] (Organization)
+    Device.url uri[0..1]
+*/
+/* The following target properties were not populated:
+    Device.udiCarrier.deviceIdentifierSystem uri[0..1]
+    Device.availabilityStatus CodeableConcept[0..1]
+    Device.biologicalSourceEvent Identifier[0..1]
+    Device.name.display boolean[0..1]
+    Device.category CodeableConcept[0..*]
+    Device.deviceVersion BackboneElement[0..*]
+    Device.deviceVersion.type CodeableConcept[0..1]
+    Device.deviceVersion.component Identifier[0..1]
+    Device.deviceVersion.installDate dateTime[0..1]
+    Device.deviceVersion.value string[1..1]
+    Device.conformsTo BackboneElement[0..*]
+    Device.conformsTo.category CodeableConcept[0..1]
+    Device.conformsTo.specification CodeableConcept[1..1]
+    Device.conformsTo.version string[0..1]
+    Device.additive BackboneElement[0..*]
+    Device.additive.type CodeableReference[1..1] (SubstanceDefinition,Substance)
+    Device.additive.quantity Quantity[0..1]
+*/
+group Device(source src : DeviceR4, target tgt : DeviceR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.definition -> tgt.definition;
+  src.udiCarrier as s -> tgt.udiCarrier as t then DeviceUdiCarrier(s, t);
+  src.status -> tgt.status;
+  src.manufacturer -> tgt.manufacturer;
+  src.manufactureDate -> tgt.manufactureDate;
+  src.expirationDate -> tgt.expirationDate;
+  src.lotNumber -> tgt.lotNumber;
+  src.serialNumber -> tgt.serialNumber;
+  src.deviceName as s -> tgt.name as t then DeviceDeviceName(s, t); // renamed
+  src.modelNumber -> tgt.modelNumber;
+  src.partNumber -> tgt.partNumber;
+  src.type -> tgt.type;
+  src.property as s -> tgt.property as t then DeviceProperty(s, t);
+  src.contact -> tgt.contact;
+  src.location -> tgt.location;
+  src.note -> tgt.note;
+  src.safety -> tgt.safety;
+  src.parent -> tgt.parent;
+}
+
+
+group DeviceUdiCarrier(source src, target tgt) extends BackboneElement {
+  src.deviceIdentifier /* [0..1] */ -> tgt.deviceIdentifier /* [1..1] */; // Warning: source optional, target mandatory
+  src.issuer /* [0..1] */ -> tgt.issuer /* [1..1] */; // Warning: source optional, target mandatory
+  src.jurisdiction -> tgt.jurisdiction;
+  src.carrierAIDC -> tgt.carrierAIDC;
+  src.carrierHRF -> tgt.carrierHRF;
+  src.entryType -> tgt.entryType;
+}
+
+
+group DeviceDeviceName(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.value; // renamed
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Device.name.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // renamed // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+}
+
+
+group DeviceProperty(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.valueQuantity /* [0..*] */ -> tgt.value /* [1..1] */; // renamed // Warning: source repeating, target single-valued
+  src.valueCode /* [0..*] */ -> tgt.value /* [1..1] */; // renamed // Warning: source repeating, target single-valued
+}

@@ -1,0 +1,87 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Consent4to6'
+/// name = 'Consent4to6'
+/// title = 'Consent Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Consent" alias ConsentR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Consent" alias ConsentR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Consent.scope CodeableConcept[1..1]
+    Consent.performer Reference[0..*] (Organization,Patient,Practitioner,RelatedPerson,PractitionerRole)
+    Consent.organization Reference[0..*] (Organization)
+    Consent.source[x] Attachment,Reference[0..1] (Consent,DocumentReference,Contract,QuestionnaireResponse)
+    Consent.policy.authority uri[0..1]
+    Consent.policyRule CodeableConcept[0..1]
+    Consent.verification.verificationDate dateTime[0..1]
+    Consent.provision.type code[0..1]
+    Consent.provision.class Coding[0..*]
+*/
+/* The following target properties were not populated:
+    Consent.period Period[0..1]
+    Consent.grantor Reference[0..*] (CareTeam,Group,HealthcareService,Organization,Patient,Practitioner,RelatedPerson,PractitionerRole)
+    Consent.grantee Reference[0..*] (CareTeam,Group,HealthcareService,Organization,Patient,Practitioner,RelatedPerson,PractitionerRole)
+    Consent.manager Reference[0..*] (HealthcareService,Organization,Patient,Practitioner)
+    Consent.controller Reference[0..*] (HealthcareService,Organization,Patient,Practitioner)
+    Consent.sourceAttachment Attachment[0..*]
+    Consent.sourceReference Reference[0..*] (Consent,DocumentReference,QuestionnaireResponse)
+    Consent.regulatoryBasis CodeableConcept[0..*]
+    Consent.policyBasis.reference Reference[0..1] (Resource)
+    Consent.policyText Reference[0..*] (DocumentReference)
+    Consent.verification.type CodeableConcept[0..1]
+    Consent.verification.verifiedBy Reference[0..1] (Organization,Practitioner,PractitionerRole)
+    Consent.verification.date dateTime[0..*]
+    Consent.decision code[0..1]
+    Consent.provision.documentType Coding[0..*]
+    Consent.provision.resourceType Coding[0..*]
+*/
+group Consent(source src : ConsentR4, target tgt : ConsentR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.patient -> tgt.subject; // renamed
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Consent.date') -> tgt.date = (e.value) "xverDateTimeDateTime";
+// rule changed to dateTime -> date
+// src.dateTime -> tgt.date; // renamed // Warning: Source Type unsupported: dateTime  (dateTime -> date)
+  src.policy as s /* [0..*] */ -> tgt.policyBasis as t /* [0..1] */ then ConsentPolicy(s, t); // renamed // Warning: source repeating, target single-valued
+  src.verification as s -> tgt.verification as t then ConsentVerification(s, t);
+  src.provision as s -> tgt.provision as t then ConsentProvision(s, t);
+}
+
+
+group ConsentPolicy(source src, target tgt) extends BackboneElement {
+  src.uri -> tgt.uri; // renamed
+}
+
+
+group ConsentVerification(source src, target tgt) extends BackboneElement {
+  src.verified -> tgt.verified;
+  src.verifiedWith -> tgt.verifiedWith;
+}
+
+
+group ConsentProvision(source src, target tgt) extends BackboneElement {
+  src.period -> tgt.period;
+  src.actor as s -> tgt.actor as t then ConsentProvisionActor(s, t);
+  src.action -> tgt.action;
+  src.securityLabel -> tgt.securityLabel;
+  src.purpose -> tgt.purpose;
+  src.code -> tgt.code;
+  src.dataPeriod -> tgt.dataPeriod;
+  src.data as s -> tgt.data as t then ConsentProvisionData(s, t);
+  src.provision as s -> tgt.provision as t then ConsentProvision(s, t);
+}
+
+
+group ConsentProvisionActor(source src, target tgt) extends BackboneElement {
+  src.role -> tgt.role;
+  src.reference -> tgt.reference;
+}
+
+
+group ConsentProvisionData(source src, target tgt) extends BackboneElement {
+  src.meaning -> tgt.meaning;
+  src.reference -> tgt.reference;
+}

@@ -1,0 +1,118 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ExampleScenario4to6'
+/// name = 'ExampleScenario4to6'
+/// title = 'ExampleScenario Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ExampleScenario" alias ExampleScenarioR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ExampleScenario" alias ExampleScenarioR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ExampleScenario.process.step.operation.number string[1..1]
+    ExampleScenario.workflow canonical[0..*] (ExampleScenario)
+*/
+/* The following target properties were not populated:
+    ExampleScenario.versionAlgorithm[x] string,Coding[0..1]
+    ExampleScenario.title string[0..1]
+    ExampleScenario.description markdown[0..1]
+    ExampleScenario.copyrightLabel string[0..1]
+    ExampleScenario.actor.definition canonical[0..1] (ActorDefinition)
+    ExampleScenario.instance.structureVersion string[0..1]
+    ExampleScenario.instance.structureProfile[x] canonical,uri[0..1]
+    ExampleScenario.instance.content Reference[0..1]
+    ExampleScenario.instance.version.title string[1..1]
+    ExampleScenario.instance.version.content Reference[0..1]
+    ExampleScenario.process.step.number string[0..1]
+    ExampleScenario.process.step.workflow canonical[0..1] (ExampleScenario)
+    ExampleScenario.process.step.operation.definition canonical[0..1] (OperationDefinition)
+*/
+group ExampleScenario(source src : ExampleScenarioR4, target tgt : ExampleScenarioR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.copyright -> tgt.copyright;
+  src.purpose -> tgt.purpose;
+  src.actor as s -> tgt.actor as t then ExampleScenarioActor(s, t);
+  src.instance as s -> tgt.instance as t then ExampleScenarioInstance(s, t);
+  src.process as s -> tgt.process as t then ExampleScenarioProcess(s, t);
+}
+
+
+group ExampleScenarioActor(source src, target tgt) extends BackboneElement {
+  src.actorId -> tgt.key; // renamed
+  src.type -> tgt.type;
+  src.name /* [0..1] */ -> tgt.title /* [1..1] */; // renamed // Warning: source optional, target mandatory
+  src.description -> tgt.description;
+}
+
+
+group ExampleScenarioInstance(source src, target tgt) extends BackboneElement {
+  src.resourceId -> tgt.key; // renamed
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ExampleScenario.instance.structureType') -> tgt.structureType = (e.value) "xverResourceTypeCode";
+// rule changed to code -> Coding
+// src.resourceType -> tgt.structureType; // renamed // Warning: Source Type unsupported: code  (code -> Coding)
+  src.name /* [0..1] */ -> tgt.title /* [1..1] */; // renamed // Warning: source optional, target mandatory
+  src.description -> tgt.description;
+  src.version as s -> tgt.version as t then ExampleScenarioInstanceVersion(s, t);
+  src.containedInstance as s -> tgt.containedInstance as t then ExampleScenarioInstanceContainedInstance(s, t);
+}
+
+
+group ExampleScenarioInstanceVersion(source src, target tgt) extends BackboneElement {
+  src.versionId -> tgt.key; // renamed
+  src.description -> tgt.description;
+}
+
+
+group ExampleScenarioInstanceContainedInstance(source src, target tgt) extends BackboneElement {
+  src.resourceId -> tgt.instanceReference; // renamed
+  src.versionId -> tgt.versionReference; // renamed
+}
+
+
+group ExampleScenarioProcess(source src, target tgt) extends BackboneElement {
+  src.title -> tgt.title;
+  src.description -> tgt.description;
+  src.preConditions -> tgt.preConditions;
+  src.postConditions -> tgt.postConditions;
+  src.step as s -> tgt.step as t then ExampleScenarioProcessStep(s, t);
+}
+
+
+group ExampleScenarioProcessStep(source src, target tgt) extends BackboneElement {
+  src.process as s /* [0..*] */ -> tgt.process as t /* [0..1] */ then ExampleScenarioProcess(s, t); // Warning: source repeating, target single-valued
+  src.pause -> tgt.pause;
+  src.operation as s -> tgt.operation as t then ExampleScenarioProcessStepOperation(s, t);
+  src.alternative as s -> tgt.alternative as t then ExampleScenarioProcessStepAlternative(s, t);
+}
+
+
+group ExampleScenarioProcessStepOperation(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ExampleScenario.process.step.operation.type') -> tgt.type = (e.value) "xverTypeString";
+// rule changed to string -> Coding
+// src.type -> tgt.type; // Warning: Source Type unsupported: string  (string -> Coding)
+  src.name /* [0..1] */ -> tgt.title /* [1..1] */; // renamed // Warning: source optional, target mandatory
+  src.initiator -> tgt.initiator;
+  src.receiver -> tgt.receiver;
+  src.description -> tgt.description;
+  src.initiatorActive -> tgt.initiatorActive;
+  src.receiverActive -> tgt.receiverActive;
+  src.request as s -> tgt.request as t then ExampleScenarioInstanceContainedInstance(s, t);
+  src.response as s -> tgt.response as t then ExampleScenarioInstanceContainedInstance(s, t);
+}
+
+
+group ExampleScenarioProcessStepAlternative(source src, target tgt) extends BackboneElement {
+  src.title -> tgt.title;
+  src.description -> tgt.description;
+  src.step as s -> tgt.step as t then ExampleScenarioProcessStep(s, t);
+}

@@ -1,0 +1,15 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Money4to6'
+/// name = 'Money4to6'
+/// title = 'Money Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Money" alias MoneyR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Money" alias MoneyR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Money(source src : MoneyR4, target tgt : MoneyR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+  src.currency -> tgt.currency;
+}

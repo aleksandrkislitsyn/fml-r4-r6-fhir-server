@@ -1,0 +1,39 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/QuestionnaireResponse4to6'
+/// name = 'QuestionnaireResponse4to6'
+/// title = 'QuestionnaireResponse Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/QuestionnaireResponse" alias QuestionnaireResponseR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/QuestionnaireResponse" alias QuestionnaireResponseR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group QuestionnaireResponse(source src : QuestionnaireResponseR4, target tgt : QuestionnaireResponseR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.partOf -> tgt.partOf;
+  src.questionnaire /* [0..1] */ -> tgt.questionnaire /* [1..1] */; // Warning: source optional, target mandatory
+  src.status -> tgt.status;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.authored -> tgt.authored;
+  src.author -> tgt.author;
+  src.source -> tgt.source;
+  src.item as s -> tgt.item as t then QuestionnaireResponseItem(s, t);
+}
+
+
+group QuestionnaireResponseItem(source src, target tgt) extends BackboneElement {
+  src.linkId -> tgt.linkId;
+  src.definition -> tgt.definition;
+  src.text -> tgt.text;
+  src.answer as s -> tgt.answer as t then QuestionnaireResponseItemAnswer(s, t);
+  src.item as s -> tgt.item as t then QuestionnaireResponseItem(s, t);
+}
+
+
+group QuestionnaireResponseItemAnswer(source src, target tgt) extends BackboneElement {
+  src.value /* [0..1] */ -> tgt.value /* [1..1] */; // Warning: source optional, target mandatory
+  src.item as s -> tgt.item as t then QuestionnaireResponseItem(s, t);
+}

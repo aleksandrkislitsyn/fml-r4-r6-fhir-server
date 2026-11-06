@@ -1,0 +1,35 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BodyStructure4to6'
+/// name = 'BodyStructure4to6'
+/// title = 'BodyStructure Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/BodyStructure" alias BodyStructureR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/BodyStructure" alias BodyStructureR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    BodyStructure.includedStructure BackboneElement[1..*]
+    BodyStructure.includedStructure.laterality CodeableConcept[0..1]
+    BodyStructure.includedStructure.bodyLandmarkOrientation BackboneElement[0..*]
+    BodyStructure.includedStructure.bodyLandmarkOrientation.landmarkDescription CodeableConcept[0..*]
+    BodyStructure.includedStructure.bodyLandmarkOrientation.clockFacePosition CodeableConcept[0..*]
+    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark BackboneElement[0..*]
+    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.device CodeableReference[0..*] (Device)
+    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.value Quantity[0..*]
+    BodyStructure.includedStructure.bodyLandmarkOrientation.surfaceOrientation CodeableConcept[0..*]
+    BodyStructure.includedStructure.spatialReference Reference[0..*] (ImagingSelection)
+    BodyStructure.includedStructure.image Attachment[0..*]
+    BodyStructure.includedStructure.origin CodeableConcept[0..*]
+    BodyStructure.excludedStructure [0..*]
+*/
+group BodyStructure(source src : BodyStructureR4, target tgt : BodyStructureR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.morphology -> tgt.includedStructure.morphology; // renamed
+  src.location /* [0..1] */ -> tgt.includedStructure.structure /* [1..1] */; // renamed // Warning: source optional, target mandatory
+  src.locationQualifier -> tgt.includedStructure.qualifier; // renamed
+  src.description -> tgt.description;
+  src.image -> tgt.image;
+  src.patient -> tgt.patient;
+}

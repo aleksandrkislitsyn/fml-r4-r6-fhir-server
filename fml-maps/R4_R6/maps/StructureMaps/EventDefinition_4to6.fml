@@ -1,0 +1,45 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/EventDefinition4to6'
+/// name = 'EventDefinition4to6'
+/// title = 'EventDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/EventDefinition" alias EventDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/EventDefinition" alias EventDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    EventDefinition.versionAlgorithm[x] string,Coding[0..1]
+    EventDefinition.copyrightLabel string[0..1]
+    EventDefinition.library canonical[0..*] (Library)
+*/
+group EventDefinition(source src : EventDefinitionR4, target tgt : EventDefinitionR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.subtitle -> tgt.subtitle;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.usage -> tgt.usage;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.topic -> tgt.topic;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+  src.relatedArtifact -> tgt.relatedArtifact;
+  src.trigger -> tgt.trigger;
+}

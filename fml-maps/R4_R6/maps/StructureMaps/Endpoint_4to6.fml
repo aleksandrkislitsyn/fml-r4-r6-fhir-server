@@ -1,0 +1,35 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Endpoint4to6'
+/// name = 'Endpoint4to6'
+/// title = 'Endpoint Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Endpoint" alias EndpointR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Endpoint" alias EndpointR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Endpoint.payloadType CodeableConcept[1..*]
+    Endpoint.payloadMimeType code[0..*]
+*/
+/* The following target properties were not populated:
+    Endpoint.description string[0..1]
+    Endpoint.environmentType CodeableConcept[0..*]
+    Endpoint.availability Availability[0..1]
+    Endpoint.payload BackboneElement[0..*]
+    Endpoint.payload.type CodeableConcept[0..*]
+    Endpoint.payload.mimeType code[0..*]
+    Endpoint.payload.profileCanonical canonical[0..*]
+    Endpoint.payload.profileUri uri[0..*]
+*/
+group Endpoint(source src : EndpointR4, target tgt : EndpointR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.connectionType -> tgt.connectionType;
+  src.name -> tgt.name;
+  src.managingOrganization -> tgt.managingOrganization;
+  src.contact -> tgt.contact;
+  src.period -> tgt.period;
+  src.address -> tgt.address;
+  src.header -> tgt.header;
+}

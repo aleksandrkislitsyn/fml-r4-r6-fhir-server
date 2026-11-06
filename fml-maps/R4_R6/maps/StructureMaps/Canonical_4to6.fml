@@ -1,0 +1,13 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/canonical4to6'
+/// name = 'canonical4to6'
+/// title = 'canonical Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/canonical" alias canonicalR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/canonical" alias canonicalR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Canonical(source src : canonicalR4, target tgt : canonicalR6) extends Uri <<type+>> {
+}

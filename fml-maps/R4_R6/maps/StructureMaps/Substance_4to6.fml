@@ -1,0 +1,30 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Substance4to6'
+/// name = 'Substance4to6'
+/// title = 'Substance Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Substance" alias SubstanceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Substance" alias SubstanceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Substance.instance BackboneElement[0..*]
+    Substance.instance.identifier Identifier[0..1]
+    Substance.instance.expiry dateTime[0..1]
+    Substance.instance.quantity Quantity[0..1]
+    Substance.ingredient BackboneElement[0..*]
+    Substance.ingredient.quantity Ratio[0..1]
+    Substance.ingredient.substance[x] CodeableConcept,Reference[1..1] (Substance)
+*/
+/* The following target properties were not populated:
+    Substance.expiry dateTime[0..1]
+    Substance.quantity Quantity[0..1]
+*/
+group Substance(source src : SubstanceR4, target tgt : SubstanceR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+}

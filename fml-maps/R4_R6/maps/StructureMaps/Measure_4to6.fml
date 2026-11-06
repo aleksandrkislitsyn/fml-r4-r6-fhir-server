@@ -1,0 +1,134 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Measure4to6'
+/// name = 'Measure4to6'
+/// title = 'Measure Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Measure" alias MeasureR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Measure" alias MeasureR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Measure.scoring CodeableConcept[0..1]
+    Measure.compositeScoring CodeableConcept[0..1]
+    Measure.type CodeableConcept[0..*]
+    Measure.improvementNotation CodeableConcept[0..1]
+    Measure.definition markdown[0..*]
+    Measure.guidance markdown[0..1]
+*/
+/* The following target properties were not populated:
+    Measure.versionAlgorithm[x] string,Coding[0..1]
+    Measure.copyrightLabel string[0..1]
+    Measure.reportingFrequency Quantity[0..1]
+    Measure.term BackboneElement[0..*]
+    Measure.term.code CodeableConcept[0..1]
+    Measure.term.definition markdown[0..1]
+    Measure.group.linkId string[0..1]
+    Measure.group.title string[0..1]
+    Measure.group.type CodeableConcept[0..*]
+    Measure.group.subject[x] CodeableConcept,Reference[0..1] (Group)
+    Measure.group.basis code[0..1]
+    Measure.group.basisRequirement DataRequirement[0..*]
+    Measure.group.scoring CodeableConcept[0..1]
+    Measure.group.scoringUnit CodeableConcept[0..1]
+    Measure.group.scoringPrecision positiveInt[0..1]
+    Measure.group.compositeScoring CodeableConcept[0..1]
+    Measure.group.component BackboneElement[0..*]
+    Measure.group.component.measure canonical[0..1]
+    Measure.group.component.groupId string[0..1]
+    Measure.group.component.weight decimal[0..1]
+    Measure.group.rateAggregation markdown[0..1]
+    Measure.group.improvementNotation CodeableConcept[0..1]
+    Measure.group.improvementNotationGuidance markdown[0..1]
+    Measure.group.library canonical[0..*] (Library)
+    Measure.group.population.linkId string[0..1]
+    Measure.group.population.title string[0..1]
+    Measure.group.population.groupDefinition Reference[0..1] (Group)
+    Measure.group.population.inputPopulationId string[0..1]
+    Measure.group.population.aggregateMethod CodeableConcept[0..1]
+    Measure.group.stratifier.linkId string[0..1]
+    Measure.group.stratifier.title string[0..1]
+    Measure.group.stratifier.groupDefinition Reference[0..1] (Group)
+    Measure.group.stratifier.component.linkId string[0..1]
+    Measure.group.stratifier.component.groupDefinition Reference[0..1] (Group)
+    Measure.group.stratifier.component.valueSet canonical[0..1] (ValueSet)
+    Measure.group.stratifier.component.unit string[0..1]
+    Measure.supplementalData.linkId string[0..1]
+    Measure.supplementalData.valueSet canonical[0..1] (ValueSet)
+    Measure.supplementalData.unit string[0..1]
+*/
+group Measure(source src : MeasureR4, target tgt : MeasureR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.subtitle -> tgt.subtitle;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.usage -> tgt.usage;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.topic -> tgt.topic;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+  src.relatedArtifact -> tgt.relatedArtifact;
+  src.library -> tgt.library;
+  src.disclaimer -> tgt.disclaimer;
+  src.riskAdjustment -> tgt.riskAdjustment;
+  src.rateAggregation -> tgt.rateAggregation;
+  src.rationale -> tgt.rationale;
+  src.clinicalRecommendationStatement -> tgt.clinicalRecommendationStatement;
+  src.group as s -> tgt.group as t then MeasureGroup(s, t);
+  src.supplementalData as s -> tgt.supplementalData as t then MeasureSupplementalData(s, t);
+}
+
+
+group MeasureGroup(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.population as s -> tgt.population as t then MeasureGroupPopulation(s, t);
+  src.stratifier as s -> tgt.stratifier as t then MeasureGroupStratifier(s, t);
+}
+
+
+group MeasureGroupPopulation(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.criteria -> tgt.criteria;
+}
+
+
+group MeasureGroupStratifier(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.criteria -> tgt.criteria;
+  src.component as s -> tgt.component as t then MeasureGroupStratifierComponent(s, t);
+}
+
+
+group MeasureGroupStratifierComponent(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.criteria -> tgt.criteria;
+}
+
+
+group MeasureSupplementalData(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.usage -> tgt.usage;
+  src.description -> tgt.description;
+  src.criteria -> tgt.criteria;
+}

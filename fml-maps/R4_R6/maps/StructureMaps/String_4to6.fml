@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/string4to6'
+/// name = 'string4to6'
+/// title = 'string Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/string" alias stringR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/string" alias stringR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group String(source src : stringR4, target tgt : stringR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+}

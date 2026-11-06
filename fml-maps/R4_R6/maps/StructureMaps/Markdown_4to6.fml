@@ -1,0 +1,17 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/markdown4to6'
+/// name = 'markdown4to6'
+/// title = 'markdown Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/markdown" alias markdownR4 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/string" alias stringR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/markdown" alias markdownR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Markdown(source src : markdownR4, target tgt : markdownR6) extends String <<type+>> {
+}
+
+group string2Markdown(source src : stringR4, target tgt : markdownR6) extends String <<type+>> {
+}

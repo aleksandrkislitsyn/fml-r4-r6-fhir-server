@@ -1,0 +1,67 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/CarePlan4to6'
+/// name = 'CarePlan4to6'
+/// title = 'CarePlan Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/CarePlan" alias CarePlanR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CarePlan" alias CarePlanR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    CarePlan.instantiatesCanonical canonical[0..*] (PlanDefinition,Questionnaire,Measure,ActivityDefinition,OperationDefinition)
+    CarePlan.instantiatesUri uri[0..*]
+    CarePlan.author Reference[0..1] (Patient,Practitioner,PractitionerRole,Device,RelatedPerson,Organization,CareTeam)
+    CarePlan.activity.outcomeCodeableConcept CodeableConcept[0..*]
+    CarePlan.activity.outcomeReference Reference[0..*] (Resource)
+    CarePlan.activity.detail BackboneElement[0..1]
+    CarePlan.activity.detail.kind code[0..1]
+    CarePlan.activity.detail.instantiatesCanonical canonical[0..*] (PlanDefinition,ActivityDefinition,Questionnaire,Measure,OperationDefinition)
+    CarePlan.activity.detail.instantiatesUri uri[0..*]
+    CarePlan.activity.detail.code CodeableConcept[0..1]
+    CarePlan.activity.detail.reasonCode CodeableConcept[0..*]
+    CarePlan.activity.detail.reasonReference Reference[0..*] (Condition,Observation,DiagnosticReport,DocumentReference)
+    CarePlan.activity.detail.goal Reference[0..*] (Goal)
+    CarePlan.activity.detail.status code[1..1]
+    CarePlan.activity.detail.statusReason CodeableConcept[0..1]
+    CarePlan.activity.detail.doNotPerform boolean[0..1]
+    CarePlan.activity.detail.scheduled[x] Timing,Period,string[0..1]
+    CarePlan.activity.detail.location Reference[0..1] (Location)
+    CarePlan.activity.detail.performer Reference[0..*] (Practitioner,PractitionerRole,Organization,RelatedPerson,Patient,CareTeam,HealthcareService,Device)
+    CarePlan.activity.detail.product[x] CodeableConcept,Reference[0..1] (Medication,Substance)
+    CarePlan.activity.detail.dailyAmount Quantity[0..1]
+    CarePlan.activity.detail.quantity Quantity[0..1]
+    CarePlan.activity.detail.description string[0..1]
+*/
+/* The following target properties were not populated:
+    CarePlan.custodian Reference[0..1] (Patient,Practitioner,PractitionerRole,Device,RelatedPerson,Organization,CareTeam)
+    CarePlan.activity.performedActivity CodeableReference[0..*] (Resource)
+*/
+group CarePlan(source src : CarePlanR4, target tgt : CarePlanR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.replaces -> tgt.replaces;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.intent -> tgt.intent;
+  src.category -> tgt.category;
+  src.title -> tgt.title;
+  src.description -> tgt.description;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.period -> tgt.period;
+  src.created -> tgt.created;
+  src.contributor -> tgt.contributor;
+  src.careTeam -> tgt.careTeam;
+  src.addresses -> tgt.addresses;
+  src.supportingInfo -> tgt.supportingInfo;
+  src.goal -> tgt.goal;
+  src.activity as s -> tgt.activity as t then CarePlanActivity(s, t);
+  src.note -> tgt.note;
+}
+
+
+group CarePlanActivity(source src, target tgt) extends BackboneElement {
+  src.progress -> tgt.progress;
+  src.reference -> tgt.plannedActivityReference; // renamed // Warning: Source TargetProfile unsupported: RequestGroup  (Appointment,CommunicationRequest,DeviceRequest,MedicationRequest,NutritionOrder,Task,ServiceRequest,VisionPrescription,RequestGroup -> Appointment,CommunicationRequest,DeviceRequest,MedicationRequest,NutritionOrder,Task,ServiceRequest,VisionPrescription,RequestOrchestration)
+}

@@ -1,0 +1,77 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DocumentReference4to6'
+/// name = 'DocumentReference4to6'
+/// title = 'DocumentReference Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DocumentReference" alias DocumentReferenceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DocumentReference" alias DocumentReferenceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    DocumentReference.authenticator Reference[0..1] (Practitioner,PractitionerRole,Organization)
+    DocumentReference.context.encounter Reference[0..*] (Encounter,EpisodeOfCare)
+    DocumentReference.context.event CodeableConcept[0..*]
+    DocumentReference.context.period Period[0..1]
+    DocumentReference.context.facilityType CodeableConcept[0..1]
+    DocumentReference.context.practiceSetting CodeableConcept[0..1]
+    DocumentReference.context.sourcePatientInfo Reference[0..1] (Patient)
+    DocumentReference.context.related Reference[0..*] (Resource)
+*/
+/* The following target properties were not populated:
+    DocumentReference.version string[0..1]
+    DocumentReference.basedOn Reference[0..*] (Appointment,AppointmentResponse,CarePlan,Claim,CommunicationRequest,CoverageEligibilityRequest,DeviceRequest,MedicationRequest,NutritionOrder,RequestOrchestration,ServiceRequest,VisionPrescription)
+    DocumentReference.modality CodeableConcept[0..*]
+    DocumentReference.event CodeableReference[0..*] (Resource)
+    DocumentReference.related BackboneElement[0..*]
+    DocumentReference.related.code CodeableConcept[0..1]
+    DocumentReference.related.target Reference[1..1] (Resource)
+    DocumentReference.bodyStructure CodeableReference[0..*] (BodyStructure)
+    DocumentReference.facilityType CodeableConcept[0..1]
+    DocumentReference.practiceSetting CodeableConcept[0..1]
+    DocumentReference.period Period[0..1]
+    DocumentReference.attester BackboneElement[0..*]
+    DocumentReference.attester.mode CodeableConcept[1..1]
+    DocumentReference.attester.time dateTime[0..1]
+    DocumentReference.attester.party Reference[0..1] (Patient,RelatedPerson,Practitioner,PractitionerRole,Organization,Group)
+    DocumentReference.content.profile BackboneElement[0..*]
+    DocumentReference.context.reference string[0..1]
+    DocumentReference.context.type uri[0..1]
+    DocumentReference.context.identifier Identifier[0..1]
+    DocumentReference.context.display string[0..1]
+*/
+group DocumentReference(source src : DocumentReferenceR4, target tgt : DocumentReferenceR6) extends DomainResource <<type+>> {
+  src.masterIdentifier -> tgt.identifier; // renamed
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.docStatus -> tgt.docStatus;
+  src.type -> tgt.type;
+  src.category -> tgt.category;
+  src.subject -> tgt.subject; // Warning: Source TargetProfile unsupported: Patient,Practitioner,Group,Device  (Patient,Practitioner,Group,Device -> Resource)
+  src.date -> tgt.date;
+  src.author -> tgt.author;
+  src.custodian -> tgt.custodian;
+  src.relatesTo as s -> tgt.relatesTo as t then DocumentReferenceRelatesTo(s, t);
+  src.description -> tgt.description;
+  src.securityLabel -> tgt.securityLabel;
+  src.content as s -> tgt.content as t then DocumentReferenceContent(s, t);
+  src.context as s -> tgt.context as t then DocumentReferenceContext(s, t); // Warning: type changed (BackboneElement -> Reference)
+}
+
+
+group DocumentReferenceRelatesTo(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DocumentReference.relatesTo.code') -> tgt.code = (e.value) "xverCodeCode";
+// rule changed to code -> CodeableConcept
+// src.code -> tgt.code; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.target -> tgt.target;
+}
+
+
+group DocumentReferenceContent(source src, target tgt) extends BackboneElement {
+  src.attachment -> tgt.attachment;
+  src.format /* [0..1] */ -> tgt.profile.value /* [1..1] */; // renamed // Warning: source optional, target mandatory
+}
+
+
+group DocumentReferenceContext(source src, target tgt) extends BackboneElement {
+}

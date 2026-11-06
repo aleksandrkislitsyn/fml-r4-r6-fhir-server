@@ -1,0 +1,114 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ConceptMap4to6'
+/// name = 'ConceptMap4to6'
+/// title = 'ConceptMap Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ConceptMap" alias ConceptMapR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ConceptMap" alias ConceptMapR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ConceptMap.group.sourceVersion string[0..1]
+    ConceptMap.group.targetVersion string[0..1]
+    ConceptMap.group.element.target.equivalence code[1..1]
+    ConceptMap.group.element.target.dependsOn.system canonical[0..1] (CodeSystem)
+    ConceptMap.group.element.target.dependsOn.display string[0..1]
+*/
+/* The following target properties were not populated:
+    ConceptMap.versionAlgorithm[x] string,Coding[0..1]
+    ConceptMap.copyrightLabel string[0..1]
+    ConceptMap.approvalDate date[0..1]
+    ConceptMap.lastReviewDate date[0..1]
+    ConceptMap.effectivePeriod Period[0..1]
+    ConceptMap.topic CodeableConcept[0..*]
+    ConceptMap.author ContactDetail[0..*]
+    ConceptMap.editor ContactDetail[0..*]
+    ConceptMap.reviewer ContactDetail[0..*]
+    ConceptMap.endorser ContactDetail[0..*]
+    ConceptMap.relatedArtifact RelatedArtifact[0..*]
+    ConceptMap.property BackboneElement[0..*]
+    ConceptMap.property.code code[1..1]
+    ConceptMap.property.uri uri[0..1]
+    ConceptMap.property.description string[0..1]
+    ConceptMap.property.type code[1..1]
+    ConceptMap.property.system canonical[0..1] (CodeSystem)
+    ConceptMap.additionalAttribute BackboneElement[0..*]
+    ConceptMap.additionalAttribute.code code[1..1]
+    ConceptMap.additionalAttribute.uri uri[0..1]
+    ConceptMap.additionalAttribute.description string[0..1]
+    ConceptMap.additionalAttribute.type code[1..1]
+    ConceptMap.allowedRelationship code[0..*]
+    ConceptMap.group.element.valueSet canonical[0..1] (ValueSet)
+    ConceptMap.group.element.noMap boolean[0..1]
+    ConceptMap.group.element.comment string[0..1]
+    ConceptMap.group.element.target.valueSet canonical[0..1] (ValueSet)
+    ConceptMap.group.element.target.relationship code[1..1]
+    ConceptMap.group.element.target.property BackboneElement[0..*]
+    ConceptMap.group.element.target.property.code code[1..1]
+    ConceptMap.group.element.target.property.value[x] Coding,string,integer,boolean,dateTime,decimal,code[1..1]
+    ConceptMap.group.element.target.dependsOn.valueSet canonical[0..1] (ValueSet)
+    ConceptMap.group.unmapped.comment string[0..1]
+    ConceptMap.group.unmapped.valueSet canonical[0..1] (ValueSet)
+    ConceptMap.group.unmapped.relationship code[0..1]
+*/
+group ConceptMap(source src : ConceptMapR4, target tgt : ConceptMapR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.copyright -> tgt.copyright;
+  src.source -> tgt.sourceScope; // renamed
+  src.target -> tgt.targetScope; // renamed
+  src.group as s -> tgt.group as t then ConceptMapGroup(s, t);
+}
+
+
+group ConceptMapGroup(source src, target tgt) extends BackboneElement {
+  src.source -> tgt.source;
+  src.target -> tgt.target;
+  src.element as s -> tgt.element as t then ConceptMapGroupElement(s, t);
+  src.unmapped as s -> tgt.unmapped as t then ConceptMapGroupUnmapped(s, t);
+}
+
+
+group ConceptMapGroupElement(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.target as s -> tgt.target as t then ConceptMapGroupElementTarget(s, t);
+}
+
+
+group ConceptMapGroupElementTarget(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.comment -> tgt.comment;
+  src.dependsOn as s -> tgt.dependsOn as t then ConceptMapGroupElementTargetDependsOn(s, t);
+  src.product as s -> tgt.product as t then ConceptMapGroupElementTargetDependsOn(s, t);
+}
+
+
+group ConceptMapGroupElementTargetDependsOn(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ConceptMap.group.element.target.dependsOn.attribute') -> tgt.attribute = (e.value) "xverPropertyUri";
+// rule changed to uri -> code
+// src.property -> tgt.attribute; // renamed // Warning: Source Type unsupported: uri  (uri -> code)
+  src.value -> tgt.value;
+}
+
+
+group ConceptMapGroupUnmapped(source src, target tgt) extends BackboneElement {
+  src.mode -> tgt.mode;
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.url -> tgt.otherMap; // renamed
+}

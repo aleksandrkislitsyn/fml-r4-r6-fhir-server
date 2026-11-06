@@ -1,0 +1,15 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/UsageContext4to6'
+/// name = 'UsageContext4to6'
+/// title = 'UsageContext Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/UsageContext" alias UsageContextR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/UsageContext" alias UsageContextR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group UsageContext(source src : UsageContextR4, target tgt : UsageContextR6) extends Element <<type+>> {
+  src.code -> tgt.code;
+  src.value -> tgt.value; // Warning: Source TargetProfile unsupported: InsurancePlan  (PlanDefinition,ResearchStudy,InsurancePlan,HealthcareService,Group,Location,Organization -> PlanDefinition,ResearchStudy,HealthcareService,Group,Location,Organization,ValueSet)
+}

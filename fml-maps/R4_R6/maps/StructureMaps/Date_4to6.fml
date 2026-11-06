@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/date4to6'
+/// name = 'date4to6'
+/// title = 'date Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/date" alias dateR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/date" alias dateR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Date(source src : dateR4, target tgt : dateR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+}

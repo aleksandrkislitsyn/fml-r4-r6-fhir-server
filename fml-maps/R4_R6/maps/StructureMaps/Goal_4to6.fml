@@ -1,0 +1,47 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Goal4to6'
+/// name = 'Goal4to6'
+/// title = 'Goal Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Goal" alias GoalR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Goal" alias GoalR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Goal.statusDate date[0..1]
+    Goal.statusReason string[0..1]
+    Goal.outcomeCode CodeableConcept[0..*]
+    Goal.outcomeReference Reference[0..*] (Observation)
+*/
+/* The following target properties were not populated:
+    Goal.lifecycleStatusReason CodeableConcept[0..*]
+    Goal.achievementStatusDate date[0..1]
+    Goal.continuous boolean[0..1]
+    Goal.acceptance BackboneElement[0..*]
+    Goal.acceptance.participant Reference[1..1] (Patient,Practitioner,RelatedPerson,PractitionerRole,CareTeam,Organization,Group)
+    Goal.acceptance.status code[0..1]
+    Goal.acceptance.priority CodeableConcept[0..1]
+    Goal.recorder Reference[0..1] (Practitioner,PractitionerRole,Patient,RelatedPerson,Group)
+*/
+group Goal(source src : GoalR4, target tgt : GoalR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.lifecycleStatus -> tgt.lifecycleStatus;
+  src.achievementStatus -> tgt.achievementStatus;
+  src.category -> tgt.category;
+  src.priority -> tgt.priority;
+  src.description -> tgt.description;
+  src.subject -> tgt.subject;
+  src.start -> tgt.start;
+  src.target as s -> tgt.target as t then GoalTarget(s, t);
+  src.expressedBy -> tgt.source; // renamed
+  src.addresses -> tgt.addresses;
+  src.note -> tgt.note;
+}
+
+
+group GoalTarget(source src, target tgt) extends BackboneElement {
+  src.measure -> tgt.measure;
+  src.detail -> tgt.detail;
+  src.due -> tgt.due;
+}

@@ -1,0 +1,150 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/DeviceDefinition4to6'
+/// name = 'DeviceDefinition4to6'
+/// title = 'DeviceDefinition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/DeviceDefinition" alias DeviceDefinitionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/DeviceDefinition" alias DeviceDefinitionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    DeviceDefinition.type CodeableConcept[0..1]
+    DeviceDefinition.specialization BackboneElement[0..*]
+    DeviceDefinition.specialization.systemType string[1..1]
+    DeviceDefinition.specialization.version string[0..1]
+    DeviceDefinition.physicalCharacteristics ProdCharacteristic[0..1]
+    DeviceDefinition.languageCode CodeableConcept[0..*]
+    DeviceDefinition.capability BackboneElement[0..*]
+    DeviceDefinition.capability.type CodeableConcept[1..1]
+    DeviceDefinition.capability.description CodeableConcept[0..*]
+    DeviceDefinition.owner Reference[0..1] (Organization)
+    DeviceDefinition.onlineInformation uri[0..1]
+    DeviceDefinition.quantity Quantity[0..1]
+    DeviceDefinition.parentDevice Reference[0..1] (DeviceDefinition)
+*/
+/* The following target properties were not populated:
+    DeviceDefinition.versionAlgorithm[x] string,Coding[0..1]
+    DeviceDefinition.name string[0..1]
+    DeviceDefinition.title string[0..1]
+    DeviceDefinition.status code[1..1]
+    DeviceDefinition.experimental boolean[0..1]
+    DeviceDefinition.date dateTime[0..1]
+    DeviceDefinition.publisher string[0..1]
+    DeviceDefinition.description markdown[0..1]
+    DeviceDefinition.useContext UsageContext[0..*]
+    DeviceDefinition.jurisdiction CodeableConcept[0..*]
+    DeviceDefinition.purpose markdown[0..1]
+    DeviceDefinition.copyright markdown[0..1]
+    DeviceDefinition.copyrightLabel string[0..1]
+    DeviceDefinition.approvalDate date[0..1]
+    DeviceDefinition.lastReviewDate date[0..1]
+    DeviceDefinition.effectivePeriod Period[0..1]
+    DeviceDefinition.partNumber string[0..1]
+    DeviceDefinition.udiDeviceIdentifier.marketDistribution BackboneElement[0..*]
+    DeviceDefinition.udiDeviceIdentifier.marketDistribution.marketPeriod Period[1..1]
+    DeviceDefinition.udiDeviceIdentifier.marketDistribution.subJurisdiction uri[1..1]
+    DeviceDefinition.udiDeviceIdentifier.deviceIdentifierSystem uri[0..1]
+    DeviceDefinition.regulatoryIdentifier BackboneElement[0..*]
+    DeviceDefinition.regulatoryIdentifier.type CodeableConcept[1..1]
+    DeviceDefinition.regulatoryIdentifier.identifier string[1..1]
+    DeviceDefinition.regulatoryIdentifier.issuer uri[1..1]
+    DeviceDefinition.regulatoryIdentifier.jurisdiction uri[1..1]
+    DeviceDefinition.regulatoryIdentifier.identifierSystem uri[0..1]
+    DeviceDefinition.classification BackboneElement[0..*]
+    DeviceDefinition.classification.type CodeableConcept[1..1]
+    DeviceDefinition.classification.justification RelatedArtifact[0..*]
+    DeviceDefinition.conformsTo BackboneElement[0..*]
+    DeviceDefinition.conformsTo.category CodeableConcept[0..1]
+    DeviceDefinition.conformsTo.specification CodeableConcept[1..1]
+    DeviceDefinition.conformsTo.version string[0..*]
+    DeviceDefinition.conformsTo.source RelatedArtifact[0..*]
+    DeviceDefinition.hasPart BackboneElement[0..*]
+    DeviceDefinition.hasPart.definition[x] canonical,CodeableConcept[1..1] (DeviceDefinition)
+    DeviceDefinition.hasPart.count integer[0..1]
+    DeviceDefinition.packaging BackboneElement[0..*]
+    DeviceDefinition.packaging.identifier Identifier[0..*]
+    DeviceDefinition.packaging.type CodeableConcept[0..1]
+    DeviceDefinition.packaging.count integer[0..1]
+    DeviceDefinition.packaging.distributor BackboneElement[0..*]
+    DeviceDefinition.packaging.distributor.name string[0..1]
+    DeviceDefinition.packaging.distributor.organizationReference Reference[0..*] (Organization)
+    DeviceDefinition.packaging.udiDeviceIdentifier [0..*]
+    DeviceDefinition.packaging.packaging [0..*]
+    DeviceDefinition.deviceVersion BackboneElement[0..*]
+    DeviceDefinition.deviceVersion.type CodeableConcept[0..1]
+    DeviceDefinition.deviceVersion.component Identifier[0..1]
+    DeviceDefinition.deviceVersion.value string[1..1]
+    DeviceDefinition.outputLanguage code[0..*]
+    DeviceDefinition.link BackboneElement[0..*]
+    DeviceDefinition.link.relation Coding[1..1]
+    DeviceDefinition.link.relatedDevice[x] canonical,CodeableConcept[1..1] (DeviceDefinition)
+    DeviceDefinition.additive BackboneElement[0..*]
+    DeviceDefinition.additive.type CodeableReference[1..1] (SubstanceDefinition)
+    DeviceDefinition.additive.quantity Quantity[0..1]
+    DeviceDefinition.productionIdentifierInUDI CodeableConcept[0..*]
+    DeviceDefinition.guideline BackboneElement[0..1]
+    DeviceDefinition.guideline.useContext UsageContext[0..*]
+    DeviceDefinition.guideline.usageInstruction markdown[0..1]
+    DeviceDefinition.guideline.relatedArtifact RelatedArtifact[0..*]
+    DeviceDefinition.guideline.indication CodeableConcept[0..*]
+    DeviceDefinition.guideline.contraindication CodeableConcept[0..*]
+    DeviceDefinition.guideline.warning CodeableConcept[0..*]
+    DeviceDefinition.guideline.intendedUse string[0..1]
+    DeviceDefinition.correctiveAction BackboneElement[0..1]
+    DeviceDefinition.correctiveAction.recall boolean[1..1]
+    DeviceDefinition.correctiveAction.scope code[0..1]
+    DeviceDefinition.correctiveAction.period Period[1..1]
+    DeviceDefinition.chargeItem BackboneElement[0..*]
+    DeviceDefinition.chargeItem.chargeItemCode CodeableReference[1..1]
+    DeviceDefinition.chargeItem.count Quantity[1..1]
+    DeviceDefinition.chargeItem.effectivePeriod Period[0..1]
+    DeviceDefinition.chargeItem.useContext UsageContext[0..*]
+*/
+group DeviceDefinition(source src : DeviceDefinitionR4, target tgt : DeviceDefinitionR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.udiDeviceIdentifier as s -> tgt.udiDeviceIdentifier as t then DeviceDefinitionUdiDeviceIdentifier(s, t);
+  src.manufacturer : Reference -> tgt.manufacturer;
+  src.manufacturer : string as s -> tgt.manufacturer as t, t.display = s "setManufacturer";
+  src.deviceName as s -> tgt.deviceName as t then DeviceDefinitionDeviceName(s, t);
+  src.modelNumber -> tgt.modelNumber;
+  src.version /* [0..*] */ -> tgt.version /* [0..1] */; // Warning: source repeating, target single-valued
+  src.safety -> tgt.safety;
+  src.shelfLifeStorage -> tgt.shelfLifeStorage;
+  src.property as s -> tgt.property as t then DeviceDefinitionProperty(s, t);
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceDefinition.contact') -> tgt.contact = (e.value) "xverContactContactPoint";
+// rule changed to ContactPoint -> ContactDetail
+// src.contact -> tgt.contact; // Warning: Source Type unsupported: ContactPoint  (ContactPoint -> ContactDetail)
+  src.url -> tgt.url;
+  src.note -> tgt.note;
+  src.material as s -> tgt.material as t then DeviceDefinitionMaterial(s, t);
+}
+
+
+group DeviceDefinitionUdiDeviceIdentifier(source src, target tgt) extends BackboneElement {
+  src.deviceIdentifier -> tgt.deviceIdentifier;
+  src.issuer -> tgt.issuer;
+  src.jurisdiction -> tgt.jurisdiction;
+}
+
+
+group DeviceDefinitionDeviceName(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-DeviceDefinition.deviceName.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+}
+
+
+group DeviceDefinitionProperty(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.valueQuantity /* [0..*] */ -> tgt.value /* [1..1] */; // renamed // Warning: source repeating, target single-valued
+  src.valueCode /* [0..*] */ -> tgt.value /* [1..1] */; // renamed // Warning: source repeating, target single-valued
+}
+
+
+group DeviceDefinitionMaterial(source src, target tgt) extends BackboneElement {
+  src.substance -> tgt.substance;
+  src.alternate -> tgt.alternate;
+  src.allergenicIndicator -> tgt.allergenicIndicator;
+}

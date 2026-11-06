@@ -1,0 +1,35 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Person4to6'
+/// name = 'Person4to6'
+/// title = 'Person Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Person" alias PersonR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Person" alias PersonR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Person.deceased[x] boolean,dateTime[0..1]
+    Person.maritalStatus CodeableConcept[0..1]
+    Person.communication BackboneElement[0..*]
+    Person.communication.language CodeableConcept[1..1]
+    Person.communication.preferred boolean[0..1]
+*/
+group Person(source src : PersonR4, target tgt : PersonR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.name -> tgt.name;
+  src.telecom -> tgt.telecom;
+  src.gender -> tgt.gender;
+  src.birthDate -> tgt.birthDate;
+  src.address -> tgt.address;
+  src.photo -> tgt.photo;
+  src.managingOrganization -> tgt.managingOrganization;
+  src.active -> tgt.active;
+  src.link as s -> tgt.link as t then PersonLink(s, t);
+}
+
+
+group PersonLink(source src, target tgt) extends BackboneElement {
+  src.target -> tgt.target;
+  src.assurance -> tgt.assurance;
+}

@@ -1,0 +1,15 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Element4to6'
+/// name = 'Element4to6'
+/// title = 'Element Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Element" alias ElementR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Element" alias ElementR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Element(source src : ElementR4, target tgt : ElementR6) {
+  src.id -> tgt.id;
+  src.extension where (url.startsWith('http://hl7.org/fhir/5.0/StructureDefinition/extension-').not()) -> tgt.extension;
+}

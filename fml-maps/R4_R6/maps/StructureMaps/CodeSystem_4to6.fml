@@ -1,0 +1,91 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/CodeSystem4to6'
+/// name = 'CodeSystem4to6'
+/// title = 'CodeSystem Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/CodeSystem" alias CodeSystemR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CodeSystem" alias CodeSystemR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    CodeSystem.versionAlgorithm[x] string,Coding[0..1]
+    CodeSystem.copyrightLabel string[0..1]
+    CodeSystem.approvalDate date[0..1]
+    CodeSystem.lastReviewDate date[0..1]
+    CodeSystem.effectivePeriod Period[0..1]
+    CodeSystem.topic CodeableConcept[0..*]
+    CodeSystem.author ContactDetail[0..*]
+    CodeSystem.editor ContactDetail[0..*]
+    CodeSystem.reviewer ContactDetail[0..*]
+    CodeSystem.endorser ContactDetail[0..*]
+    CodeSystem.relatedArtifact RelatedArtifact[0..*]
+    CodeSystem.concept.designation.additionalUse Coding[0..*]
+*/
+group CodeSystem(source src : CodeSystemR4, target tgt : CodeSystemR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.copyright -> tgt.copyright;
+  src.caseSensitive -> tgt.caseSensitive;
+  src.valueSet -> tgt.valueSet;
+  src.hierarchyMeaning -> tgt.hierarchyMeaning;
+  src.compositional -> tgt.compositional;
+  src.versionNeeded -> tgt.versionNeeded;
+  src.content -> tgt.content;
+  src.supplements -> tgt.supplements;
+  src.count -> tgt.count;
+  src.filter as s -> tgt.filter as t then CodeSystemFilter(s, t);
+  src.property as s -> tgt.property as t then CodeSystemProperty(s, t);
+  src.concept as s -> tgt.concept as t then CodeSystemConcept(s, t);
+}
+
+
+group CodeSystemFilter(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.description -> tgt.description;
+  src.operator -> tgt.operator;
+  src.value -> tgt.value;
+}
+
+
+group CodeSystemProperty(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.uri -> tgt.uri;
+  src.description -> tgt.description;
+  src.type -> tgt.type;
+}
+
+
+group CodeSystemConcept(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.display -> tgt.display;
+  src.definition -> tgt.definition;
+  src.designation as s -> tgt.designation as t then CodeSystemConceptDesignation(s, t);
+  src.property as s -> tgt.property as t then CodeSystemConceptProperty(s, t);
+  src.concept as s -> tgt.concept as t then CodeSystemConcept(s, t);
+}
+
+
+group CodeSystemConceptDesignation(source src, target tgt) extends BackboneElement {
+  src.language -> tgt.language;
+  src.use -> tgt.use;
+  src.value -> tgt.value;
+}
+
+
+group CodeSystemConceptProperty(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  src.value -> tgt.value;
+}

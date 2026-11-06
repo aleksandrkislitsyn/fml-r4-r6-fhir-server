@@ -1,0 +1,66 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Coverage4to6'
+/// name = 'Coverage4to6'
+/// title = 'Coverage Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Coverage" alias CoverageR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Coverage" alias CoverageR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Coverage.contract Reference[0..*] (Contract)
+*/
+/* The following target properties were not populated:
+    Coverage.statusReason CodeableConcept[0..1]
+    Coverage.kind code[1..1]
+    Coverage.paymentBy BackboneElement[0..*]
+    Coverage.paymentBy.responsibility string[0..1]
+    Coverage.insurer Reference[0..1] (Organization)
+    Coverage.class.code Coding[0..1]
+    Coverage.costToBeneficiary.category CodeableConcept[0..1]
+    Coverage.costToBeneficiary.unit CodeableConcept[0..1]
+    Coverage.costToBeneficiary.term CodeableConcept[0..1]
+*/
+group Coverage(source src : CoverageR4, target tgt : CoverageR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.policyHolder -> tgt.policyHolder;
+  src.subscriber -> tgt.subscriber;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Coverage.subscriberId') -> tgt.subscriberId = (e.value) "xverSubscriberIdString";
+// rule changed to string -> Identifier
+// src.subscriberId -> tgt.subscriberId; // Warning: Source Type unsupported: string  (string -> Identifier)
+  src.beneficiary -> tgt.beneficiary;
+  src.dependent -> tgt.dependent;
+  src.relationship -> tgt.relationship;
+  src.period -> tgt.period;
+  src.payor /* [1..*] */ -> tgt.paymentBy.party /* [1..1] */; // renamed // Warning: source repeating, target single-valued
+  src.class as s -> tgt.class as t then CoverageClass(s, t);
+  src.order -> tgt.order;
+  src.network as s -> tgt.network as t, t.display = s "setNetwork";
+  src.costToBeneficiary as s -> tgt.costToBeneficiary as t then CoverageCostToBeneficiary(s, t);
+  src.subrogation -> tgt.subrogation;
+}
+
+
+group CoverageClass(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Coverage.class.value') -> tgt.value = (e.value) "xverValueString";
+// rule changed to string -> Identifier
+// src.value -> tgt.value; // Warning: Source Type unsupported: string  (string -> Identifier)
+  src.name -> tgt.name;
+}
+
+
+group CoverageCostToBeneficiary(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.value -> tgt.value;
+  src.exception as s -> tgt.exception as t then CoverageCostToBeneficiaryException(s, t);
+}
+
+
+group CoverageCostToBeneficiaryException(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.period -> tgt.period;
+}

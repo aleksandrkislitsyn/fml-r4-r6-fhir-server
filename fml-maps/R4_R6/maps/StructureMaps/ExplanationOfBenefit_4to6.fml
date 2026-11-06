@@ -1,0 +1,345 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ExplanationOfBenefit4to6'
+/// name = 'ExplanationOfBenefit4to6'
+/// title = 'ExplanationOfBenefit Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ExplanationOfBenefit" alias ExplanationOfBenefitR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ExplanationOfBenefit" alias ExplanationOfBenefitR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ExplanationOfBenefit.patient Reference[1..1] (Patient)
+    ExplanationOfBenefit.originalPrescription Reference[0..1] (MedicationRequest)
+    ExplanationOfBenefit.careTeam.responsible boolean[0..1]
+    ExplanationOfBenefit.diagnosis.packageCode CodeableConcept[0..1]
+*/
+/* The following target properties were not populated:
+    ExplanationOfBenefit.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.statusReason string[0..1]
+    ExplanationOfBenefit.subject Reference[1..1] (Patient,Group)
+    ExplanationOfBenefit.event BackboneElement[0..*]
+    ExplanationOfBenefit.event.type CodeableConcept[1..1]
+    ExplanationOfBenefit.event.when[x] dateTime,Period[1..1]
+    ExplanationOfBenefit.encounter Reference[0..*] (Encounter)
+    ExplanationOfBenefit.decision CodeableConcept[0..1]
+    ExplanationOfBenefit.diagnosisRelatedGroup CodeableConcept[0..1]
+    ExplanationOfBenefit.supportingInfo.subCategory CodeableConcept[0..1]
+    ExplanationOfBenefit.patientPaid Money[0..1]
+    ExplanationOfBenefit.item.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.item.subject Reference[0..1] (Patient,Group)
+    ExplanationOfBenefit.item.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.item.request Reference[0..*] (DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest,VisionPrescription)
+    ExplanationOfBenefit.item.patientPaid Money[0..1]
+    ExplanationOfBenefit.item.tax Money[0..1]
+    ExplanationOfBenefit.item.bodySite BackboneElement[0..*]
+    ExplanationOfBenefit.item.reviewOutcome BackboneElement[0..1]
+    ExplanationOfBenefit.item.reviewOutcome.decision CodeableConcept[0..1]
+    ExplanationOfBenefit.item.reviewOutcome.reason CodeableConcept[0..*]
+    ExplanationOfBenefit.item.reviewOutcome.preAuthRef string[0..1]
+    ExplanationOfBenefit.item.reviewOutcome.preAuthPeriod Period[0..1]
+    ExplanationOfBenefit.item.adjudication.decisionDate dateTime[0..1]
+    ExplanationOfBenefit.item.detail.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.item.detail.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.item.detail.patientPaid Money[0..1]
+    ExplanationOfBenefit.item.detail.tax Money[0..1]
+    ExplanationOfBenefit.item.detail.reviewOutcome [0..1]
+    ExplanationOfBenefit.item.detail.subDetail.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.item.detail.subDetail.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.item.detail.subDetail.patientPaid Money[0..1]
+    ExplanationOfBenefit.item.detail.subDetail.tax Money[0..1]
+    ExplanationOfBenefit.item.detail.subDetail.reviewOutcome [0..1]
+    ExplanationOfBenefit.addItem.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.addItem.subject Reference[0..1] (Patient,Group)
+    ExplanationOfBenefit.addItem.informationSequence positiveInt[0..*]
+    ExplanationOfBenefit.addItem.revenue CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.category CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.request Reference[0..*] (DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest,VisionPrescription)
+    ExplanationOfBenefit.addItem.patientPaid Money[0..1]
+    ExplanationOfBenefit.addItem.tax Money[0..1]
+    ExplanationOfBenefit.addItem.bodySite BackboneElement[0..*]
+    ExplanationOfBenefit.addItem.reviewOutcome [0..1]
+    ExplanationOfBenefit.addItem.detail.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.addItem.detail.revenue CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.detail.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.detail.patientPaid Money[0..1]
+    ExplanationOfBenefit.addItem.detail.tax Money[0..1]
+    ExplanationOfBenefit.addItem.detail.reviewOutcome [0..1]
+    ExplanationOfBenefit.addItem.detail.subDetail.traceNumber Identifier[0..*]
+    ExplanationOfBenefit.addItem.detail.subDetail.revenue CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.detail.subDetail.productOrServiceEnd CodeableConcept[0..1]
+    ExplanationOfBenefit.addItem.detail.subDetail.patientPaid Money[0..1]
+    ExplanationOfBenefit.addItem.detail.subDetail.tax Money[0..1]
+    ExplanationOfBenefit.addItem.detail.subDetail.reviewOutcome [0..1]
+    ExplanationOfBenefit.processNote.class CodeableConcept[0..1]
+*/
+group ExplanationOfBenefit(source src : ExplanationOfBenefitR4, target tgt : ExplanationOfBenefitR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.subType -> tgt.subType;
+  src.use -> tgt.use;
+  src.billablePeriod -> tgt.billablePeriod;
+  src.created -> tgt.created;
+  src.enterer -> tgt.enterer;
+  src.insurer -> tgt.insurer;
+  src.provider -> tgt.provider;
+  src.priority -> tgt.priority;
+  src.fundsReserveRequested -> tgt.fundsReserveRequested;
+  src.fundsReserve -> tgt.fundsReserve;
+  src.related as s -> tgt.related as t then ExplanationOfBenefitRelated(s, t);
+  src.prescription -> tgt.request; // renamed
+  src.payee as s -> tgt.payee as t then ExplanationOfBenefitPayee(s, t);
+  src.referral -> tgt.referral;
+  src.facility -> tgt.facility;
+  src.claim -> tgt.claim;
+  src.claimResponse -> tgt.claimResponse;
+  src.outcome -> tgt.outcome;
+  src.disposition -> tgt.disposition;
+  src.preAuthRef -> tgt.preAuthRef;
+  src.preAuthRefPeriod -> tgt.preAuthRefPeriod;
+  src.careTeam as s -> tgt.careTeam as t then ExplanationOfBenefitCareTeam(s, t);
+  src.supportingInfo as s -> tgt.supportingInfo as t then ExplanationOfBenefitSupportingInfo(s, t);
+  src.diagnosis as s -> tgt.diagnosis as t then ExplanationOfBenefitDiagnosis(s, t);
+  src.procedure as s -> tgt.procedure as t then ExplanationOfBenefitProcedure(s, t);
+  src.precedence -> tgt.precedence;
+  src.insurance as s -> tgt.insurance as t then ExplanationOfBenefitInsurance(s, t);
+  src.accident as s -> tgt.accident as t then ExplanationOfBenefitAccident(s, t);
+  src.item as s -> tgt.item as t then ExplanationOfBenefitItem(s, t);
+  src.addItem as s -> tgt.addItem as t then ExplanationOfBenefitAddItem(s, t);
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+  src.total as s -> tgt.total as t then ExplanationOfBenefitTotal(s, t);
+  src.payment as s -> tgt.payment as t then ExplanationOfBenefitPayment(s, t);
+  src.formCode -> tgt.formCode;
+  src.form -> tgt.form;
+  src.processNote as s -> tgt.processNote as t then ExplanationOfBenefitProcessNote(s, t);
+  src.benefitPeriod -> tgt.benefitPeriod;
+  src.benefitBalance as s -> tgt.benefitBalance as t then ExplanationOfBenefitBenefitBalance(s, t);
+}
+
+
+group ExplanationOfBenefitRelated(source src, target tgt) extends BackboneElement {
+  src.claim -> tgt.claim;
+  src.relationship -> tgt.relationship;
+  src.reference -> tgt.reference;
+}
+
+
+group ExplanationOfBenefitPayee(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.party -> tgt.party;
+}
+
+
+group ExplanationOfBenefitCareTeam(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.provider -> tgt.provider;
+  src.role -> tgt.role;
+  src.qualification -> tgt.specialty; // renamed
+}
+
+
+group ExplanationOfBenefitSupportingInfo(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.timing -> tgt.timing;
+  src.value -> tgt.value;
+  src.reason -> tgt.reason;
+}
+
+
+group ExplanationOfBenefitDiagnosis(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.diagnosis -> tgt.diagnosis;
+  src.type -> tgt.type;
+  src.onAdmission -> tgt.onAdmission;
+}
+
+
+group ExplanationOfBenefitProcedure(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.type -> tgt.type;
+  src.date -> tgt.date;
+  src.procedure -> tgt.procedure;
+  src.udi -> tgt.udi;
+}
+
+
+group ExplanationOfBenefitInsurance(source src, target tgt) extends BackboneElement {
+  src.focal -> tgt.focal;
+  src.coverage -> tgt.coverage;
+  src.preAuthRef -> tgt.preAuthRef;
+}
+
+
+group ExplanationOfBenefitAccident(source src, target tgt) extends BackboneElement {
+  src.date -> tgt.date;
+  src.type -> tgt.type;
+  src.location -> tgt.location;
+}
+
+
+group ExplanationOfBenefitItem(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.careTeamSequence -> tgt.careTeamSequence;
+  src.diagnosisSequence -> tgt.diagnosisSequence;
+  src.procedureSequence -> tgt.procedureSequence;
+  src.informationSequence -> tgt.informationSequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.serviced -> tgt.serviced;
+  src.location -> tgt.location;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+  src.bodySite /* [0..1] */ -> tgt.bodySite.site /* [1..*] */; // renamed // Warning: source optional, target mandatory
+  src.subSite -> tgt.bodySite.subSite; // renamed
+  src.encounter -> tgt.encounter;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+  src.detail as s -> tgt.detail as t then ExplanationOfBenefitItemDetail(s, t);
+}
+
+
+group ExplanationOfBenefitItemAdjudication(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.reason -> tgt.reason;
+  src.amount -> tgt.amount;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ExplanationOfBenefit.item.adjudication.quantity') -> tgt.quantity = (e.value) "xverValueDecimal";
+// rule changed to decimal -> Quantity
+// src.value -> tgt.quantity; // renamed // Warning: Source Type unsupported: decimal  (decimal -> Quantity)
+}
+
+
+group ExplanationOfBenefitItemDetail(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+  src.subDetail as s -> tgt.subDetail as t then ExplanationOfBenefitItemDetailSubDetail(s, t);
+}
+
+
+group ExplanationOfBenefitItemDetailSubDetail(source src, target tgt) extends BackboneElement {
+  src.sequence -> tgt.sequence;
+  src.revenue -> tgt.revenue;
+  src.category -> tgt.category;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.udi -> tgt.udi;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+}
+
+
+group ExplanationOfBenefitAddItem(source src, target tgt) extends BackboneElement {
+  src.itemSequence -> tgt.itemSequence;
+  src.detailSequence -> tgt.detailSequence;
+  src.subDetailSequence -> tgt.subDetailSequence;
+  src.provider -> tgt.provider;
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.programCode -> tgt.programCode;
+  src.serviced -> tgt.serviced;
+  src.location -> tgt.location;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.bodySite /* [0..1] */ -> tgt.bodySite.site /* [1..*] */; // renamed // Warning: source optional, target mandatory
+  src.subSite -> tgt.bodySite.subSite; // renamed
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+  src.detail as s -> tgt.detail as t then ExplanationOfBenefitAddItemDetail(s, t);
+}
+
+
+group ExplanationOfBenefitAddItemDetail(source src, target tgt) extends BackboneElement {
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+  src.subDetail as s -> tgt.subDetail as t then ExplanationOfBenefitAddItemDetailSubDetail(s, t);
+}
+
+
+group ExplanationOfBenefitAddItemDetailSubDetail(source src, target tgt) extends BackboneElement {
+  src.productOrService -> tgt.productOrService;
+  src.modifier -> tgt.modifier;
+  src.quantity -> tgt.quantity;
+  src.unitPrice -> tgt.unitPrice;
+  src.factor -> tgt.factor;
+  src.net -> tgt.net;
+  src.noteNumber -> tgt.noteNumber;
+  src.adjudication as s -> tgt.adjudication as t then ExplanationOfBenefitItemAdjudication(s, t);
+}
+
+
+group ExplanationOfBenefitTotal(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.amount -> tgt.amount;
+}
+
+
+group ExplanationOfBenefitPayment(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.adjustment -> tgt.adjustment;
+  src.adjustmentReason -> tgt.adjustmentReason;
+  src.date -> tgt.date;
+  src.amount -> tgt.amount;
+  src.identifier -> tgt.identifier;
+}
+
+
+group ExplanationOfBenefitProcessNote(source src, target tgt) extends BackboneElement {
+  src.number -> tgt.number;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ExplanationOfBenefit.processNote.type') -> tgt.type = (e.value) "xverTypeCode";
+// rule changed to code -> CodeableConcept
+// src.type -> tgt.type; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.text -> tgt.text;
+  src.language -> tgt.language;
+}
+
+
+group ExplanationOfBenefitBenefitBalance(source src, target tgt) extends BackboneElement {
+  src.category -> tgt.category;
+  src.excluded -> tgt.excluded;
+  src.name -> tgt.name;
+  src.description -> tgt.description;
+  src.network -> tgt.network;
+  src.unit -> tgt.unit;
+  src.term -> tgt.term;
+  src.financial as s -> tgt.financial as t then ExplanationOfBenefitBenefitBalanceFinancial(s, t);
+}
+
+
+group ExplanationOfBenefitBenefitBalanceFinancial(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.allowed -> tgt.allowed;
+  src.used -> tgt.used;
+}

@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/base64Binary4to6'
+/// name = 'base64Binary4to6'
+/// title = 'base64Binary Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/base64Binary" alias base64BinaryR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/base64Binary" alias base64BinaryR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Base64Binary(source src : base64BinaryR4, target tgt : base64BinaryR6) extends Element <<type+>> {
+  src.value -> tgt.value;
+}

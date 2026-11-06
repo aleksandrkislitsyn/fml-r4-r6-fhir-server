@@ -1,0 +1,69 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ServiceRequest4to6'
+/// name = 'ServiceRequest4to6'
+/// title = 'ServiceRequest Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ServiceRequest" alias ServiceRequestR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ServiceRequest" alias ServiceRequestR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ServiceRequest.instantiatesCanonical canonical[0..*] (ActivityDefinition,PlanDefinition)
+    ServiceRequest.instantiatesUri uri[0..*]
+    ServiceRequest.orderDetail.coding Coding[0..*]
+    ServiceRequest.orderDetail.text string[0..1]
+    ServiceRequest.specimen Reference[0..*] (Specimen)
+    ServiceRequest.bodySite CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    ServiceRequest.statusReason CodeableConcept[0..*]
+    ServiceRequest.orderDetail.parameterFocus[x] CodeableConcept,Reference,canonical[0..1] (Device,DeviceRequest,Medication,MedicationRequest,BiologicallyDerivedProduct,Substance,SubstanceDefinition,MedicinalProductDefinition,DeviceDefinition)
+    ServiceRequest.orderDetail.parameter BackboneElement[1..*]
+    ServiceRequest.orderDetail.parameter.code CodeableConcept[1..1]
+    ServiceRequest.orderDetail.parameter.value[x] Quantity,Ratio,Range,boolean,CodeableConcept,string,Period[1..1]
+    ServiceRequest.focus Reference[0..*] (Resource)
+    ServiceRequest.asNeededFor CodeableConcept[0..*]
+    ServiceRequest.bodyStructure CodeableReference[0..*] (BodyStructure)
+    ServiceRequest.patientInstruction.instruction[x] markdown,Reference[0..1] (DocumentReference)
+*/
+group ServiceRequest(source src : ServiceRequestR4, target tgt : ServiceRequestR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.replaces -> tgt.replaces;
+  src.requisition -> tgt.requisition;
+  src.status -> tgt.status;
+  src.intent -> tgt.intent;
+  src.category -> tgt.category;
+  src.priority -> tgt.priority;
+  src.doNotPerform -> tgt.doNotPerform;
+  src.code -> tgt.code;
+  src.orderDetail as s -> tgt.orderDetail as t then ServiceRequestOrderDetail(s, t); // Warning: type changed (CodeableConcept -> BackboneElement)
+  src.quantity -> tgt.quantity;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.occurrence -> tgt.occurrence;
+  src.asNeeded : boolean -> tgt.asNeeded;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ServiceRequest.asNeeded') -> tgt.asNeeded = (e.value) "xverAsNeededCodeableConcept";
+// rule changed to boolean,CodeableConcept -> boolean
+// src.asNeeded -> tgt.asNeeded; // Warning: Source Type unsupported: CodeableConcept  (boolean,CodeableConcept -> boolean)
+  src.authoredOn -> tgt.authoredOn;
+  src.requester -> tgt.requester;
+  src.performerType -> tgt.performerType;
+  src.performer -> tgt.performer;
+  src.locationCode -> tgt.location; // renamed
+  src.locationReference -> tgt.location; // renamed
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.insurance -> tgt.insurance;
+  src.supportingInfo -> tgt.supportingInfo;
+  src.note -> tgt.note;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-ServiceRequest.patientInstruction') -> tgt.patientInstruction = (e.value) "xverPatientInstructionString";
+// rule changed to string -> BackboneElement
+// src.patientInstruction -> tgt.patientInstruction; // Warning: Source Type unsupported: string  (string -> BackboneElement)
+  src.relevantHistory -> tgt.relevantHistory;
+}
+
+
+group ServiceRequestOrderDetail(source src, target tgt) extends BackboneElement {
+}

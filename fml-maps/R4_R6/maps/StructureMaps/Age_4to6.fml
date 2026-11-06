@@ -1,0 +1,13 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Age4to6'
+/// name = 'Age4to6'
+/// title = 'Age Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Age" alias AgeR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Age" alias AgeR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Age(source src : AgeR4, target tgt : AgeR6) extends Quantity <<type+>> {
+}

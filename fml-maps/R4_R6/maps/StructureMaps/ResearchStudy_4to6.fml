@@ -1,0 +1,107 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/ResearchStudy4to6'
+/// name = 'ResearchStudy4to6'
+/// title = 'ResearchStudy Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/ResearchStudy" alias ResearchStudyR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/ResearchStudy" alias ResearchStudyR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    ResearchStudy.primaryPurposeType CodeableConcept[0..1]
+    ResearchStudy.category CodeableConcept[0..*]
+    ResearchStudy.contact ContactDetail[0..*]
+    ResearchStudy.relatedArtifact RelatedArtifact[0..*]
+    ResearchStudy.location CodeableConcept[0..*]
+    ResearchStudy.enrollment Reference[0..*] (Group)
+    ResearchStudy.sponsor Reference[0..1] (Organization)
+    ResearchStudy.principalInvestigator Reference[0..1] (Practitioner,PractitionerRole)
+    ResearchStudy.reasonStopped CodeableConcept[0..1]
+    ResearchStudy.arm BackboneElement[0..*]
+    ResearchStudy.arm.name string[1..1]
+    ResearchStudy.arm.type CodeableConcept[0..1]
+    ResearchStudy.arm.description string[0..1]
+*/
+/* The following target properties were not populated:
+    ResearchStudy.url uri[0..1]
+    ResearchStudy.version string[0..1]
+    ResearchStudy.name string[0..1]
+    ResearchStudy.label BackboneElement[0..*]
+    ResearchStudy.label.type CodeableConcept[0..1]
+    ResearchStudy.label.value string[0..1]
+    ResearchStudy.label.language code[0..1]
+    ResearchStudy.citeAs markdown[0..1]
+    ResearchStudy.relatesTo BackboneElement[0..*]
+    ResearchStudy.relatesTo.type CodeableConcept[1..1]
+    ResearchStudy.relatesTo.target[x] uri,Attachment,canonical,Reference,markdown[1..1] (Resource,Resource)
+    ResearchStudy.date dateTime[0..1]
+    ResearchStudy.purposeType CodeableConcept[0..*]
+    ResearchStudy.studyDesign CodeableConcept[0..*]
+    ResearchStudy.region CodeableConcept[0..*]
+    ResearchStudy.descriptionSummary markdown[0..1]
+    ResearchStudy.classifier CodeableConcept[0..*]
+    ResearchStudy.associatedParty BackboneElement[0..*]
+    ResearchStudy.associatedParty.name string[0..1]
+    ResearchStudy.associatedParty.role CodeableConcept[1..1]
+    ResearchStudy.associatedParty.period Period[0..*]
+    ResearchStudy.associatedParty.classifier CodeableConcept[0..*]
+    ResearchStudy.associatedParty.party Reference[0..1] (Practitioner,PractitionerRole,Organization)
+    ResearchStudy.progressStatus BackboneElement[0..*]
+    ResearchStudy.progressStatus.state CodeableConcept[1..1]
+    ResearchStudy.progressStatus.actual boolean[0..1]
+    ResearchStudy.progressStatus.period Period[0..1]
+    ResearchStudy.whyStopped CodeableConcept[0..1]
+    ResearchStudy.recruitment BackboneElement[0..1]
+    ResearchStudy.recruitment.targetNumber unsignedInt[0..1]
+    ResearchStudy.recruitment.actualNumber unsignedInt[0..1]
+    ResearchStudy.recruitment.eligibility Reference[0..1] (Group)
+    ResearchStudy.recruitment.actualGroup Reference[0..1] (Group)
+    ResearchStudy.recruitment.description markdown[0..1]
+    ResearchStudy.comparisonGroup BackboneElement[0..*]
+    ResearchStudy.comparisonGroup.targetNumber unsignedInt[0..1]
+    ResearchStudy.comparisonGroup.actualNumber unsignedInt[0..1]
+    ResearchStudy.comparisonGroup.eligibility Reference[0..1] (Group)
+    ResearchStudy.comparisonGroup.observedGroup Reference[0..1] (Group)
+    ResearchStudy.comparisonGroup.name string[0..1]
+    ResearchStudy.comparisonGroup.description markdown[0..1]
+    ResearchStudy.objective.description markdown[0..1]
+    ResearchStudy.objective.outcomeMeasure BackboneElement[0..*]
+    ResearchStudy.objective.outcomeMeasure.name string[0..1]
+    ResearchStudy.objective.outcomeMeasure.type CodeableConcept[0..1]
+    ResearchStudy.objective.outcomeMeasure.description markdown[0..1]
+    ResearchStudy.objective.outcomeMeasure.endpoint Reference[1..1] (EvidenceVariable)
+    ResearchStudy.objective.outcomeMeasure.population Reference[0..1] (Group)
+    ResearchStudy.objective.outcomeMeasure.intervention Reference[0..1] (Group)
+    ResearchStudy.objective.outcomeMeasure.comparator Reference[0..1] (Group)
+    ResearchStudy.objective.outcomeMeasure.summaryMeasure CodeableConcept[0..1]
+    ResearchStudy.objective.outcomeMeasure.endpointAnalysisPlan Reference[0..1] (Evidence)
+    ResearchStudy.objective.outcomeMeasure.eventHandling BackboneElement[0..*]
+    ResearchStudy.objective.outcomeMeasure.eventHandling.event CodeableConcept[0..1]
+    ResearchStudy.objective.outcomeMeasure.eventHandling.group CodeableConcept[0..1]
+    ResearchStudy.objective.outcomeMeasure.eventHandling.handling CodeableConcept[0..1]
+    ResearchStudy.objective.outcomeMeasure.eventHandling.description markdown[0..1]
+    ResearchStudy.result Reference[0..*] (Composition,DiagnosticReport,DocumentReference,Evidence)
+*/
+group ResearchStudy(source src : ResearchStudyR4, target tgt : ResearchStudyR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.title -> tgt.title;
+  src.protocol -> tgt.protocol;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.phase -> tgt.phase;
+  src.focus -> tgt.focus;
+  src.condition -> tgt.condition;
+  src.keyword -> tgt.keyword;
+  src.description -> tgt.description;
+  src.period -> tgt.period;
+  src.site -> tgt.site;
+  src.note -> tgt.note;
+  src.objective as s -> tgt.objective as t then ResearchStudyObjective(s, t);
+}
+
+
+group ResearchStudyObjective(source src, target tgt) extends BackboneElement {
+  src.name -> tgt.name;
+  src.type -> tgt.type;
+}

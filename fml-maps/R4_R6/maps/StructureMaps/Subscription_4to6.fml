@@ -1,0 +1,48 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Subscription4to6'
+/// name = 'Subscription4to6'
+/// title = 'Subscription Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Subscription" alias SubscriptionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Subscription" alias SubscriptionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Subscription.criteria string[1..1]
+    Subscription.error string[0..1]
+    Subscription.channel BackboneElement[1..1]
+    Subscription.channel.type code[1..1]
+    Subscription.channel.endpoint url[0..1]
+    Subscription.channel.payload code[0..1]
+    Subscription.channel.header string[0..*]
+*/
+/* The following target properties were not populated:
+    Subscription.identifier Identifier[0..*]
+    Subscription.name string[0..1]
+    Subscription.topic canonical[1..1] (SubscriptionTopic)
+    Subscription.managingEntity Reference[0..1] (CareTeam,Device,Group,HealthcareService,Organization,RelatedPerson,Patient,Practitioner,PractitionerRole)
+    Subscription.filterBy BackboneElement[0..*]
+    Subscription.filterBy.resource uri[0..1]
+    Subscription.filterBy.filterParameter string[1..1]
+    Subscription.filterBy.comparator code[0..1]
+    Subscription.filterBy.modifier code[0..1]
+    Subscription.filterBy.value string[1..1]
+    Subscription.filterBy.event CodeableConcept[0..*]
+    Subscription.channelType Coding[1..1]
+    Subscription.endpoint url[0..1]
+    Subscription.parameter BackboneElement[0..*]
+    Subscription.parameter.name string[1..1]
+    Subscription.parameter.value string[1..1]
+    Subscription.heartbeatPeriod unsignedInt[0..1]
+    Subscription.timeout unsignedInt[0..1]
+    Subscription.contentType code[0..1]
+    Subscription.content code[0..1]
+    Subscription.maxCount positiveInt[0..1]
+*/
+group Subscription(source src : SubscriptionR4, target tgt : SubscriptionR6) extends DomainResource <<type+>> {
+  src.status -> tgt.status;
+  src.contact -> tgt.contact;
+  src.end -> tgt.end;
+  src.reason -> tgt.reason;
+}

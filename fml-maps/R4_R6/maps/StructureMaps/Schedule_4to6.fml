@@ -1,0 +1,23 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Schedule4to6'
+/// name = 'Schedule4to6'
+/// title = 'Schedule Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Schedule" alias ScheduleR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Schedule" alias ScheduleR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Schedule.name string[0..1]
+*/
+group Schedule(source src : ScheduleR4, target tgt : ScheduleR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.serviceCategory -> tgt.serviceCategory;
+  src.serviceType -> tgt.serviceType;
+  src.specialty -> tgt.specialty;
+  src.actor -> tgt.actor;
+  src.planningHorizon -> tgt.planningHorizon;
+  src.comment -> tgt.comment;
+}

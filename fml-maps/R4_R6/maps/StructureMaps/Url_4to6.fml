@@ -1,0 +1,13 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/url4to6'
+/// name = 'url4to6'
+/// title = 'url Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/url" alias urlR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/url" alias urlR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Url(source src : urlR4, target tgt : urlR6) extends Uri <<type+>> {
+}

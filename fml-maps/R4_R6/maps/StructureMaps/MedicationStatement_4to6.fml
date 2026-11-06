@@ -1,0 +1,40 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/MedicationStatement4to6'
+/// name = 'MedicationStatement4to6'
+/// title = 'MedicationStatement Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/MedicationStatement" alias MedicationStatementR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/MedicationStatement" alias MedicationStatementR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    MedicationStatement.basedOn Reference[0..*] (MedicationRequest,CarePlan,ServiceRequest)
+    MedicationStatement.statusReason CodeableConcept[0..*]
+*/
+/* The following target properties were not populated:
+    MedicationStatement.author Reference[0..1] (Practitioner,PractitionerRole,Organization,Patient,RelatedPerson,Device)
+    MedicationStatement.relatedClinicalInformation Reference[0..*] (Observation,Condition)
+    MedicationStatement.adherence BackboneElement[0..1]
+    MedicationStatement.adherence.code CodeableConcept[1..1]
+    MedicationStatement.adherence.reason CodeableConcept[0..1]
+*/
+group MedicationStatement(source src : MedicationStatementR4, target tgt : MedicationStatementR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.partOf -> tgt.partOf; // Warning: Source TargetProfile unsupported: MedicationAdministration,MedicationDispense,Observation  (MedicationAdministration,MedicationDispense,MedicationStatement,Procedure,Observation -> Procedure,MedicationStatement)
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.medication -> tgt.medication;
+  src.subject -> tgt.subject;
+  src.context -> tgt.encounter; // renamed // Warning: Source TargetProfile unsupported: EpisodeOfCare  (Encounter,EpisodeOfCare -> Encounter)
+  src.effective -> tgt.effective;
+  src.dateAsserted -> tgt.dateAsserted;
+  src.informationSource -> tgt.informationSource;
+  src.derivedFrom -> tgt.derivedFrom;
+  src.reasonCode -> tgt.reason; // renamed
+  src.reasonReference -> tgt.reason; // renamed
+  src.note -> tgt.note;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-MedicationStatement.dosage') -> tgt.dosage = (e.value) "xverDosageDosage";
+// rule changed to Dosage -> DosageDetails
+// src.dosage /* [0..*] */ -> tgt.dosage /* [0..1] */; // Warning: source repeating, target single-valued    Source Type unsupported: Dosage  (Dosage -> DosageDetails)
+}

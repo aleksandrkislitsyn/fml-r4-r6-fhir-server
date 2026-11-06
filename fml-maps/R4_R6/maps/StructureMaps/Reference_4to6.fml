@@ -1,0 +1,22 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Reference4to6'
+/// name = 'Reference4to6'
+/// title = 'Reference Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Reference" alias ReferenceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Reference" alias ReferenceR6 as target
+uses "http://hl7.org/fhir/6.0/StructureDefinition/CodeableReference" alias CodeableReferenceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group Reference(source src : ReferenceR4, target tgt : ReferenceR6) extends Element <<type+>> {
+  src.reference.value -> tgt.reference.value;
+  src.type -> tgt.type;
+  src.identifier -> tgt.identifier;
+  src.display -> tgt.display;
+}
+
+group Reference2CodeableReference(source src : ReferenceR4, target tgt : CodeableReferenceR6) extends Element <<type+>> {
+  src -> tgt.reference as r then Reference(src, r) "setReference";
+}

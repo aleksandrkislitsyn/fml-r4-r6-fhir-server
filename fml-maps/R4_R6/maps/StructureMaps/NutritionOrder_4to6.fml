@@ -1,0 +1,177 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/NutritionOrder4to6'
+/// name = 'NutritionOrder4to6'
+/// title = 'NutritionOrder Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/NutritionOrder" alias NutritionOrderR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/NutritionOrder" alias NutritionOrderR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    NutritionOrder.instantiatesCanonical canonical[0..*] (ActivityDefinition,PlanDefinition)
+    NutritionOrder.instantiatesUri uri[0..*]
+    NutritionOrder.instantiates uri[0..*]
+    NutritionOrder.orderer Reference[0..1] (Practitioner,PractitionerRole)
+    NutritionOrder.oralDiet.schedule.event dateTime[0..*]
+    NutritionOrder.oralDiet.schedule.repeat Element[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.bounds[x] Duration,Range,Period[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.count positiveInt[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.countMax positiveInt[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.duration decimal[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.durationMax decimal[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.durationUnit code[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.frequency positiveInt[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.frequencyMax positiveInt[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.period decimal[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.periodMax decimal[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.periodUnit code[0..1]
+    NutritionOrder.oralDiet.schedule.repeat.dayOfWeek code[0..*]
+    NutritionOrder.oralDiet.schedule.repeat.timeOfDay time[0..*]
+    NutritionOrder.oralDiet.schedule.repeat.when code[0..*]
+    NutritionOrder.oralDiet.schedule.repeat.offset unsignedInt[0..1]
+    NutritionOrder.oralDiet.schedule.code CodeableConcept[0..1]
+    NutritionOrder.oralDiet.texture.foodType CodeableConcept[0..1]
+    NutritionOrder.oralDiet.fluidConsistencyType CodeableConcept[0..*]
+    NutritionOrder.supplement.schedule.event dateTime[0..*]
+    NutritionOrder.supplement.schedule.repeat Element[0..1]
+    NutritionOrder.supplement.schedule.repeat.bounds[x] Duration,Range,Period[0..1]
+    NutritionOrder.supplement.schedule.repeat.count positiveInt[0..1]
+    NutritionOrder.supplement.schedule.repeat.countMax positiveInt[0..1]
+    NutritionOrder.supplement.schedule.repeat.duration decimal[0..1]
+    NutritionOrder.supplement.schedule.repeat.durationMax decimal[0..1]
+    NutritionOrder.supplement.schedule.repeat.durationUnit code[0..1]
+    NutritionOrder.supplement.schedule.repeat.frequency positiveInt[0..1]
+    NutritionOrder.supplement.schedule.repeat.frequencyMax positiveInt[0..1]
+    NutritionOrder.supplement.schedule.repeat.period decimal[0..1]
+    NutritionOrder.supplement.schedule.repeat.periodMax decimal[0..1]
+    NutritionOrder.supplement.schedule.repeat.periodUnit code[0..1]
+    NutritionOrder.supplement.schedule.repeat.dayOfWeek code[0..*]
+    NutritionOrder.supplement.schedule.repeat.timeOfDay time[0..*]
+    NutritionOrder.supplement.schedule.repeat.when code[0..*]
+    NutritionOrder.supplement.schedule.repeat.offset unsignedInt[0..1]
+    NutritionOrder.supplement.schedule.code CodeableConcept[0..1]
+    NutritionOrder.enteralFormula.baseFormulaType CodeableConcept[0..1]
+    NutritionOrder.enteralFormula.baseFormulaProductName string[0..1]
+    NutritionOrder.enteralFormula.additiveType CodeableConcept[0..1]
+    NutritionOrder.enteralFormula.additiveProductName string[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.event dateTime[0..*]
+    NutritionOrder.enteralFormula.administration.schedule.repeat Element[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.bounds[x] Duration,Range,Period[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.count positiveInt[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.countMax positiveInt[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.duration decimal[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.durationMax decimal[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.durationUnit code[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.frequency positiveInt[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.frequencyMax positiveInt[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.period decimal[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.periodMax decimal[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.periodUnit code[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.dayOfWeek code[0..*]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.timeOfDay time[0..*]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.when code[0..*]
+    NutritionOrder.enteralFormula.administration.schedule.repeat.offset unsignedInt[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.code CodeableConcept[0..1]
+*/
+/* The following target properties were not populated:
+    NutritionOrder.basedOn Reference[0..*] (CarePlan,NutritionOrder,ServiceRequest,RequestOrchestration)
+    NutritionOrder.groupIdentifier Identifier[0..1]
+    NutritionOrder.priority code[0..1]
+    NutritionOrder.supportingInformation Reference[0..*] (Resource)
+    NutritionOrder.requester Reference[0..1] (Practitioner,PractitionerRole)
+    NutritionOrder.performer CodeableReference[0..*] (CareTeam,Practitioner,PractitionerRole,RelatedPerson,Patient,Organization,Group)
+    NutritionOrder.outsideFoodAllowed boolean[0..1]
+    NutritionOrder.oralDiet.schedule.timing Timing[0..*]
+    NutritionOrder.oralDiet.schedule.asNeeded boolean[0..1]
+    NutritionOrder.oralDiet.schedule.asNeededFor CodeableConcept[0..1]
+    NutritionOrder.oralDiet.texture.type CodeableConcept[0..1]
+    NutritionOrder.oralDiet.caloricDensity Quantity[0..1]
+    NutritionOrder.supplement.schedule.timing Timing[0..*]
+    NutritionOrder.supplement.schedule.asNeeded boolean[0..1]
+    NutritionOrder.supplement.schedule.asNeededFor CodeableConcept[0..1]
+    NutritionOrder.supplement.caloricDensity Quantity[0..1]
+    NutritionOrder.enteralFormula.type CodeableReference[0..1] (NutritionProduct)
+    NutritionOrder.enteralFormula.productName string[0..1]
+    NutritionOrder.enteralFormula.deliveryDevice[x] CodeableConcept,canonical[0..1] (DeviceDefinition)
+    NutritionOrder.enteralFormula.administration.schedule.timing Timing[0..*]
+    NutritionOrder.enteralFormula.administration.schedule.asNeeded boolean[0..1]
+    NutritionOrder.enteralFormula.administration.schedule.asNeededFor CodeableConcept[0..1]
+    NutritionOrder.additive BackboneElement[0..*]
+    NutritionOrder.additive.modularType CodeableReference[0..1] (NutritionProduct)
+    NutritionOrder.additive.productName string[0..1]
+    NutritionOrder.additive.quantity Quantity[0..1]
+    NutritionOrder.additive.routeOfAdministration CodeableConcept[0..*]
+*/
+group NutritionOrder(source src : NutritionOrderR4, target tgt : NutritionOrderR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.intent -> tgt.intent;
+  src.patient -> tgt.subject; // renamed
+  src.encounter -> tgt.encounter;
+  src.dateTime -> tgt.dateTime;
+  src.allergyIntolerance -> tgt.allergyIntolerance;
+  src.foodPreferenceModifier -> tgt.foodPreferenceModifier;
+  src.excludeFoodModifier -> tgt.excludeFoodModifier;
+  src.oralDiet as s -> tgt.oralDiet as t then NutritionOrderOralDiet(s, t);
+  src.supplement as s -> tgt.supplement as t then NutritionOrderSupplement(s, t);
+  src.enteralFormula as s -> tgt.enteralFormula as t then NutritionOrderEnteralFormula(s, t);
+  src.note -> tgt.note;
+}
+
+
+group NutritionOrderOralDiet(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.schedule as s /* [0..*] */ -> tgt.schedule as t /* [0..1] */ then NutritionOrderOralDietSchedule(s, t); // Warning: type changed (Timing -> BackboneElement) // Warning: source repeating, target single-valued
+  src.nutrient as s -> tgt.nutrient as t then NutritionOrderOralDietNutrient(s, t);
+  src.texture as s -> tgt.texture as t then NutritionOrderOralDietTexture(s, t);
+  src.instruction -> tgt.instruction;
+}
+
+
+group NutritionOrderOralDietSchedule(source src, target tgt) extends BackboneElement {
+}
+
+
+group NutritionOrderOralDietNutrient(source src, target tgt) extends BackboneElement {
+  src.modifier -> tgt.modifier;
+  src.amount -> tgt.amount;
+}
+
+
+group NutritionOrderOralDietTexture(source src, target tgt) extends BackboneElement {
+  src.modifier -> tgt.modifier;
+}
+
+
+group NutritionOrderSupplement(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.productName -> tgt.productName;
+  src.schedule as s /* [0..*] */ -> tgt.schedule as t /* [0..1] */ then NutritionOrderSupplementSchedule(s, t); // Warning: type changed (Timing -> BackboneElement) // Warning: source repeating, target single-valued
+  src.quantity -> tgt.quantity;
+  src.instruction -> tgt.instruction;
+}
+
+
+group NutritionOrderSupplementSchedule(source src, target tgt) extends BackboneElement {
+}
+
+
+group NutritionOrderEnteralFormula(source src, target tgt) extends BackboneElement {
+  src.caloricDensity -> tgt.caloricDensity;
+  src.routeofAdministration -> tgt.routeOfAdministration; // renamed
+  src.administration as s -> tgt.administration as t then NutritionOrderEnteralFormulaAdministration(s, t);
+  src.maxVolumeToDeliver -> tgt.maxVolumeToAdminister; // renamed
+  src.administrationInstruction -> tgt.administrationInstruction;
+}
+
+
+group NutritionOrderEnteralFormulaAdministration(source src, target tgt) extends BackboneElement {
+  src.schedule as s -> tgt.schedule as t then NutritionOrderEnteralFormulaAdministrationSchedule(s, t); // Warning: type changed (Timing -> BackboneElement)
+  src.quantity -> tgt.quantity;
+  src.rate -> tgt.rate;
+}
+
+
+group NutritionOrderEnteralFormulaAdministrationSchedule(source src, target tgt) extends BackboneElement {
+}

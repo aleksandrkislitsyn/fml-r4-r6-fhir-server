@@ -1,0 +1,47 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Library4to6'
+/// name = 'Library4to6'
+/// title = 'Library Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Library" alias LibraryR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Library" alias LibraryR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Library.versionAlgorithm[x] string,Coding[0..1]
+    Library.copyrightLabel string[0..1]
+*/
+group Library(source src : LibraryR4, target tgt : LibraryR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.identifier -> tgt.identifier;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.title -> tgt.title;
+  src.subtitle -> tgt.subtitle;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.type -> tgt.type;
+  src.subject -> tgt.subject;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.usage -> tgt.usage;
+  src.copyright -> tgt.copyright;
+  src.approvalDate -> tgt.approvalDate;
+  src.lastReviewDate -> tgt.lastReviewDate;
+  src.effectivePeriod -> tgt.effectivePeriod;
+  src.topic -> tgt.topic;
+  src.author -> tgt.author;
+  src.editor -> tgt.editor;
+  src.reviewer -> tgt.reviewer;
+  src.endorser -> tgt.endorser;
+  src.relatedArtifact -> tgt.relatedArtifact;
+  src.parameter -> tgt.parameter;
+  src.dataRequirement -> tgt.dataRequirement;
+  src.content -> tgt.content;
+}

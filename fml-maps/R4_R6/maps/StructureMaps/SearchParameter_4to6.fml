@@ -1,0 +1,60 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/SearchParameter4to6'
+/// name = 'SearchParameter4to6'
+/// title = 'SearchParameter Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/SearchParameter" alias SearchParameterR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/SearchParameter" alias SearchParameterR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    SearchParameter.xpath string[0..1]
+    SearchParameter.xpathUsage code[0..1]
+*/
+/* The following target properties were not populated:
+    SearchParameter.identifier Identifier[0..*]
+    SearchParameter.versionAlgorithm[x] string,Coding[0..1]
+    SearchParameter.title string[0..1]
+    SearchParameter.copyright markdown[0..1]
+    SearchParameter.copyrightLabel string[0..1]
+    SearchParameter.aliasCode code[0..*]
+    SearchParameter.processingMode code[0..1]
+    SearchParameter.constraint string[0..1]
+*/
+group SearchParameter(source src : SearchParameterR4, target tgt : SearchParameterR6) extends DomainResource <<type+>> {
+  src.url -> tgt.url;
+  src.version -> tgt.version;
+  src.name -> tgt.name;
+  src.derivedFrom -> tgt.derivedFrom;
+  src.status -> tgt.status;
+  src.experimental -> tgt.experimental;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.purpose -> tgt.purpose;
+  src.code -> tgt.code;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-SearchParameter.base') -> tgt.base = (e.value) "xverBaseCode";
+// rule changed to code -> uri
+// src.base -> tgt.base; // Warning: Source Type unsupported: code  (code -> uri)
+  src.type -> tgt.type;
+  src.expression -> tgt.expression;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-SearchParameter.target') -> tgt.target = (e.value) "xverTargetCode";
+// rule changed to code -> uri
+// src.target -> tgt.target; // Warning: Source Type unsupported: code  (code -> uri)
+  src.multipleOr -> tgt.multipleOr;
+  src.multipleAnd -> tgt.multipleAnd;
+  src.comparator -> tgt.comparator;
+  src.modifier -> tgt.modifier;
+  src.chain -> tgt.chain;
+  src.component as s -> tgt.component as t then SearchParameterComponent(s, t);
+}
+
+
+group SearchParameterComponent(source src, target tgt) extends BackboneElement {
+  src.definition -> tgt.definition;
+  src.expression -> tgt.expression;
+}

@@ -1,0 +1,36 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/List4to6'
+/// name = 'List4to6'
+/// title = 'List Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/List" alias ListR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/List" alias ListR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    List.contributor Reference[0..*] (Practitioner,PractitionerRole,Patient,Device,Organization,RelatedPerson,CareTeam,Group)
+*/
+group List(source src : ListR4, target tgt : ListR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.mode -> tgt.mode;
+  src.title -> tgt.title;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject; // Warning: Source TargetProfile unsupported: Patient,Group,Device,Location  (Patient,Group,Device,Location -> Resource)
+  src.encounter -> tgt.encounter;
+  src.date -> tgt.date;
+  src.source -> tgt.source;
+  src.orderedBy -> tgt.orderedBy;
+  src.note -> tgt.note;
+  src.entry as s -> tgt.entry as t then ListEntry(s, t);
+  src.emptyReason -> tgt.emptyReason;
+}
+
+
+group ListEntry(source src, target tgt) extends BackboneElement {
+  src.flag -> tgt.flag;
+  src.deleted -> tgt.deleted;
+  src.date -> tgt.date;
+  src.item -> tgt.item;
+}

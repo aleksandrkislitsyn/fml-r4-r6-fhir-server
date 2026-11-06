@@ -1,0 +1,65 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Account4to6'
+/// name = 'Account4to6'
+/// title = 'Account Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Account" alias AccountR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Account" alias AccountR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    Account.billingStatus CodeableConcept[0..1]
+    Account.covers Reference[0..*] (Encounter,EpisodeOfCare)
+    Account.guarantor.account Reference[0..1] (Account)
+    Account.guarantor.responsibility Quantity[0..1]
+    Account.guarantor.limit Money[0..1]
+    Account.guarantor.rank positiveInt[0..1]
+    Account.diagnosis BackboneElement[0..*]
+    Account.diagnosis.sequence positiveInt[0..1]
+    Account.diagnosis.condition CodeableReference[1..1] (Condition)
+    Account.diagnosis.dateOfDiagnosis dateTime[0..1]
+    Account.diagnosis.type CodeableConcept[0..*]
+    Account.diagnosis.onAdmission boolean[0..1]
+    Account.diagnosis.packageCode CodeableConcept[0..*]
+    Account.procedure BackboneElement[0..*]
+    Account.procedure.sequence positiveInt[0..1]
+    Account.procedure.code CodeableReference[1..1] (Procedure)
+    Account.procedure.dateOfService dateTime[0..1]
+    Account.procedure.type CodeableConcept[0..*]
+    Account.procedure.packageCode CodeableConcept[0..*]
+    Account.procedure.device Reference[0..*] (Device)
+    Account.currency CodeableConcept[0..1]
+    Account.balance BackboneElement[0..*]
+    Account.balance.aggregate CodeableConcept[0..1]
+    Account.balance.term CodeableConcept[0..1]
+    Account.balance.estimate boolean[0..1]
+    Account.balance.amount Money[1..1]
+    Account.calculatedAt instant[0..1]
+*/
+group Account(source src : AccountR4, target tgt : AccountR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.name -> tgt.name;
+  src.subject -> tgt.subject;
+  src.servicePeriod -> tgt.servicePeriod;
+  src.coverage as s -> tgt.coverage as t then AccountCoverage(s, t);
+  src.owner -> tgt.owner;
+  src.description -> tgt.description;
+  src.guarantor as s -> tgt.guarantor as t then AccountGuarantor(s, t);
+  src.partOf -> tgt.parent; // renamed
+}
+
+
+group AccountCoverage(source src, target tgt) extends BackboneElement {
+  src.coverage -> tgt.coverage;
+  src.priority -> tgt.priority;
+}
+
+
+group AccountGuarantor(source src, target tgt) extends BackboneElement {
+  src.party -> tgt.party;
+  src.onHold -> tgt.onHold;
+  src.period -> tgt.period;
+}

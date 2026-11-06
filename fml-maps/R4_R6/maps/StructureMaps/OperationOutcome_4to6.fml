@@ -1,0 +1,25 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/OperationOutcome4to6'
+/// name = 'OperationOutcome4to6'
+/// title = 'OperationOutcome Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/OperationOutcome" alias OperationOutcomeR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/OperationOutcome" alias OperationOutcomeR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    OperationOutcome.issue.location string[0..*]
+*/
+group OperationOutcome(source src : OperationOutcomeR4, target tgt : OperationOutcomeR6) extends DomainResource <<type+>> {
+  src.issue as s -> tgt.issue as t then OperationOutcomeIssue(s, t);
+}
+
+
+group OperationOutcomeIssue(source src, target tgt) extends BackboneElement {
+  src.severity -> tgt.severity;
+  src.code -> tgt.code;
+  src.details -> tgt.details;
+  src.diagnostics -> tgt.diagnostics;
+  src.expression -> tgt.expression;
+}

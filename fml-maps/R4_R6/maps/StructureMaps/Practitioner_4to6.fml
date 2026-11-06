@@ -1,0 +1,44 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Practitioner4to6'
+/// name = 'Practitioner4to6'
+/// title = 'Practitioner Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Practitioner" alias PractitionerR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Practitioner" alias PractitionerR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Practitioner.communication.coding Coding[0..*]
+    Practitioner.communication.text string[0..1]
+*/
+/* The following target properties were not populated:
+    Practitioner.deceased[x] boolean,dateTime[0..1]
+    Practitioner.qualification.status CodeableConcept[0..1]
+    Practitioner.communication.language CodeableConcept[1..1]
+    Practitioner.communication.preferred boolean[0..1]
+*/
+group Practitioner(source src : PractitionerR4, target tgt : PractitionerR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.name -> tgt.name;
+  src.telecom -> tgt.telecom;
+  src.address -> tgt.address;
+  src.gender -> tgt.gender;
+  src.birthDate -> tgt.birthDate;
+  src.photo -> tgt.photo;
+  src.qualification as s -> tgt.qualification as t then PractitionerQualification(s, t);
+  src.communication as s -> tgt.communication as t then PractitionerCommunication(s, t); // Warning: type changed (CodeableConcept -> BackboneElement)
+}
+
+
+group PractitionerQualification(source src, target tgt) extends BackboneElement {
+  src.identifier -> tgt.identifier;
+  src.code -> tgt.code;
+  src.period -> tgt.period;
+  src.issuer -> tgt.issuer;
+}
+
+
+group PractitionerCommunication(source src, target tgt) extends BackboneElement {
+}

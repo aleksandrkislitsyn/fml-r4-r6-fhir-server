@@ -1,0 +1,14 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BackboneElement4to6'
+/// name = 'BackboneElement4to6'
+/// title = 'BackboneElement Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/BackboneElement" alias BackboneElementR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/BackboneElement" alias BackboneElementR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+
+group BackboneElement(source src : BackboneElementR4, target tgt : BackboneElementR6) extends Element <<type+>> {
+  src.modifierExtension where (url.startsWith('http://hl7.org/fhir/5.0/StructureDefinition/extension-').not()) -> tgt.modifierExtension;
+}

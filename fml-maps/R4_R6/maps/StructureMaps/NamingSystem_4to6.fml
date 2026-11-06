@@ -1,0 +1,55 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/NamingSystem4to6'
+/// name = 'NamingSystem4to6'
+/// title = 'NamingSystem Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/NamingSystem" alias NamingSystemR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/NamingSystem" alias NamingSystemR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following target properties were not populated:
+    NamingSystem.url uri[0..1]
+    NamingSystem.identifier Identifier[0..*]
+    NamingSystem.version string[0..1]
+    NamingSystem.versionAlgorithm[x] string,Coding[0..1]
+    NamingSystem.title string[0..1]
+    NamingSystem.experimental boolean[0..1]
+    NamingSystem.purpose markdown[0..1]
+    NamingSystem.copyright markdown[0..1]
+    NamingSystem.copyrightLabel string[0..1]
+    NamingSystem.approvalDate date[0..1]
+    NamingSystem.lastReviewDate date[0..1]
+    NamingSystem.effectivePeriod Period[0..1]
+    NamingSystem.topic CodeableConcept[0..*]
+    NamingSystem.author ContactDetail[0..*]
+    NamingSystem.editor ContactDetail[0..*]
+    NamingSystem.reviewer ContactDetail[0..*]
+    NamingSystem.endorser ContactDetail[0..*]
+    NamingSystem.relatedArtifact RelatedArtifact[0..*]
+    NamingSystem.uniqueId.authoritative boolean[0..1]
+*/
+group NamingSystem(source src : NamingSystemR4, target tgt : NamingSystemR6) extends DomainResource <<type+>> {
+  src.name -> tgt.name;
+  src.status -> tgt.status;
+  src.kind -> tgt.kind;
+  src.date -> tgt.date;
+  src.publisher -> tgt.publisher;
+  src.contact -> tgt.contact;
+  src.responsible -> tgt.responsible;
+  src.type -> tgt.type;
+  src.description -> tgt.description;
+  src.useContext -> tgt.useContext;
+  src.jurisdiction -> tgt.jurisdiction;
+  src.usage -> tgt.usage;
+  src.uniqueId as s -> tgt.uniqueId as t then NamingSystemUniqueId(s, t);
+}
+
+
+group NamingSystemUniqueId(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.value -> tgt.value;
+  src.preferred -> tgt.preferred;
+  src.comment -> tgt.comment;
+  src.period -> tgt.period;
+}

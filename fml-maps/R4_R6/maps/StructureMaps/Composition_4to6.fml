@@ -1,0 +1,88 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Composition4to6'
+/// name = 'Composition4to6'
+/// title = 'Composition Transforms: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Composition" alias CompositionR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Composition" alias CompositionR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+/* The following source properties were not read:
+    Composition.confidentiality code[0..1]
+    Composition.event.code CodeableConcept[0..*]
+    Composition.section.mode code[0..1]
+*/
+/* The following target properties were not populated:
+    Composition.url uri[0..1]
+    Composition.version string[0..1]
+    Composition.consent Reference[0..*] (Consent)
+    Composition.basedOn Reference[0..*] (Appointment,AppointmentResponse,CarePlan,Claim,CommunicationRequest,CoverageEligibilityRequest,DeviceRequest,MedicationRequest,NutritionOrder,RequestOrchestration,ServiceRequest,Task,VisionPrescription)
+    Composition.useContext UsageContext[0..*]
+    Composition.participant BackboneElement[0..*]
+    Composition.participant.type CodeableConcept[1..*]
+    Composition.participant.function CodeableConcept[0..*]
+    Composition.participant.time Period[0..1]
+    Composition.participant.party Reference[1..1] (Practitioner,PractitionerRole,Patient,RelatedPerson,Device,Organization,CareTeam,Group)
+    Composition.name string[0..1]
+    Composition.note Annotation[0..*]
+    Composition.classification BackboneElement[0..*]
+    Composition.classification.type CodeableConcept[0..1]
+    Composition.classification.classifier CodeableReference[0..*] (Resource)
+    Composition.section.note Annotation[0..*]
+*/
+group Composition(source src : CompositionR4, target tgt : CompositionR6) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.status -> tgt.status;
+  src.type -> tgt.type;
+  src.category -> tgt.category;
+  src.subject -> tgt.subject;
+  src.encounter -> tgt.encounter;
+  src.date -> tgt.date;
+  src.author -> tgt.author;
+  src.title -> tgt.title;
+  src.attester as s -> tgt.attester as t then CompositionAttester(s, t);
+  src.custodian -> tgt.custodian;
+  src.relatesTo as s -> tgt.relatesTo as t then CompositionRelatesTo(s, t);
+  src.event as s -> tgt.event as t then CompositionEvent(s, t);
+  src.section as s -> tgt.section as t then CompositionSection(s, t);
+}
+
+
+group CompositionAttester(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Composition.attester.mode') -> tgt.mode = (e.value) "xverModeCode";
+// rule changed to code -> CodeableConcept
+// src.mode -> tgt.mode; // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.time -> tgt.time;
+  src.party -> tgt.party;
+}
+
+
+group CompositionRelatesTo(source src, target tgt) extends BackboneElement {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Composition.relatesTo.type') -> tgt.type = (e.value) "xverCodeCode";
+// rule changed to code -> CodeableConcept
+// src.code -> tgt.type; // renamed // Warning: Source Type unsupported: code  (code -> CodeableConcept)
+  src.target : Reference -> tgt.target;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Composition.relatesTo.target[x]') -> tgt.target = (e.value) "xverTargetIdentifier";
+// rule changed to Identifier,Reference -> uri,Attachment,canonical,Reference,markdown
+// src.target -> tgt.target; // Warning: Source Type unsupported: Identifier  (Identifier,Reference -> uri,Attachment,canonical,Reference,markdown)    Source TargetProfile unsupported: Composition  (Composition -> Resource,Resource)
+}
+
+
+group CompositionEvent(source src, target tgt) extends BackboneElement {
+  src.period -> tgt.period;
+  src.detail -> tgt.detail;
+}
+
+
+group CompositionSection(source src, target tgt) extends BackboneElement {
+  src.title -> tgt.title;
+  src.code -> tgt.code;
+  src.author -> tgt.author;
+  src.focus -> tgt.focus;
+  src.text -> tgt.text;
+  src.orderedBy -> tgt.orderedBy;
+  src.entry -> tgt.entry;
+  src.emptyReason -> tgt.emptyReason;
+  src.section as s -> tgt.section as t then CompositionSection(s, t);
+}
