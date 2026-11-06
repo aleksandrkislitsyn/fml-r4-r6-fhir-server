@@ -20,7 +20,7 @@ export function tableName(type: StoredResourceType): string {
 export async function migrate(): Promise<void> {
   for (const type of STORED_RESOURCE_TYPES) {
     const t = tableName(type);
-    // Current version of each resource. Content is stored as FHIR R6 JSON.
+    // Current version of each resource. Content is stored as FHIR R4 JSON.
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS ${t} (
         id           text PRIMARY KEY,

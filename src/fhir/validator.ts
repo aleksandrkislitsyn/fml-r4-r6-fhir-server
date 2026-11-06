@@ -4,7 +4,7 @@ import type { OperationOutcome } from "../fhir-types/hl7-fhir-r4-core/OperationO
 
 export type FhirVersion = "R4" | "R6";
 
-// R6 is added together with the FML conversion layer.
+// R6 is added together with the FML conversion layer (to validate /R6 input).
 const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R4: "hl7.fhir.r4.core@4.0.1",
 };

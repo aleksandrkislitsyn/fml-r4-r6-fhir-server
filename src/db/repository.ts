@@ -1,6 +1,6 @@
 import { sql, tableName, type StoredResourceType } from "./index.ts";
 
-/** A resource as stored: always FHIR R6 JSON. */
+/** A resource as stored: always FHIR R4 JSON. */
 export type StoredResource = { resourceType: string; id?: string; meta?: any; [k: string]: unknown };
 
 export type ReadResult =

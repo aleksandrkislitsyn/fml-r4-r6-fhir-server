@@ -1,6 +1,6 @@
 # Project notes
 
-Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All resources are stored as FHIR R6, one table per resource type plus `<type>_history`. R4 requests go through `src/fhir/convert.ts`, which will hold the FML conversion and is a pass-through for now. See README.md for the layout.
+Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All resources are stored as FHIR **R4**, one table per resource type plus `<type>_history`. `/R4` uses the stored data directly. `/R6` requests go through `src/fhir/convert.ts`, which will hold the FML conversion (R4 → R6 on read, R6 → R4 on write) and is not implemented yet. See README.md for the layout.
 
 - DB: `bun run db:up` (docker compose, port 5437). Tests are integration tests and need the DB.
 - Validation: `@atomic-ehr/fhirschema`. Its `validate()` expects schemas already merged with their base chain. `src/fhir/validator.ts` flattens them (`mergeSchema`).
