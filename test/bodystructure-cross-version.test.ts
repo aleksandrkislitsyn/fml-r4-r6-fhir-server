@@ -1,0 +1,197 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { hasErrors } from "../src/fhir/validator.ts";
+import { fixture, sansMeta, startServer, type TestServer } from "./helpers.ts";
+
+/** The same data must stay correct when it's used through both /R4 and /R6. */
+let s: TestServer;
+beforeAll(async () => {
+  s = await startServer();
+}, 300_000);
+afterAll(() => s.stop());
+
+const createR6 = async () => (await (await s.send("POST", "/R6/BodyStructure", await fixture("multi"))).json()) as any;
+const getR4 = async (id: string): Promise<any> => {
+  const res = await s.send("GET", `/R4/BodyStructure/${id}`);
+  expect(res.status).toBe(200);
+  const body: any = await res.json();
+  expect(hasErrors(s.validators.R4.validate(body))).toBe(false);
+  return body;
+};
+const getR6 = async (id: string): Promise<any> => {
+  const res = await s.send("GET", `/R6/BodyStructure/${id}`);
+  expect(res.status).toBe(200);
+  const body: any = await res.json();
+  expect(hasErrors(s.validators.R6.validate(body))).toBe(false);
+  return body;
+};
+const putR4 = async (row: any) => {
+  const res = await s.send("PUT", `/R4/BodyStructure/${row.id}`, row);
+  expect(res.status).toBe(200);
+  return (await res.json()) as any;
+};
+const texts = (r: any) => r.includedStructure.map((i: any) => i.structure.text);
+/** What a typical R4 client sends back: no extensions it doesn't recognise. */
+function withoutExtensions(row: any) {
+  const { extension: _e, ...rest } = row;
+  return {
+    ...rest,
+    locationQualifier: rest.locationQualifier?.map(({ extension: _x, ...q }: any) => q),
+  };
+}
+
+describe("R6 and R4 on the same data", () => {
+  test("1. saved through R6, each structure reads as a valid R4 resource", async () => {
+    const { id } = await createR6();
+    expect((await getR4(id)).location.text).toBe("Forearm");
+    expect((await getR4(`${id}--2`)).location.text).toBe("Upper arm");
+    expect((await getR4(`${id}--3`)).location.text).toBe("Shoulder");
+  });
+
+  test("2. R4 update of a secondary row changes only that structure in R6", async () => {
+    const { id } = await createR6();
+    const before = await getR6(id);
+    const row = await getR4(`${id}--2`);
+    await putR4({ ...row, location: { text: "Elbow" } });
+
+    const after = await getR6(id);
+    expect(texts(after)).toEqual(["Forearm", "Elbow", "Shoulder"]);
+    expect(after.includedStructure[0]).toEqual(before.includedStructure[0]);
+    expect(after.includedStructure[1].morphology).toEqual(before.includedStructure[1].morphology);
+    expect(after.includedStructure[2]).toEqual(before.includedStructure[2]);
+  });
+
+  test("3. R4 update of the primary row's shared field reaches R6 and the other rows", async () => {
+    const { id } = await createR6();
+    await putR4({ ...(await getR4(id)), description: "From primary" });
+    expect((await getR6(id)).description).toBe("From primary");
+    expect((await getR4(`${id}--3`)).description).toBe("From primary");
+  });
+
+  test("4. a shared field changed on a secondary row is not ignored", async () => {
+    const { id } = await createR6();
+    await putR4({ ...(await getR4(`${id}--2`)), description: "From secondary" });
+    expect((await getR6(id)).description).toBe("From secondary");
+    expect((await getR4(id)).description).toBe("From secondary");
+    expect((await getR4(`${id}--3`)).description).toBe("From secondary");
+  });
+
+  test("5. an R4 client dropping extensions doesn't lose laterality or extra morphology", async () => {
+    const { id } = await createR6();
+    const before = await getR6(id);
+    await putR4(withoutExtensions(await getR4(id)));
+
+    const after = await getR6(id);
+    expect(after.includedStructure[0].laterality).toEqual(before.includedStructure[0].laterality);
+    expect(after.includedStructure[0].morphology).toEqual(before.includedStructure[0].morphology);
+    expect(after.includedStructure[0].qualifier).toEqual(before.includedStructure[0].qualifier);
+  });
+
+  test("6. removing the laterality code through R4 removes laterality in R6", async () => {
+    const { id } = await createR6();
+    const row = withoutExtensions(await getR4(id));
+    await putR4({ ...row, locationQualifier: row.locationQualifier.filter((q: any) => q.text !== "Left") });
+
+    const after = await getR6(id);
+    expect(after.includedStructure[0].laterality).toBeUndefined();
+    expect(after.includedStructure[0].qualifier.map((q: any) => q.text)).toEqual(["Volar"]);
+  });
+
+  test("7. an R6 ETag goes stale after an R4 update of any row", async () => {
+    const created = await createR6();
+    const read = await s.send("GET", `/R6/BodyStructure/${created.id}`);
+    const etag = read.headers.get("etag")!;
+    await putR4({ ...(await getR4(`${created.id}--3`)), location: { text: "Neck" } });
+
+    const res = await s.send("PUT", `/R6/BodyStructure/${created.id}`, created, { "if-match": etag });
+    expect(res.status).toBe(412);
+  });
+
+  test("8. created through R4, extended through R6", async () => {
+    const r4 = {
+      resourceType: "BodyStructure",
+      location: { text: "Spleen" },
+      morphology: { text: "Mass" },
+      patient: { reference: "Patient/example" },
+    };
+    const res = await s.send("POST", "/R4/BodyStructure", r4);
+    expect(res.status).toBe(201);
+    const { id }: any = await res.json();
+
+    const r6 = await getR6(id);
+    expect(texts(r6)).toEqual(["Spleen"]);
+    r6.includedStructure.push({ structure: { text: "Liver" } });
+    expect((await s.send("PUT", `/R6/BodyStructure/${id}`, r6)).status).toBe(200);
+
+    const primary = await getR4(id);
+    expect(primary.location.text).toBe("Spleen");
+    expect(primary.morphology.text).toBe("Mass");
+    expect((await getR4(`${id}--2`)).location.text).toBe("Liver");
+  });
+
+  test("9. R4 without location is rejected: valid R4 but not readable as R6", async () => {
+    const r4 = { resourceType: "BodyStructure", patient: { reference: "Patient/example" } };
+    expect((await s.send("POST", "/R4/BodyStructure", r4)).status).toBe(422);
+
+    const { id } = await createR6();
+    const { location: _l, ...row } = await getR4(id);
+    expect((await s.send("PUT", `/R4/BodyStructure/${id}`, row)).status).toBe(422);
+    expect((await getR4(id)).location.text).toBe("Forearm");
+  });
+
+  test("10. R4 delete of a secondary row removes that structure", async () => {
+    const { id } = await createR6();
+    expect((await s.send("DELETE", `/R4/BodyStructure/${id}--2`)).status).toBe(204);
+    expect(texts(await getR6(id))).toEqual(["Forearm", "Shoulder"]);
+    expect((await s.send("GET", `/R4/BodyStructure/${id}--2`)).status).toBe(410);
+  });
+
+  test("11. R4 delete of the primary row removes the whole group", async () => {
+    const { id } = await createR6();
+    expect((await s.send("DELETE", `/R4/BodyStructure/${id}`)).status).toBe(204);
+    expect((await s.send("GET", `/R6/BodyStructure/${id}`)).status).toBe(410);
+    expect((await s.send("GET", `/R4/BodyStructure/${id}`)).status).toBe(410);
+    expect((await s.send("GET", `/R4/BodyStructure/${id}--3`)).status).toBe(410);
+  });
+
+  test("12. deleting rows one by one never leaves data R6 can't read", async () => {
+    const { id } = await createR6();
+    await s.send("DELETE", `/R4/BodyStructure/${id}--2`);
+    await s.send("DELETE", `/R4/BodyStructure/${id}--3`);
+    expect(texts(await getR6(id))).toEqual(["Forearm"]);
+    await s.send("DELETE", `/R4/BodyStructure/${id}`);
+    expect((await s.send("GET", `/R6/BodyStructure/${id}`)).status).toBe(410);
+    expect(await s.rows(id)).toEqual([]);
+  });
+
+  test("13. R6 update from three to two structures: the third row is gone in R4", async () => {
+    const created = await createR6();
+    const fewer = { ...created, includedStructure: created.includedStructure.slice(0, 2) };
+    expect((await s.send("PUT", `/R6/BodyStructure/${created.id}`, fewer)).status).toBe(200);
+    expect((await s.send("GET", `/R4/BodyStructure/${created.id}--3`)).status).toBe(410);
+  });
+
+  test("14. row ids are R4 only, and new ids can't use the reserved separator", async () => {
+    const { id } = await createR6();
+    expect((await s.send("GET", `/R6/BodyStructure/${id}--2`)).status).toBe(404);
+
+    const r4 = { resourceType: "BodyStructure", location: { text: "X" }, patient: { reference: "Patient/example" } };
+    expect((await s.send("PUT", "/R4/BodyStructure/fresh--2", { ...r4, id: "fresh--2" })).status).toBe(400);
+
+    const r6 = await fixture("multi");
+    expect((await s.send("PUT", "/R6/BodyStructure/fresh--2", { ...r6, id: "fresh--2" })).status).toBe(400);
+  });
+
+  test("15. repeated reads and no-op writes through both versions don't drift", async () => {
+    const { id } = await createR6();
+    const r6First = sansMeta(await getR6(id));
+    const r4First = sansMeta(await getR4(id));
+    for (let i = 0; i < 3; i++) {
+      await putR4(await getR4(id));
+      const r6 = await getR6(id);
+      expect((await s.send("PUT", `/R6/BodyStructure/${id}`, r6)).status).toBe(200);
+    }
+    expect(sansMeta(await getR6(id))).toEqual(r6First);
+    expect(sansMeta(await getR4(id))).toEqual(r4First);
+    expect((await s.rows(id)).length).toBe(3);
+  });
+});

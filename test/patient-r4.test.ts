@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { migrate, sql } from "../src/db/index.ts";
+import { migrate } from "../src/db/index.ts";
 import { loadValidator } from "../src/fhir/validator.ts";
 import { createHandler } from "../src/http/server.ts";
 import type { Patient } from "../src/fhir-types/hl7-fhir-r4-core/Patient.ts";
@@ -16,7 +16,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   server.stop(true);
-  await sql.close();
 });
 
 const patient: Patient = {
