@@ -98,6 +98,25 @@ describe("R4 Patient CRUD", () => {
     expect(oo.issue.length).toBeGreaterThan(0);
   });
 
+  test("primitive extensions (_element) are accepted, malformed ones rejected", async () => {
+    const withExtension = {
+      ...patient,
+      _birthDate: { extension: [{ url: "http://hl7.org/fhir/StructureDefinition/patient-birthTime", valueDateTime: "1990-04-01T08:30:00Z" }] },
+      name: [{ family: "Doe", given: ["Jane", "Ann"], _given: [null, { extension: [{ url: "http://example.org/given-kind", valueString: "middle" }] }] }],
+    };
+    const created = await send("POST", "/Patient", withExtension);
+    expect(created.status).toBe(201);
+    const stored = (await created.json()) as any;
+    expect(stored._birthDate).toEqual(withExtension._birthDate);
+    expect(stored.name[0]._given).toEqual(withExtension.name[0]!._given);
+    await send("DELETE", `/Patient/${stored.id}`);
+
+    const malformed = await send("POST", "/Patient", { ...patient, _birthDate: { foo: 1, extension: [{ valueString: "no url" }] } });
+    expect(malformed.status).toBe(422);
+    const oo = (await malformed.json()) as any;
+    expect(oo.issue.map((i: any) => i.expression[0])).toEqual(["Patient._birthDate.foo", "Patient._birthDate.extension[0].url"]);
+  });
+
   test("wrong resourceType → 400", async () => {
     expect((await send("POST", "/Patient", { resourceType: "Observation" })).status).toBe(400);
   });
@@ -410,17 +429,16 @@ describe("R6 Encounter read facade", () => {
     } finally { await send("DELETE", `/Encounter/${saved.id}`); }
   });
 
-  test("R6 metadata advertises read/search only and unsupported writes remain disabled", async () => {
+  test("R6 metadata advertises search, and R6 writes need the R6 validator", async () => {
     const response = await getR6("/metadata");
     expect(response.status).toBe(200);
     const metadata = (await response.json()) as any;
     expect(metadata.fhirVersion).toBe("6.0.0-ballot5");
     const encounter = metadata.rest[0].resource.find((r: any) => r.type === "Encounter");
-    expect(encounter.interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
+    expect(encounter.interaction).toContainEqual({ code: "search-type" });
     expect(encounter.searchParam.map((p: any) => p.name)).toEqual(["class"]);
-    expect(metadata.rest[0].resource.find((r: any) => r.type === "Patient").interaction).toEqual([{ code: "read" }]);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(405);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(405);
+    // This server has no R6 validator, so it can't check R6 writes (test/r6-writes.test.ts has one).
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST", body: "{}" })).status).toBe(501);
     expect((await getR6("/Patient/anything")).status).toBe(404);
     expect((await getR6("/Encounter?class:text=virtual")).status).toBe(400);
     expect((await getR6("/Encounter?class-r6=VR")).status).toBe(400);

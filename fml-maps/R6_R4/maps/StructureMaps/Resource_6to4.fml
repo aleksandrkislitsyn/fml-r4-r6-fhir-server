@@ -1,0 +1,18 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Resource6to4'
+/// name = 'Resource6to4'
+/// title = 'Resource Transforms: R6 to R4'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Resource" alias ResourceR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Resource" alias ResourceR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+
+// The id is not mapped: the engine has no rule for the R6 id type, and the server sets the
+// id of the stored resource itself (src/http/r6writes.ts), as it does for BodyStructure.
+group Resource(source src : ResourceR6, target tgt : ResourceR4) {
+  src.meta -> tgt.meta;
+  src.implicitRules -> tgt.implicitRules;
+  src.language -> tgt.language;
+}

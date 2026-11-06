@@ -88,6 +88,10 @@
     {
       "key": "r6ObservationEdited",
       "value": ""
+    },
+    {
+      "key": "r6PatientId",
+      "value": ""
     }
   ],
   "item": [
@@ -133,7 +137,7 @@
                   "const resources = pm.response.json().rest[0].resource;",
                   "pm.test(\"is FHIR 6.0.0-ballot5\", () => pm.expect(pm.response.json().fhirVersion).to.eql(\"6.0.0-ballot5\"));",
                   "pm.test(\"BodyStructure can be written\", () => pm.expect(resources.find(r => r.type === \"BodyStructure\").interaction.map(i => i.code)).to.include(\"create\"));",
-                  "pm.test(\"Patient is read-only\", () => pm.expect(resources.find(r => r.type === \"Patient\").interaction.map(i => i.code)).to.eql([\"read\"]));"
+                  "pm.test(\"Patient can be written\", () => pm.expect(resources.find(r => r.type === \"Patient\").interaction.map(i => i.code)).to.include.members([\"create\", \"update\", \"delete\"]));"
                 ]
               }
             }
@@ -877,15 +881,15 @@
           }
         },
         {
-          "name": "Other types are read-only through R6",
+          "name": "R6 Encounter with status discontinued (no R4 code yet)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"returns 405\", () => pm.response.to.have.status(405));",
-                  "pm.test(\"allows only GET\", () => pm.expect(pm.response.headers.get(\"Allow\")).to.eql(\"GET\"));"
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names the element\", () => pm.expect(pm.response.json().issue[0].diagnostics).to.include(\"Encounter.status\"));"
                 ]
               }
             }
@@ -902,10 +906,10 @@
                 "value": "application/fhir+json"
               }
             ],
-            "url": "{{baseUrl}}/R6/Patient",
+            "url": "{{baseUrl}}/R6/Encounter",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resourceType\": \"Patient\"\n}",
+              "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"status\": \"discontinued\",\n  \"class\": [\n    {\n      \"coding\": [\n        {\n          \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n          \"code\": \"AMB\"\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2310,7 +2314,7 @@
     },
     {
       "name": "8c. Patient and Encounter through R6",
-      "description": "Stored as R4 and read through the generated maps. These types are read-only through R6.",
+      "description": "Stored as one R4 resource each. R6 reads run the R4 -> R6 maps; R6 writes run the R6 -> R4 maps and are stored only if they convert back unchanged.",
       "item": [
         {
           "name": "Create a Patient through R4",
@@ -2415,7 +2419,7 @@
           }
         },
         {
-          "name": "Read it through R6: class is now a list",
+          "name": "Read it through R6: class is a list, finished is completed",
           "event": [
             {
               "listen": "test",
@@ -2423,7 +2427,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"class is a repeating CodeableConcept\", () => pm.expect(pm.response.json().class[0].coding[0].code).to.eql(\"AMB\"));"
+                  "pm.test(\"class is a repeating CodeableConcept\", () => pm.expect(pm.response.json().class[0].coding[0].code).to.eql(\"AMB\"));",
+                  "pm.test(\"R4 finished is R6 completed\", () => pm.expect(pm.response.json().status).to.eql(\"completed\"));"
                 ]
               }
             }
@@ -2437,6 +2442,164 @@
               }
             ],
             "url": "{{baseUrl}}/R6/Encounter/{{encounterId}}"
+          }
+        },
+        {
+          "name": "Update the Encounter through R6: add a second class",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is version 2\", () => pm.expect(pm.response.json().meta.versionId).to.eql(\"2\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "If-Match",
+                "value": "W/\"1\""
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Encounter/{{encounterId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"id\": \"{{encounterId}}\",\n  \"status\": \"completed\",\n  \"class\": [\n    {\n      \"coding\": [\n        {\n          \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n          \"code\": \"AMB\"\n        }\n      ]\n    },\n    {\n      \"coding\": [\n        {\n          \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n          \"code\": \"VR\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R4: the second class is an extension",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const e = pm.response.json();",
+                  "pm.test(\"R6 completed is R4 finished\", () => pm.expect(e.status).to.eql(\"finished\"));",
+                  "pm.test(\"class is the first class\", () => pm.expect(e.class.code).to.eql(\"AMB\"));",
+                  "pm.test(\"the second class is an extension\", () => pm.expect(e.extension.find(x => x.url === \"http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class\").valueCodeableConcept.coding[0].code).to.eql(\"VR\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Encounter/{{encounterId}}"
+          }
+        },
+        {
+          "name": "Create a Patient through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"r6PatientId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Patient\",\n  \"name\": [\n    {\n      \"family\": \"Roe\",\n      \"given\": [\n        \"Rita\"\n      ]\n    }\n  ],\n  \"gender\": \"female\",\n  \"photo\": [\n    {\n      \"contentType\": \"image/png\",\n      \"url\": \"http://example.org/photo.png\",\n      \"height\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R4: R6-only photo height is an extension",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has the name\", () => pm.expect(pm.response.json().name[0].family).to.eql(\"Roe\"));",
+                  "pm.test(\"height is an extension\", () => pm.expect(pm.response.json().photo[0].extension[0].valuePositiveInt).to.eql(100));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Patient/{{r6PatientId}}"
+          }
+        },
+        {
+          "name": "Delete it through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient/{{r6PatientId}}"
           }
         }
       ]

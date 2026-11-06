@@ -496,10 +496,6 @@ describe("what can't be stored is rejected, and nothing is stored", () => {
       names: "modifierExtension",
     },
     implicitRules: { body: { implicitRules: "http://example.org/rules" }, names: "implicitRules" },
-    "an extension on a primitive": {
-      body: { _status: { extension: [{ url: "http://example.org/p", valueString: "x" }] } },
-      names: "_status",
-    },
     contained: {
       body: { contained: [{ resourceType: "Patient", id: "p" }], subject: { reference: "#p" } },
       names: "contained",
@@ -551,4 +547,15 @@ describe("what can't be stored is rejected, and nothing is stored", () => {
       expect(await count()).toBe(before);
     });
   }
+});
+
+test("an extension on a primitive is kept through both versions", async () => {
+  const status = { extension: [{ url: "http://example.org/p", valueString: "x" }] };
+  const res = await s.send("POST", "/R6/Observation", { ...base, _status: status });
+  expect(res.status).toBe(201);
+  const created: any = await res.json();
+  expect(created._status).toEqual(status);
+  const stored: any = await (await s.send("GET", `/R4/Observation/${created.id}`)).json();
+  expect(stored._status).toEqual(status);
+  await s.send("DELETE", `/R4/Observation/${created.id}`);
 });

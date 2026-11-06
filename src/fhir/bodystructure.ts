@@ -1,4 +1,5 @@
 import type { StoredResource } from "../db/repository.ts";
+import { lostContent as lostContentAfterRoundTrip } from "./roundtrip.ts";
 
 /**
  * Rules for keeping one R6 BodyStructure and its R4 rows consistent. The R6 resource
@@ -340,50 +341,16 @@ export function withBodySiteRepointed<T extends StoredResource>(resource: T, fro
 
 const UNORDERED = new Set(["extension", "locationQualifier"]);
 
-/** Comparable form: key order never matters, and neither does the order of these lists. */
-function comparable(value: any, key?: string): any {
-  if (Array.isArray(value)) {
-    const items = value.map((item) => comparable(item));
-    return key && UNORDERED.has(key)
-      ? items.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-      : items;
-  }
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map((k) => [k, comparable(value[k], k)]));
-  }
-  return value;
-}
-
-/** The first path where `after` no longer has what `before` had, or undefined if nothing was lost. */
-function firstLoss(before: any, after: any, path: string): string | undefined {
-  if (Array.isArray(before) && Array.isArray(after) && before.length === after.length) {
-    for (let i = 0; i < before.length; i++) {
-      const loss = firstLoss(before[i], after[i], `${path}[${i}]`);
-      if (loss) return loss;
-    }
-    return undefined;
-  }
-  if (before && after && typeof before === "object" && typeof after === "object" && !Array.isArray(before) && !Array.isArray(after)) {
-    for (const key of Object.keys(before)) {
-      const loss = firstLoss(before[key], after[key], `${path}.${key}`);
-      if (loss) return loss;
-    }
-    return undefined;
-  }
-  return JSON.stringify(before) === JSON.stringify(after) ? undefined : path;
-}
-
 /** Ignores what the server assigns: `id`, `meta`, row links and `includedStructure.id`. */
 export function lostContent(before: any, after: any): string | undefined {
   const strip = (resource: any) => {
-    const { id: _id, meta: _meta, ...rest } = resource;
-    const out: any = { ...rest };
+    const out: any = { ...resource };
     if (out.extension) {
       out.extension = out.extension.filter((e: any) => e.url !== ROW_GROUP_URL);
       if (out.extension.length === 0) delete out.extension;
     }
     if (out.includedStructure) out.includedStructure = out.includedStructure.map(({ id: _e, ...structure }: any) => structure);
-    return comparable(out);
+    return out;
   };
-  return firstLoss(strip(before), strip(after), before.resourceType);
+  return lostContentAfterRoundTrip(strip(before), strip(after), (key) => UNORDERED.has(key));
 }

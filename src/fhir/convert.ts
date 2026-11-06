@@ -187,12 +187,6 @@ export function createFmlConverter(
   };
 }
 
-/** Storage remains R4; R6 writes require reverse maps and are not supported. */
-export function toStorage(version: FhirVersion, resource: StoredResource): StoredResource {
-  if (version === "R4") return resource;
-  throw new ConversionError("R6 writes are not supported", [], 405, "not-supported");
-}
-
 export async function fromStorage(
   version: FhirVersion,
   resource: StoredResource,
