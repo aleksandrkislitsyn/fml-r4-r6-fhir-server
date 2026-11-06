@@ -30,6 +30,9 @@ group BodyStructureShared(source r, target tgt) {
   r.image as a -> tgt.image = create('Attachment') as t then AttachmentToR6(a, t) "image";
   r.patient as v -> tgt.patient = v "patient";
   r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.excludedStructure') -> tgt.excludedStructure = create('BodyStructure.includedStructure') as ex then ExtensionToStructure(x, ex) "excluded";
+  r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.extension') then {
+    x.extension as e -> tgt.extension = e "extension";
+  } "sharedExtension";
 }
 
 group BodyStructureIncluded(source r, target inc) {
@@ -47,6 +50,7 @@ group UnmarkLaterality(source q, target lat) {
 
 // Used on a row, and inside the excludedStructure extension.
 group StructureExtras(source r, target inc) {
+  r.extension as e where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure').not() and url != 'http://example.org/fhir/StructureDefinition/bodystructure-row-group') -> inc.extension = e "extension";
   r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology') -> inc.morphology = evaluate(e, valueCodeableConcept) "morphologyExtra";
   r.extension as x where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation') -> inc.bodyLandmarkOrientation = create('BodyStructure.includedStructure.bodyLandmarkOrientation') as lm then ExtensionToLandmark(x, lm) "landmark";
   r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference') -> inc.spatialReference = evaluate(e, valueReference) "spatialReference";
@@ -83,7 +87,9 @@ group ExtensionToCodeableReference(source x, target c) {
 
 // size changes from unsignedInt (a number) to integer64 (a JSON string).
 group AttachmentToR6(source a, target t) {
+  a.extension as e where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.').not()) -> t.extension = e "extension";
   a.contentType as v -> t.contentType = v "contentType";
+  a.language as v -> t.language = v "language";
   a.data as v -> t.data = v "data";
   a.url as v -> t.url = v "url";
   a.size as v -> t.size = evaluate(v, $this.toString()) "size";

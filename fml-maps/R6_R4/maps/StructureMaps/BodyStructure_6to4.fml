@@ -35,6 +35,10 @@ group BodyStructureRow(source src, source inc, target out) {
   // can't lose it.
   src.excludedStructure as ex -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.excludedStructure' then StructureToExtension(ex, x) "excluded";
 
+  // Extensions on the R6 resource describe all of it, so they are shared. A wrapper keeps
+  // them apart from a structure's own extensions, which sit directly on its row.
+  src.extension as e -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.extension', x.extension = e "sharedExtension";
+
   // Per-row fields.
   inc.structure as v -> out.location = v "location";
   inc.morphology first as v -> out.morphology = v "morphology";
@@ -58,6 +62,7 @@ group MarkLaterality(source v, target q) {
 
 // Elements with no R4 element. Used on a row, and inside the excludedStructure extension.
 group StructureExtras(source inc, target out) {
+  inc.extension as e -> out.extension = e "extension";
   inc.bodyLandmarkOrientation as lm -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.bodyLandmarkOrientation' then LandmarkToExtension(lm, x) "landmark";
   inc.spatialReference as v -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.spatialReference', x.valueReference = v "spatialReference";
   inc.image as a -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.image', x.valueAttachment = create('Attachment') as t then AttachmentToR4(a, t) "image";
@@ -93,7 +98,9 @@ group CodeableReferenceToExtension(source c, target x) {
 // R6 Attachment has fields R4 lacks, and size changes from integer64 (a JSON string)
 // to unsignedInt (a number). A size R4 can't hold fails R4 validation, so it is rejected.
 group AttachmentToR4(source a, target t) {
+  a.extension as e -> t.extension = e "extension";
   a.contentType as v -> t.contentType = v "contentType";
+  a.language as v -> t.language = v "language";
   a.data as v -> t.data = v "data";
   a.url as v -> t.url = v "url";
   a.size as v -> t.size = evaluate(v, $this.toInteger()) "size";

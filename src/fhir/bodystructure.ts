@@ -14,33 +14,41 @@ const included = (element: string) => `${XVER}BodyStructure.includedStructure.${
 export const MORPHOLOGY_URL = included("morphology");
 export const LATERALITY_URL = included("laterality");
 export const EXCLUDED_URL = `${XVER}BodyStructure.excludedStructure`;
+/** Wraps an extension from the R6 resource, to tell it apart from a structure's own. */
+export const SHARED_EXTENSION_URL = `${XVER}BodyStructure.extension`;
 /** Server-managed link between rows. Clients can't set it. */
 export const ROW_GROUP_URL = "http://example.org/fhir/StructureDefinition/bodystructure-row-group";
 
-const ROW_EXTENSIONS = new Set([
+const SHARED_EXTENSIONS = new Set([EXCLUDED_URL, SHARED_EXTENSION_URL]);
+const STORABLE_EXTENSIONS = new Set([
   MORPHOLOGY_URL,
   included("bodyLandmarkOrientation"),
   included("spatialReference"),
   included("image"),
   included("origin"),
+  ...SHARED_EXTENSIONS,
+  ROW_GROUP_URL,
 ]);
-const STORABLE_EXTENSIONS = new Set([...ROW_EXTENSIONS, EXCLUDED_URL, ROW_GROUP_URL]);
 
 const ATTACHMENT_EXTENSIONS = new Set(
   ["height", "width", "frames", "duration", "pages"].map((f) => `${XVER}Attachment.${f}`),
 );
 
+/** URLs our mapping uses. A client's own extension can't use them, or it would be misread. */
+const isReservedUrl = (url: string) =>
+  url === ROW_GROUP_URL || url.startsWith(`${XVER}BodyStructure`) || url.startsWith(`${XVER}Attachment.`);
+
 const SHARED_FIELDS = ["language", "text", "identifier", "active", "description", "image", "patient"];
 
 const STRUCTURE_FIELDS = ["structure", "laterality", "qualifier", "morphology", "bodyLandmarkOrientation", "spatialReference", "image", "origin"];
-const R6_ROOT = new Set(["resourceType", "id", "meta", ...SHARED_FIELDS, "includedStructure", "excludedStructure"]);
-const R6_INCLUDED = new Set(["id", ...STRUCTURE_FIELDS]);
-const R6_EXCLUDED = new Set(STRUCTURE_FIELDS);
+const R6_ROOT = new Set(["resourceType", "id", "meta", ...SHARED_FIELDS, "extension", "includedStructure", "excludedStructure"]);
+const R6_INCLUDED = new Set(["id", "extension", ...STRUCTURE_FIELDS]);
+const R6_EXCLUDED = new Set(["extension", ...STRUCTURE_FIELDS]);
 const R6_LANDMARK = new Set(["landmarkDescription", "clockFacePosition", "distanceFromLandmark", "surfaceOrientation"]);
 const R6_DISTANCE = new Set(["device", "value"]);
-const R6_ATTACHMENT = new Set(["contentType", "data", "url", "size", "hash", "title", "creation", "height", "width", "frames", "duration", "pages"]);
+const R6_ATTACHMENT = new Set(["extension", "contentType", "language", "data", "url", "size", "hash", "title", "creation", "height", "width", "frames", "duration", "pages"]);
 const R4_ROOT = new Set(["resourceType", "id", "meta", ...SHARED_FIELDS, "morphology", "location", "locationQualifier", "extension"]);
-const R4_ATTACHMENT = new Set(["contentType", "data", "url", "size", "hash", "title", "creation", "extension"]);
+const R4_ATTACHMENT = new Set(["extension", "contentType", "language", "data", "url", "size", "hash", "title", "creation", "extension"]);
 
 export const baseId = (id: string) => id.split(SEPARATOR)[0]!;
 export const isSecondaryId = (id: string) => id.includes(SEPARATOR);
@@ -60,8 +68,14 @@ function outside(node: any, allowed: Set<string>, path: string): string[] {
 /** R4 Attachment.size is an unsignedInt, and the validator doesn't enforce its maximum. */
 const R4_MAX_UNSIGNED_INT = 2_147_483_647;
 
+function reservedExtensions(node: any, path: string): string[] {
+  return (node.extension ?? [])
+    .filter((e: any) => isReservedUrl(e.url))
+    .map((e: any) => `${path}.extension(${e.url}) (reserved)`);
+}
+
 function unsupportedAttachment(image: any, path: string): string[] {
-  const found = outside(image, R6_ATTACHMENT, path);
+  const found = [...outside(image, R6_ATTACHMENT, path), ...reservedExtensions(image, path)];
   if (image.size !== undefined && Number(image.size) > R4_MAX_UNSIGNED_INT) {
     found.push(`${path}.size (larger than R4 can hold)`);
   }
@@ -69,7 +83,7 @@ function unsupportedAttachment(image: any, path: string): string[] {
 }
 
 function unsupportedStructure(structure: any, allowed: Set<string>, path: string): string[] {
-  const found = outside(structure, allowed, path);
+  const found = [...outside(structure, allowed, path), ...reservedExtensions(structure, path)];
   found.push(...outside(structure.laterality, new Set(["coding", "text"]), `${path}.laterality`));
   for (const landmark of structure.bodyLandmarkOrientation ?? []) {
     const lm = `${path}.bodyLandmarkOrientation`;
@@ -84,7 +98,7 @@ function unsupportedStructure(structure: any, allowed: Set<string>, path: string
 
 /** R6 content with no place in R4. It is rejected rather than silently dropped. */
 export function unsupportedR6(resource: any): string[] {
-  const found = outside(resource, R6_ROOT, "BodyStructure");
+  const found = [...outside(resource, R6_ROOT, "BodyStructure"), ...reservedExtensions(resource, "BodyStructure")];
   for (const image of resource.image ?? []) found.push(...unsupportedAttachment(image, "BodyStructure.image"));
   for (const s of resource.includedStructure ?? []) {
     found.push(...unsupportedStructure(s, R6_INCLUDED, "BodyStructure.includedStructure"));
@@ -99,12 +113,16 @@ export function unsupportedR6(resource: any): string[] {
 export function unsupportedR4(resource: any): string[] {
   const found = outside(resource, R4_ROOT, "BodyStructure");
   for (const ext of resource.extension ?? []) {
-    if (!STORABLE_EXTENSIONS.has(ext.url)) found.push(`BodyStructure.extension(${ext.url})`);
+    if (isReservedUrl(ext.url) && !STORABLE_EXTENSIONS.has(ext.url)) {
+      found.push(`BodyStructure.extension(${ext.url}) (reserved)`);
+    }
   }
   for (const image of resource.image ?? []) {
     found.push(...outside(image, R4_ATTACHMENT, "BodyStructure.image"));
     for (const ext of image.extension ?? []) {
-      if (!ATTACHMENT_EXTENSIONS.has(ext.url)) found.push(`BodyStructure.image.extension(${ext.url})`);
+      if (isReservedUrl(ext.url) && !ATTACHMENT_EXTENSIONS.has(ext.url)) {
+        found.push(`BodyStructure.image.extension(${ext.url}) (reserved)`);
+      }
     }
   }
   return [...new Set(found)];
@@ -160,8 +178,8 @@ export function withSharedFieldsFrom(source: any, row: StoredResource): StoredRe
     if (source[field] === undefined) delete next[field];
     else next[field] = source[field];
   }
-  const own = (next.extension ?? []).filter((e: any) => e.url !== EXCLUDED_URL);
-  const shared = (source.extension ?? []).filter((e: any) => e.url === EXCLUDED_URL);
+  const own = (next.extension ?? []).filter((e: any) => !SHARED_EXTENSIONS.has(e.url));
+  const shared = (source.extension ?? []).filter((e: any) => SHARED_EXTENSIONS.has(e.url));
   if (own.length + shared.length > 0) next.extension = [...own, ...shared];
   else delete next.extension;
   return next;

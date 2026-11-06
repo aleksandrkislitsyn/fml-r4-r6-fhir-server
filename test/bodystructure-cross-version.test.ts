@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { hasErrors } from "../src/fhir/validator.ts";
-import { EXCLUDED_URL, ROW_GROUP_URL } from "../src/fhir/bodystructure.ts";
+import { EXCLUDED_URL, MORPHOLOGY_URL, ROW_GROUP_URL, SHARED_EXTENSION_URL } from "../src/fhir/bodystructure.ts";
 import { asRequest, canonical, fixture, sansMeta, startServer, type TestServer } from "./helpers.ts";
 
 /** The same data must stay correct when it's used through both /R4 and /R6. */
@@ -435,7 +435,16 @@ describe("every R6 element through R4", () => {
     expect(await s.rows(bigId)).toEqual([]);
   });
 
-  test("R4 attachment language has no R6 place: 422, not silently dropped", async () => {
+  test("attachment language is carried in both directions", async () => {
+    const input = await fixture("multi");
+    input.image = [{ url: "http://x/y", language: "en" }];
+    input.includedStructure[0].image = [{ url: "http://x/z", language: "de" }];
+    const { id }: any = await (await s.send("POST", "/R6/BodyStructure", input)).json();
+    expect((await getR4(id)).image[0].language).toBe("en");
+    const r6 = await getR6(id);
+    expect(r6.image[0].language).toBe("en");
+    expect(r6.includedStructure[0].image[0].language).toBe("de");
+
     const r4 = {
       resourceType: "BodyStructure",
       location: { text: "Spleen" },
@@ -443,7 +452,138 @@ describe("every R6 element through R4", () => {
       patient: { reference: "Patient/example" },
     };
     const res = await s.send("POST", "/R4/BodyStructure", r4);
+    expect(res.status).toBe(201);
+    const created: any = await res.json();
+    expect((await getR6(created.id)).image[0].language).toBe("en");
+  });
+});
+
+describe("extensions we don't recognise", () => {
+  const onResource = { url: "http://example.org/ext/on-resource", valueString: "whole resource" };
+  const onStructure = { url: "http://example.org/ext/on-structure", valueBoolean: true };
+  const complex = { url: "http://example.org/ext/complex", extension: [{ url: "a", valueInteger: 1 }] };
+  const withExtensions = async () => {
+    const input = await fixture("multi");
+    input.extension = [onResource, complex];
+    input.includedStructure[1].extension = [onStructure];
+    input.image = [{ url: "http://x/y", extension: [onStructure] }];
+    input.excludedStructure = [{ structure: { text: "Elbow" }, extension: [onStructure] }];
+    return input;
+  };
+
+  test("R6 extensions come back where they were sent", async () => {
+    const input = await withExtensions();
+    const { id }: any = await (await s.send("POST", "/R6/BodyStructure", input)).json();
+    const r6 = await getR6(id);
+    expect(r6.extension).toEqual([onResource, complex]);
+    expect(r6.includedStructure[0].extension).toBeUndefined();
+    expect(r6.includedStructure[1].extension).toEqual([onStructure]);
+    expect(r6.image[0].extension).toEqual([onStructure]);
+    expect(r6.excludedStructure[0].extension).toEqual([onStructure]);
+  });
+
+  test("a resource-level extension is on every row, and one on a structure only on its row", async () => {
+    const input = await withExtensions();
+    const { id }: any = await (await s.send("POST", "/R6/BodyStructure", input)).json();
+    const urls = (row: any) => row.extension.map((e: any) => e.url);
+    for (const row of [await getR4(id), await getR4(`${id}--2`), await getR4(`${id}--3`)]) {
+      expect(urls(row).filter((u: string) => u === SHARED_EXTENSION_URL).length).toBe(2);
+    }
+    expect(urls(await getR4(`${id}--2`))).toContain(onStructure.url);
+    expect(urls(await getR4(id))).not.toContain(onStructure.url);
+  });
+
+  test("an extension written on an R4 row belongs to that structure", async () => {
+    const { id } = await createR6();
+    const row = await getR4(`${id}--2`);
+    await putR4({ ...row, extension: [...row.extension, onStructure] });
+    const r6 = await getR6(id);
+    expect(r6.extension).toBeUndefined();
+    expect(r6.includedStructure[0].extension).toBeUndefined();
+    expect(r6.includedStructure[1].extension).toEqual([onStructure]);
+  });
+
+  test("created through R4 with an extension, it survives R6 and a client that drops it", async () => {
+    const r4 = {
+      resourceType: "BodyStructure",
+      location: { text: "Spleen" },
+      extension: [onStructure],
+      patient: { reference: "Patient/example" },
+    };
+    const res = await s.send("POST", "/R4/BodyStructure", r4);
+    expect(res.status).toBe(201);
+    const { id }: any = await res.json();
+    expect((await getR6(id)).includedStructure[0].extension).toEqual([onStructure]);
+
+    const { extension: _e, ...dropped } = await getR4(id);
+    await putR4(dropped);
+    expect((await getR6(id)).includedStructure[0].extension).toEqual([onStructure]);
+  });
+
+  test("the resource-level extension stays through R4 edits and row deletes, and doesn't drift", async () => {
+    const input = await withExtensions();
+    const { id }: any = await (await s.send("POST", "/R6/BodyStructure", input)).json();
+    const first = sansMeta(await getR6(id));
+
+    await putR4(withoutExtensions(await getR4(id)));
+    await putR4(await getR4(`${id}--2`));
+    await s.send("PUT", `/R6/BodyStructure/${id}`, await getR6(id));
+    expect(canonical(sansMeta(await getR6(id)))).toEqual(canonical(first));
+
+    await s.send("DELETE", `/R4/BodyStructure/${id}--3`);
+    expect((await getR6(id)).extension).toEqual([onResource, complex]);
+  });
+
+  test("a resource-level extension removed on a secondary row is removed everywhere", async () => {
+    const input = await withExtensions();
+    const { id }: any = await (await s.send("POST", "/R6/BodyStructure", input)).json();
+    const row = await getR4(`${id}--2`);
+    row.extension = row.extension.filter((e: any) => e.url !== SHARED_EXTENSION_URL);
+    await putR4(row);
+
+    expect((await getR6(id)).extension).toBeUndefined();
+    for (const other of [id, `${id}--3`]) {
+      const urls = ((await getR4(other)).extension ?? []).map((e: any) => e.url);
+      expect(urls).not.toContain(SHARED_EXTENSION_URL);
+    }
+  });
+
+  test("a client can't use the URLs our mapping relies on", async () => {
+    const input = await fixture("multi");
+    input.extension = [{ url: ROW_GROUP_URL, valueBoolean: true }];
+    let res = await s.send("POST", "/R6/BodyStructure", input);
     expect(res.status).toBe(422);
-    expect(JSON.stringify(await res.json())).toContain("language");
+    expect(JSON.stringify(await res.json())).toContain("reserved");
+
+    const other = await fixture("multi");
+    other.includedStructure[0].extension = [{ url: MORPHOLOGY_URL, valueBoolean: true }];
+    expect((await s.send("POST", "/R6/BodyStructure", other)).status).toBe(422);
+
+    const r4 = {
+      resourceType: "BodyStructure",
+      location: { text: "Spleen" },
+      extension: [{ url: `${SHARED_EXTENSION_URL}.made-up`, valueBoolean: true }],
+      patient: { reference: "Patient/example" },
+    };
+    res = await s.send("POST", "/R4/BodyStructure", r4);
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toContain("reserved");
+  });
+
+  test("what still has no safe mapping is rejected through both versions", async () => {
+    const r6 = await fixture("multi");
+    const r4 = { resourceType: "BodyStructure", location: { text: "A" }, patient: { reference: "Patient/1" } };
+    for (const extra of [
+      { contained: [{ resourceType: "Patient", id: "p" }] },
+      { implicitRules: "http://example.org/rules" },
+      { modifierExtension: [{ url: "http://example.org/m", valueBoolean: true }] },
+    ]) {
+      const name = Object.keys(extra)[0]!;
+      for (const [path, body] of [["/R6/BodyStructure", { ...r6, ...extra }], ["/R4/BodyStructure", { ...r4, ...extra }]] as const) {
+        const res = await s.send("POST", path, body);
+        expect(res.status).toBe(422);
+        expect(JSON.stringify(await res.json())).toContain(name);
+      }
+    }
   });
 });
