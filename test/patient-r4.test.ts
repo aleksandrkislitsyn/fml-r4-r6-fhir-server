@@ -410,17 +410,16 @@ describe("R6 Encounter read facade", () => {
     } finally { await send("DELETE", `/Encounter/${saved.id}`); }
   });
 
-  test("R6 metadata advertises read/search only and unsupported writes remain disabled", async () => {
+  test("R6 metadata advertises search, and R6 writes need the R6 validator", async () => {
     const response = await getR6("/metadata");
     expect(response.status).toBe(200);
     const metadata = (await response.json()) as any;
     expect(metadata.fhirVersion).toBe("6.0.0-ballot5");
     const encounter = metadata.rest[0].resource.find((r: any) => r.type === "Encounter");
-    expect(encounter.interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
+    expect(encounter.interaction).toContainEqual({ code: "search-type" });
     expect(encounter.searchParam.map((p: any) => p.name)).toEqual(["class"]);
-    expect(metadata.rest[0].resource.find((r: any) => r.type === "Patient").interaction).toEqual([{ code: "read" }]);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(405);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(405);
+    // This server has no R6 validator, so it can't check R6 writes (test/r6-writes.test.ts has one).
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST", body: "{}" })).status).toBe(501);
     expect((await getR6("/Patient/anything")).status).toBe(404);
     expect((await getR6("/Encounter?class:text=virtual")).status).toBe(400);
     expect((await getR6("/Encounter?class-r6=VR")).status).toBe(400);

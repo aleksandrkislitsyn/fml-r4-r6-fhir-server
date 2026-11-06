@@ -107,10 +107,14 @@ describe("R6 BodyStructure stored as R4", () => {
     expect((await s.send("GET", `/R6/BodyStructure/${id}`)).status).toBe(410);
   });
 
-  test("other types are read-only through R6", async () => {
-    const res = await s.send("POST", "/R6/Patient", { resourceType: "Patient" });
-    expect(res.status).toBe(405);
-    expect(res.headers.get("allow")).toBe("GET");
+  test("other types are written through R6 as one R4 resource, without row links", async () => {
+    const res = await s.send("POST", "/R6/Patient", { resourceType: "Patient", gender: "female" });
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as any;
+    const stored: any = await (await s.send("GET", `/R4/Patient/${id}`)).json();
+    expect(stored.gender).toBe("female");
+    expect(stored.extension).toBeUndefined();
+    await s.send("DELETE", `/R4/Patient/${id}`);
     expect((await s.send("GET", `/R6/Patient/${crypto.randomUUID()}`)).status).toBe(404);
   });
 });

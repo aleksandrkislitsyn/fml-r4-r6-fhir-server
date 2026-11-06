@@ -1,0 +1,54 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Patient6to4'
+/// name = 'Patient6to4'
+/// title = 'Patient Transforms: R6 to R4'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Patient" alias PatientR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Patient" alias PatientR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// The reverse of Patient4to6. R6-only elements (contact.role, contact.additionalName,
+// contact.additionalAddress) have no R4 element and are not mapped; a write that uses them
+// fails the round-trip check in src/http/r6writes.ts and returns 422.
+group Patient(source src : PatientR6, target tgt : PatientR4) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+  src.active -> tgt.active;
+  src.name -> tgt.name;
+  src.telecom -> tgt.telecom;
+  src.gender -> tgt.gender;
+  src.birthDate -> tgt.birthDate;
+  src.deceased -> tgt.deceased;
+  src.address -> tgt.address;
+  src.maritalStatus -> tgt.maritalStatus;
+  src.multipleBirth -> tgt.multipleBirth;
+  src.photo -> tgt.photo;
+  src.contact as s -> tgt.contact as t then PatientContact(s, t);
+  src.communication as s -> tgt.communication as t then PatientCommunication(s, t);
+  src.generalPractitioner -> tgt.generalPractitioner;
+  src.managingOrganization -> tgt.managingOrganization;
+  src.link as s -> tgt.link as t then PatientLink(s, t);
+}
+
+
+group PatientContact(source src, target tgt) extends BackboneElement {
+  src.relationship -> tgt.relationship;
+  src.name -> tgt.name;
+  src.telecom -> tgt.telecom;
+  src.address -> tgt.address;
+  src.gender -> tgt.gender;
+  src.organization -> tgt.organization;
+  src.period -> tgt.period;
+}
+
+
+group PatientCommunication(source src, target tgt) extends BackboneElement {
+  src.language -> tgt.language;
+  src.preferred -> tgt.preferred;
+}
+
+
+group PatientLink(source src, target tgt) extends BackboneElement {
+  src.other -> tgt.other;
+  src.type -> tgt.type;
+}

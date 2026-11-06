@@ -1,0 +1,110 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Encounter6to4'
+/// name = 'Encounter6to4'
+/// title = 'Encounter Transforms: R6 to R4'
+/// status = 'draft'
+
+// From HL7's R5 -> R4 ConceptMap (R5 and R6 share these codes). discharged and
+// discontinued have no R4 code of their own, so they are left out: a write that uses them
+// fails the round-trip check in src/http/r6writes.ts and returns 422.
+conceptmap "EncounterStatus" {
+  prefix s = "http://hl7.org/fhir/encounter-status"
+  prefix t = "http://hl7.org/fhir/encounter-status"
+
+  s:"planned" - t:"planned"
+  s:"on-hold" - t:"onleave"
+  s:"completed" - t:"finished"
+  s:"cancelled" - t:"cancelled"
+  s:"entered-in-error" - t:"entered-in-error"
+  s:"unknown" - t:"unknown"
+}
+
+// R4 arrived and triaged are R6 status in-progress plus this subjectStatus.
+conceptmap "SubjectStatus" {
+  prefix s = "http://terminology.hl7.org/CodeSystem/encounter-subject-status"
+  prefix t = "http://hl7.org/fhir/encounter-status"
+
+  s:"arrived" - t:"arrived"
+  s:"triaged" - t:"triaged"
+}
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Encounter" alias EncounterR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Encounter" alias EncounterR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// The reverse of Encounter4to6. Elements that map has no rule for (reason, dietPreference,
+// specialArrangement, specialCourtesy) and R6-only elements are not mapped either; a write
+// that uses them fails the round-trip check and returns 422.
+group Encounter(source src : EncounterR6, target tgt : EncounterR4) extends DomainResource <<type+>> {
+  src.identifier -> tgt.identifier;
+
+  src.status as v where ($this != 'in-progress') -> tgt.status = translate(v, '#EncounterStatus', 'code') "status";
+  src where (status = 'in-progress' and subjectStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged')).empty()) -> tgt.status = 'in-progress' "inProgress";
+  src where (status = 'in-progress') then {
+    src.subjectStatus as ss then {
+      ss.coding as c where (system = 'http://terminology.hl7.org/CodeSystem/encounter-subject-status' and (code = 'arrived' or code = 'triaged')) then {
+        c.code as code -> tgt.status = translate(code, '#SubjectStatus', 'code') "code";
+      } "coding";
+    } "subjectStatus";
+  } "arrivedOrTriaged";
+
+  // R4 class is one Coding: the first class becomes it, every further class an extension.
+  src.class first as c then {
+    c.coding first -> tgt.class "coding";
+  } "class";
+  src.class not_first as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class', x.valueCodeableConcept as t then CodeableConcept(v, t) "classExtra";
+
+  src.priority -> tgt.priority;
+  src.type -> tgt.type;
+  // R4 serviceType is one CodeableConcept; R6 is a list of CodeableReferences.
+  src.serviceType first as s then {
+    s.concept -> tgt.serviceType "concept";
+  } "serviceType";
+  src.subject -> tgt.subject;
+  src.episodeOfCare -> tgt.episodeOfCare;
+  src.basedOn -> tgt.basedOn;
+  src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
+  src.appointment -> tgt.appointment;
+  src.actualPeriod -> tgt.period; // renamed
+  src.length -> tgt.length;
+  src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
+  src.account -> tgt.account;
+  src.admission as s -> tgt.hospitalization as t then EncounterAdmission(s, t); // renamed
+  src.location as s -> tgt.location as t then EncounterLocation(s, t);
+  src.serviceProvider -> tgt.serviceProvider;
+  src.partOf -> tgt.partOf;
+}
+
+
+group EncounterParticipant(source src, target tgt) extends BackboneElement {
+  src.type -> tgt.type;
+  src.period -> tgt.period;
+  src.actor -> tgt.individual; // renamed
+}
+
+
+// R4 has one condition reference and one use per diagnosis.
+group EncounterDiagnosis(source src, target tgt) extends BackboneElement {
+  src.condition first as c then {
+    c.reference -> tgt.condition "reference";
+  } "condition";
+  src.use first -> tgt.use "use";
+}
+
+
+group EncounterAdmission(source src, target tgt) extends BackboneElement {
+  src.preAdmissionIdentifier -> tgt.preAdmissionIdentifier;
+  src.origin -> tgt.origin;
+  src.admitSource -> tgt.admitSource;
+  src.reAdmission -> tgt.reAdmission;
+  src.destination -> tgt.destination;
+  src.dischargeDisposition -> tgt.dischargeDisposition;
+}
+
+
+group EncounterLocation(source src, target tgt) extends BackboneElement {
+  src.location -> tgt.location;
+  src.status -> tgt.status;
+  src.form -> tgt.physicalType; // renamed
+  src.period -> tgt.period;
+}

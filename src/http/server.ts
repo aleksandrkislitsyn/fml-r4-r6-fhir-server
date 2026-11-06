@@ -1,9 +1,10 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
-import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter, type WriteConverter } from "../fhir/convert.ts";
+import { ConversionError, fromStorage, type GroupConverter, type ResourceConverter, type WriteConverter } from "../fhir/convert.ts";
 import { outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
 import { createGroupedHandlers } from "./grouped.ts";
 import { createObservationHandlers } from "./observation.ts";
+import { createR6WriteHandlers } from "./r6writes.ts";
 import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from "./responses.ts";
 
 const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
@@ -15,6 +16,15 @@ const GROUPED: readonly StoredResourceType[] = ["BodyStructure"];
 /** Stored as one R4 resource and writable through R6, so writes need both versions. */
 const CROSS_VERSION: readonly StoredResourceType[] = ["Observation"];
 
+/**
+ * Stored as one R4 resource; R6 writes go through src/http/r6writes.ts and R4 writes stay as
+ * they are. Observation (CROSS_VERSION) checks writes from both versions instead.
+ */
+const R6_WRITABLE: readonly StoredResourceType[] = ["Patient", "Encounter"];
+
+const writableThroughR6 = (type: StoredResourceType) =>
+  GROUPED.includes(type) || CROSS_VERSION.includes(type) || R6_WRITABLE.includes(type);
+
 export interface ServerDeps {
   validators: Partial<Record<FhirVersion, Validator>>;
   /** Reads any type with an R4 -> R6 map. Types writable through R6 also need both validators, or they return 501. */
@@ -22,14 +32,20 @@ export interface ServerDeps {
 }
 
 export function createHandler({ validators, converter }: ServerDeps) {
+  const both = validators.R4 && validators.R6 ? { R4: validators.R4, R6: validators.R6 } : undefined;
   const grouped =
-    converter?.toStorage && converter.fromStorage && validators.R4 && validators.R6
-      ? createGroupedHandlers({ R4: validators.R4, R6: validators.R6 }, converter as GroupConverter)
+    converter?.toStorage && converter.fromStorage && both
+      ? createGroupedHandlers(both, converter as GroupConverter)
       : undefined;
   const observations =
-    converter?.toR4 && validators.R4 && validators.R6
-      ? createObservationHandlers({ R4: validators.R4, R6: validators.R6 }, converter as WriteConverter)
+    converter?.toR4 && both
+      ? createObservationHandlers(both, converter as WriteConverter)
       : undefined;
+  const r6Writes = converter?.toR4 && both
+    ? createR6WriteHandlers(both, converter as WriteConverter)
+    : undefined;
+  const r6WritesMissing = (type: string) =>
+    error(501, `R6 writes for ${type} need both FHIR versions and the FML maps`, "not-supported");
 
   return async function handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
@@ -68,11 +84,14 @@ export function createHandler({ validators, converter }: ServerDeps) {
         if (!observations) return error(501, `${type} needs both FHIR versions and the FML maps`, "not-supported");
         return await (isCreate ? observations.create(req, version, base) : observations.update(req, id!, version, base));
       }
-      if (version === "R6" && req.method !== "GET" && !crossVersion) {
+      if (version === "R6" && req.method !== "GET" && !crossVersion && !R6_WRITABLE.includes(type)) {
         return json(outcome("R6 is read-only for this type; use /R4 for writes", "not-supported"), 405, { allow: "GET" });
       }
       if (id === undefined) {
-        if (req.method === "POST" && validator) return await createResource(req, type, version, base, validator);
+        if (req.method === "POST") {
+          if (version === "R6") return r6Writes ? await r6Writes.create(req, type, base) : r6WritesMissing(type);
+          if (validator) return await createResource(req, type, base, validator);
+        }
         if (req.method === "GET" && type === "Encounter") {
           return await searchEncounters(url, base, version, converter, req.signal);
         }
@@ -82,9 +101,10 @@ export function createHandler({ validators, converter }: ServerDeps) {
         case "GET":
           return await readResource(type, id, version, base, converter, req.signal);
         case "PUT":
+          if (version === "R6") return r6Writes ? await r6Writes.update(req, type, id, base) : r6WritesMissing(type);
           if (!validator) return error(501, `FHIR ${version} writes are not configured`, "not-supported");
-          return await updateResource(req, type, id, version, base, validator);
-        case "DELETE":
+          return await updateResource(req, type, id, base, validator);
+        case "DELETE": // the stored resource is the same for both versions
           await repo.remove(type, id);
           return new Response(null, { status: 204 });
         default:
@@ -206,10 +226,10 @@ async function searchEncounters(
   });
 }
 
+/** R4 create for types without their own cross-version handler. R6 creates go through src/http/r6writes.ts. */
 async function createResource(
   req: Request,
   type: StoredResourceType,
-  version: FhirVersion,
   base: string,
   validator: Validator,
 ): Promise<Response> {
@@ -218,9 +238,8 @@ async function createResource(
   const invalid = checkBody(body, type, validator);
   if (invalid) return invalid;
   const { id: _ignored, ...resource } = body; // server assigns the id on create
-  const stored = await repo.create(type, toStorage(version, resource));
-  const out = await fromStorage(version, stored);
-  return json(out, 201, resourceHeaders(base, out));
+  const stored = await repo.create(type, resource);
+  return json(stored, 201, resourceHeaders(base, stored));
 }
 
 async function readResource(
@@ -239,11 +258,11 @@ async function readResource(
   return json(out, 200, headers);
 }
 
+/** R4 update. R6 updates go through src/http/r6writes.ts. */
 async function updateResource(
   req: Request,
   type: StoredResourceType,
   id: string,
-  version: FhirVersion,
   base: string,
   validator: Validator,
 ): Promise<Response> {
@@ -254,9 +273,8 @@ async function updateResource(
   const invalid = checkBody(body, type, validator);
   if (invalid) return invalid;
   if (body.id !== id) return error(400, `Resource id ${JSON.stringify(body.id)} does not match URL id ${id}`);
-  const { resource, created } = await repo.update(type, id, toStorage(version, body), ifMatch);
-  const out = await fromStorage(version, resource);
-  return json(out, created ? 201 : 200, resourceHeaders(base, out));
+  const { resource, created } = await repo.update(type, id, body, ifMatch);
+  return json(resource, created ? 201 : 200, resourceHeaders(base, resource));
 }
 
 function capabilityStatement(version: FhirVersion) {
@@ -273,12 +291,13 @@ function capabilityStatement(version: FhirVersion) {
         resource: STORED_RESOURCE_TYPES.map((type) => ({
           type,
           versioning: "versioned",
-          updateCreate: version === "R4" || GROUPED.includes(type) || CROSS_VERSION.includes(type),
-          interaction: version === "R6" && !GROUPED.includes(type) && !CROSS_VERSION.includes(type) ? [
-            { code: "read" }, ...(type === "Encounter" ? [{ code: "search-type" }] : []),
-          ] : [
-            { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
-            ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
+          updateCreate: version === "R4" || writableThroughR6(type),
+          interaction: [
+            { code: "read" },
+            ...(version === "R4" || writableThroughR6(type)
+              ? [{ code: "create" }, { code: "update" }, { code: "delete" }]
+              : []),
+            ...(type === "Encounter" ? [{ code: "search-type" }] : []),
           ],
           ...(type === "Encounter" ? { searchParam: encounterSearchParams(version) } : {}),
         })),
