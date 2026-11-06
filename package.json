@@ -4,13 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "setup:fml": "bun scripts/setup-fml.ts",
+    "dev": "bun run setup:fml && bun --watch src/index.ts",
+    "start": "bun run setup:fml && bun src/index.ts",
     "db:up": "docker compose up -d --wait",
     "db:migrate": "bun src/db/index.ts",
     "generate-types": "bun run scripts/generate-types.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun run setup:fml && bun test"
   },
   "dependencies": {
     "@atomic-ehr/fhir-canonical-manager": "^0.0.29",

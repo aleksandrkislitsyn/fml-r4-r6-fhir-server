@@ -89,7 +89,7 @@ describe("R4 Patient CRUD", () => {
     expect((await send("PUT", "/Patient/a", { ...patient, id: "b" })).status).toBe(400);
   });
 
-  test("R6 is not implemented yet", async () => {
+  test("R6 Patient is not implemented yet", async () => {
     const res = await fetch(`${server.url}R6/Patient/x`);
     expect(res.status).toBe(501);
   });
@@ -214,5 +214,96 @@ describe("R4 Encounter", () => {
     expect(advertised.interaction).toContainEqual({ code: "search-type" });
     expect(advertised.searchParam).toContainEqual(expect.objectContaining({ name: "class", type: "token" }));
     expect(resources.find((r: any) => r.type === "Patient").interaction).not.toContainEqual({ code: "search-type" });
+  });
+});
+
+describe("R6 Encounter read facade", () => {
+  let r6: Awaited<ReturnType<typeof loadValidator>>;
+  beforeAll(async () => { r6 = await loadValidator("R6"); }, 120_000);
+  const getR6 = (path: string) => fetch(`${base.replace(/R4$/, "R6")}${path}`);
+
+  test("class search finds extension codings and executes FML to return a valid R6 Encounter", async () => {
+    const system = `https://example.org/r6-class/${crypto.randomUUID()}`;
+    const fixture = {
+      resourceType: "Encounter", status: "in-progress",
+      class: { system, code: "AMB" },
+      period: { start: "2026-11-06T10:00:00Z" },
+      extension: [{
+        url: "xver/encounter-class",
+        valueCodeableConcept: { coding: [
+          { system, code: "VR" },
+          { system: `${system}/other`, code: "IMP" },
+        ], text: "Virtual encounter" },
+      }],
+    };
+    const created = await send("POST", "/Encounter", fixture);
+    expect(created.status).toBe(201);
+    const saved = (await created.json()) as any;
+    const query = (value: string) => `/Encounter?${new URLSearchParams({ class: value })}`;
+    try {
+      const native = await send("GET", query(`${system}|VR`));
+      expect(((await native.json()) as any).total).toBe(0);
+      const response = await getR6(query(`${system}|VR`));
+      expect(response.status).toBe(200);
+      const bundle = (await response.json()) as any;
+      expect(bundle.total).toBe(1);
+      expect(bundle.entry[0].fullUrl).toBe(`${base.replace(/R4$/, "R6")}/Encounter/${saved.id}`);
+      const converted = bundle.entry[0].resource;
+      expect(converted.id).toBe(saved.id);
+      expect(converted.meta).toEqual(saved.meta);
+      expect(converted.class).toEqual([
+        { coding: [fixture.class] }, fixture.extension[0]!.valueCodeableConcept,
+      ]);
+      expect(converted.actualPeriod).toEqual(fixture.period);
+      expect(converted.period).toBeUndefined();
+      expect(converted.extension).toBeUndefined();
+      const errors = (r6.validate(converted).issue ?? []).filter((issue) => issue.severity === "error" || issue.severity === "fatal");
+      expect(errors).toEqual([]);
+
+      const read = await getR6(`/Encounter/${saved.id}`);
+      expect(read.status).toBe(200);
+      expect(await read.json()).toEqual(converted);
+      const wrongPair = await getR6(query(`${system}/other|VR`));
+      expect(((await wrongPair.json()) as any).total).toBe(0);
+      const nativeR6 = await getR6(query(`${system}|AMB`));
+      expect(((await nativeR6.json()) as any).total).toBe(1);
+      const codeOnly = await getR6(query("VR"));
+      expect(((await codeOnly.json()) as any).entry.map((e: any) => e.resource.id)).toContain(saved.id);
+      const rereadR4 = await send("GET", `/Encounter/${saved.id}`);
+      expect(((await rereadR4.json()) as any).extension).toEqual(fixture.extension);
+    } finally {
+      await send("DELETE", `/Encounter/${saved.id}`);
+    }
+    const deleted = await getR6(query(`${system}|VR`));
+    expect(((await deleted.json()) as any).total).toBe(0);
+  });
+
+  test("a resource matching native and extension class is returned once", async () => {
+    const system = `https://example.org/r6-duplicate/${crypto.randomUUID()}`;
+    const coding = { system, code: "VR" };
+    const response = await send("POST", "/Encounter", {
+      resourceType: "Encounter", status: "in-progress", class: coding,
+      extension: [{ url: "xver/encounter-class", valueCodeableConcept: { coding: [coding] } }],
+    });
+    expect(response.status).toBe(201);
+    const saved = (await response.json()) as any;
+    try {
+      const result = await getR6(`/Encounter?${new URLSearchParams({ class: `${system}|VR` })}`);
+      expect(result.status).toBe(200);
+      expect(((await result.json()) as any).total).toBe(1);
+    } finally { await send("DELETE", `/Encounter/${saved.id}`); }
+  });
+
+  test("R6 metadata advertises read/search only and unsupported writes remain disabled", async () => {
+    const response = await getR6("/metadata");
+    expect(response.status).toBe(200);
+    const metadata = (await response.json()) as any;
+    expect(metadata.fhirVersion).toBe("6.0.0-ballot5");
+    expect(metadata.rest[0].resource).toHaveLength(1);
+    expect(metadata.rest[0].resource[0].interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(501);
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(501);
+    expect((await getR6("/Patient/anything")).status).toBe(501);
+    expect((await getR6("/Encounter?class:text=virtual")).status).toBe(400);
   });
 });

@@ -4,9 +4,10 @@ import type { OperationOutcome } from "../fhir-types/hl7-fhir-r4-core/OperationO
 
 export type FhirVersion = "R4" | "R6";
 
-// R6 is added together with the FML conversion layer (to validate /R6 input).
+// R6 schemas validate converted test fixtures; R6 writes are not enabled.
 const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R4: "hl7.fhir.r4.core@4.0.1",
+  R6: "hl7.fhir.r6.core@6.0.0-ballot5",
 };
 
 export interface Validator {

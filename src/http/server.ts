@@ -55,7 +55,11 @@ export function createHandler({ validators }: ServerDeps) {
     const version: FhirVersion = versionSeg;
     const base = `${url.origin}/${version}`;
     const validator = validators[version];
-    if (!validator) {
+    const r6Read = version === "R6" && req.method === "GET" && (type === "Encounter" || type === "metadata");
+    if (version === "R6" && !r6Read) {
+      return error(501, "R6 only supports Encounter read and search", "not-supported");
+    }
+    if (!validator && !r6Read) {
       return error(501, `FHIR ${version} is not implemented yet`, "not-supported");
     }
 
@@ -69,9 +73,9 @@ export function createHandler({ validators }: ServerDeps) {
 
     try {
       if (id === undefined) {
-        if (req.method === "POST") return await createResource(req, type, version, base, validator);
-        if (req.method === "GET" && type === "Encounter" && version === "R4") {
-          return await searchEncounters(url, base);
+        if (req.method === "POST" && validator) return await createResource(req, type, version, base, validator);
+        if (req.method === "GET" && type === "Encounter") {
+          return await searchEncounters(url, base, version);
         }
         return error(405, `${req.method} not allowed on /${type}`, "not-supported");
       }
@@ -79,6 +83,7 @@ export function createHandler({ validators }: ServerDeps) {
         case "GET":
           return await readResource(type, id, version, base);
         case "PUT":
+          if (!validator) return error(501, "No input validator configured", "not-supported");
           return await updateResource(req, type, id, version, base, validator);
         case "DELETE":
           await repo.remove(type, id);
@@ -94,7 +99,7 @@ export function createHandler({ validators }: ServerDeps) {
   };
 }
 
-async function searchEncounters(url: URL, base: string): Promise<Response> {
+async function searchEncounters(url: URL, base: string, version: FhirVersion): Promise<Response> {
   for (const key of url.searchParams.keys()) {
     if (key !== "class") return error(400, `Unsupported search parameter: ${key}`, "not-supported");
   }
@@ -116,7 +121,8 @@ async function searchEncounters(url: URL, base: string): Promise<Response> {
       if (parts[1]) token.code = parts[1];
     }
   }
-  const resources = await repo.searchEncounterClass(token);
+  const stored = await repo.searchEncounterClass(token, version === "R6");
+  const resources = await Promise.all(stored.map((resource) => fromStorage(version, resource)));
   return json({
     resourceType: "Bundle",
     type: "searchset",
@@ -151,7 +157,7 @@ async function createResource(
   if (invalid) return invalid;
   const { id: _ignored, ...resource } = body; // server assigns the id on create
   const stored = await repo.create(type, toStorage(version, resource));
-  const out = fromStorage(version, stored);
+  const out = await fromStorage(version, stored);
   return json(out, 201, resourceHeaders(base, out));
 }
 
@@ -164,7 +170,7 @@ async function readResource(
   const result = await repo.read(type, id);
   if (result.status === "not-found") return error(404, `${type}/${id} not found`, "not-found");
   if (result.status === "deleted") return error(410, `${type}/${id} was deleted`, "deleted");
-  const out = fromStorage(version, result.resource);
+  const out = await fromStorage(version, result.resource);
   const { location: _l, ...headers } = resourceHeaders(base, out);
   return json(out, 200, headers);
 }
@@ -185,7 +191,7 @@ async function updateResource(
   if (invalid) return invalid;
   if (body.id !== id) return error(400, `Resource id ${JSON.stringify(body.id)} does not match URL id ${id}`);
   const { resource, created } = await repo.update(type, id, toStorage(version, body), ifMatch);
-  const out = fromStorage(version, resource);
+  const out = await fromStorage(version, resource);
   return json(out, created ? 201 : 200, resourceHeaders(base, out));
 }
 
@@ -195,25 +201,25 @@ function capabilityStatement(version: FhirVersion) {
     status: "draft",
     date: new Date().toISOString(),
     kind: "instance",
-    fhirVersion: version === "R4" ? "4.0.1" : "6.0.0",
+    fhirVersion: version === "R4" ? "4.0.1" : "6.0.0-ballot5",
     format: ["json"],
     rest: [
       {
         mode: "server",
-        resource: STORED_RESOURCE_TYPES.map((type) => ({
+        resource: STORED_RESOURCE_TYPES.filter((type) => version === "R4" || type === "Encounter").map((type) => ({
           type,
           versioning: "versioned",
-          updateCreate: true,
-          interaction: [
+          updateCreate: version === "R4",
+          interaction: version === "R6" ? [{ code: "read" }, { code: "search-type" }] : [
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
             ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
           ],
-          ...(type === "Encounter" && version === "R4" ? {
+          ...(type === "Encounter" ? {
             searchParam: [{
               name: "class",
               definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
               type: "token",
-              documentation: "Native R4 class only. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.",
+              documentation: `${version === "R4" ? "Native R4 class only" : "Native class and xver/encounter-class extension codings"}. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.`,
             }],
           } : {}),
         })),
