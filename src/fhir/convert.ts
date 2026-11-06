@@ -1,5 +1,7 @@
-import type { StoredResource } from "../db/repository.ts";
+import { isStoredResourceType } from "../db/index.ts";
+import { read, type StoredResource } from "../db/repository.ts";
 import { baseId, elementId, isSecondaryId, withRowLinks, withUniqueBodyStructures } from "./bodystructure.ts";
+import { withAllBodyStructureRows } from "./observation.ts";
 import type { FhirVersion } from "./validator.ts";
 import {
   createSingleInputRequest, FmlExecutor, stringifyFmlJson,
@@ -29,6 +31,22 @@ const XVER = "http://hl7.org/fhir/uv/xver/StructureMap";
 const BODY_STRUCTURE_TO_R4 = `${XVER}/BodyStructure6to4`;
 const BODY_STRUCTURE_TO_R6 = `${XVER}/BodyStructure4to6`;
 
+/** Resolves a reference that a map follows with FHIRPath `resolve()`. */
+export type Resolver = (reference: string, signal?: AbortSignal) => Promise<unknown | undefined>;
+
+const LOCAL_REFERENCE = /^([A-Za-z]+)\/([A-Za-z0-9\-.]{1,64})$/;
+
+/**
+ * `resolve()` in a map reads the stored R4 data: `BodyStructure/abc` is its primary R4 row.
+ * Anything else, including absolute URLs, resolves to nothing, so a map never makes a network call.
+ */
+export const resolveStored: Resolver = async (reference) => {
+  const [, type, id] = reference.match(LOCAL_REFERENCE) ?? [];
+  if (!type || !id || !isStoredResourceType(type)) return undefined;
+  const result = await read(type, id);
+  return result.status === "found" ? result.resource : undefined;
+};
+
 /** The engine returns numbers as lossless objects; validators and storage need plain JSON. */
 export const plainJson = <T>(value: unknown): T => JSON.parse(stringifyFmlJson(value));
 
@@ -53,7 +71,10 @@ function isResource(value: unknown): value is StoredResource {
   return typeof value === "object" && value !== null && "resourceType" in value && typeof value.resourceType === "string";
 }
 
-export function createFmlConverter(directories = configuredMapDirectories()): WriteConverter & GroupConverter {
+export function createFmlConverter(
+  directories = configuredMapDirectories(),
+  resolve: Resolver = resolveStored,
+): WriteConverter & GroupConverter {
   let runtime: Promise<{ catalog: Awaited<ReturnType<typeof loadMapCatalog>>; executor: FmlExecutor }> | undefined;
   const programs = new Map<string, Promise<{ program: PreparedFmlProgram; entryGroup: string; executor: FmlExecutor }>>();
 
@@ -82,7 +103,7 @@ export function createFmlConverter(directories = configuredMapDirectories()): Wr
   const runGroupMap = async <T>(canonical: string, input: unknown, signal?: AbortSignal): Promise<T> => {
     const program = await groupProgram(canonical);
     const { executor } = await loadRuntime();
-    const result = await executor.execute(createSingleInputRequest(program, input), { signal });
+    const result = await executor.execute(createSingleInputRequest(program, input), { signal, resolve });
     if (result.status !== "success") throw new ConversionError(`Execution of map ${canonical} failed`, result.diagnostics);
     return plainJson<T>(result.value.targets[0]?.value);
   };
@@ -117,7 +138,7 @@ export function createFmlConverter(directories = configuredMapDirectories()): Wr
       signal?.throwIfAborted();
       const { program, entryGroup, executor } = executable;
       const request = createSingleInputRequest(program, resource, entryGroup);
-      const result = await executor.execute(request, { signal });
+      const result = await executor.execute(request, { signal, resolve });
       if (result.status !== "success") {
         throw new ConversionError(`R4 -> R6 execution failed for ${resource.resourceType}`, result.diagnostics);
       }
@@ -131,7 +152,10 @@ export function createFmlConverter(directories = configuredMapDirectories()): Wr
     },
 
     async toR4(resource, signal) {
-      const mapped = await runGroupMap<StoredResource>(`${XVER}/${resource.resourceType}6to4`, resource, signal);
+      const mapped = await withAllBodyStructureRows(
+        await runGroupMap<StoredResource>(`${XVER}/${resource.resourceType}6to4`, resource, signal),
+        (reference) => resolve(reference, signal),
+      );
       const labels = keepLabels(resource.meta);
       return {
         ...mapped,

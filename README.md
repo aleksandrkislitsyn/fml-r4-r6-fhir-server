@@ -249,6 +249,8 @@ R4 has no core element for these, so an R4 Observation holds them as the standar
 
 - R4 stores it as sent, and it can point at one row.
 - R6 reads it as `bodyStructure`, always pointing at the whole resource (`BodyStructure/abc`). Rows of one group become one entry. R6 can't tell which structure was meant.
+- An R6 write of `BodyStructure/abc` is stored as one link per R4 row (`abc`, `abc--2`, `abc--3`), so an R4 client sees every structure it meant. The rows are found by resolving `abc` against storage and following its row-group `member` links, at write time. Rows added to the BodyStructure later aren't added to existing links.
+- If the stored resource already links to that BodyStructure, an R6 write keeps those links (one row, some or all), so an R6 client can't widen what an R4 client narrowed.
 - If a structure moves into the primary row, Observations referencing its old row are changed to reference the primary row in the same transaction, each with a new version.
 - The form is checked on R4 writes and returns `422`: it must be a `valueReference` to a BodyStructure, and can't be version-specific, contained, or an absolute URL on this server. Whether the target exists isn't checked.
 - An R6 write stores `bodyStructure` as the same extension, always to the whole resource. A row id or a `concept` returns `422`. If R4 already stored a row reference to that resource, an R6 update keeps it, and leaving the resource out removes it.

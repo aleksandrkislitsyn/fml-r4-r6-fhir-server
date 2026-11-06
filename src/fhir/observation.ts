@@ -1,5 +1,5 @@
 import type { StoredResource } from "../db/repository.ts";
-import { BODY_SITE_URL, R4_MAX_UNSIGNED_INT, baseId, carryForwardExtensions, isSecondaryId } from "./bodystructure.ts";
+import { BODY_SITE_URL, R4_MAX_UNSIGNED_INT, ROW_GROUP_URL, baseId, carryForwardExtensions, isSecondaryId } from "./bodystructure.ts";
 
 const REFERENCE_PREFIX = "BodyStructure/";
 
@@ -14,11 +14,56 @@ function withoutTarget(link: any) {
   return { ...link, valueReference };
 }
 
+/** The group a bodySite link points into: `BodyStructure/abc--2` is in group `abc`. */
+function groupOf(link: any): string | undefined {
+  const reference = literalReference(link);
+  return isBodySiteLink(link) && isLocal(reference) ? baseId(reference.slice(REFERENCE_PREFIX.length)) : undefined;
+}
+
 /**
- * R6 only has `BodyStructure/abc`, even when R4 stored a link to row `abc--2`. For each group
- * `next` still links to, this brings back the stored links to its rows, so writing a resource
- * through R6 doesn't widen them. A group `next` doesn't mention is gone. If the link was edited,
- * the edit applies to each of its rows.
+ * R6 has one `BodyStructure/abc`; R4 stores it as rows `abc`, `abc--2`, ... For each bodySite
+ * link to a group's primary row, this resolves the row and adds a link to each of its member
+ * rows, so an R4 client sees every structure the R6 reference meant. Links that don't resolve
+ * (no such BodyStructure, another server) stay as they are.
+ *
+ * Target state: `Observation_6to4.fml` does this itself with `resolve()`, once the engine keeps
+ * the type of a resolved resource. Until then it runs after the map.
+ */
+export async function withAllBodyStructureRows<T extends StoredResource>(
+  resource: T,
+  resolve: (reference: string) => Promise<unknown | undefined>,
+): Promise<T> {
+  const site: any = resource.bodySite;
+  const links: any[] | undefined = site?.extension;
+  if (!links?.some((link) => groupOf(link) !== undefined)) return resource;
+
+  const present = new Set(links.map(literalReference));
+  const extension: any[] = [];
+  for (const link of links) {
+    extension.push(link);
+    const reference = literalReference(link);
+    if (groupOf(link) === undefined || isSecondaryId(reference!)) continue;
+    const row: any = await resolve(reference!);
+    const members: string[] = (row?.extension ?? [])
+      .filter((e: any) => e.url === ROW_GROUP_URL)
+      .flatMap((group: any) => group.extension ?? [])
+      .filter((e: any) => e.url === "member")
+      .map((e: any) => e.valueReference?.reference)
+      .filter((member: unknown): member is string => typeof member === "string" && !present.has(member));
+    for (const member of members) {
+      present.add(member);
+      extension.push({ ...link, valueReference: { ...link.valueReference, reference: member } });
+    }
+  }
+  return { ...resource, bodySite: { ...site, extension } };
+}
+
+/**
+ * R6 can't say which rows of a BodyStructure a link means, so an R6 write would replace what an
+ * R4 client chose. For each group that `next` still links to and `stored` already links to, the
+ * stored links to that group come back: one row, some rows, or all of them. A group `next`
+ * doesn't mention is gone, and a group only `next` mentions keeps what `next` says. If the link
+ * was edited, the edit applies to each stored row.
  */
 export function keepRowReferences<T extends StoredResource>(stored: any, next: T): T {
   const site: any = next.bodySite;
@@ -26,24 +71,21 @@ export function keepRowReferences<T extends StoredResource>(stored: any, next: T
   const storedLinks: any[] = (stored?.bodySite?.extension ?? []).filter(isBodySiteLink);
   if (!links || storedLinks.length === 0) return next;
 
-  const rowsOf = (id: string) =>
-    storedLinks.filter((link) => {
-      const reference = literalReference(link);
-      return isLocal(reference) && baseId(reference.slice(REFERENCE_PREFIX.length)) === id;
-    });
+  const storedByGroup = new Map<string, any[]>();
+  for (const link of storedLinks) {
+    const group = groupOf(link);
+    if (group !== undefined) storedByGroup.set(group, [...(storedByGroup.get(group) ?? []), link]);
+  }
 
+  const done = new Set<string>();
   const extension = links.flatMap((link) => {
-    const reference = literalReference(link);
-    if (!isBodySiteLink(link) || !isLocal(reference)) return [link];
-    const id = reference.slice(REFERENCE_PREFIX.length);
-    if (isSecondaryId(id)) return [link];
-    const rows = rowsOf(id);
-    if (!rows.some((row) => isSecondaryId(literalReference(row)!))) return [link];
+    const group = groupOf(link);
+    const rows = group === undefined ? undefined : storedByGroup.get(group);
+    if (!rows) return [link];
+    if (done.has(group!)) return [];
+    done.add(group!);
     if (Bun.deepEquals(withoutTarget(link), withoutTarget(rows[0]))) return rows;
-    return rows.map((row) => ({
-      ...link,
-      valueReference: { ...link.valueReference, reference: literalReference(row) },
-    }));
+    return rows.map((row) => ({ ...link, valueReference: { ...link.valueReference, reference: literalReference(row) } }));
   });
   return { ...next, bodySite: { ...site, extension } };
 }

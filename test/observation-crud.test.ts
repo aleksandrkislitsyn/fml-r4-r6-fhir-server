@@ -392,6 +392,35 @@ describe("references written through R6", () => {
     expect(members.map((m: any) => m.valueReference.reference)).toEqual([`BodyStructure/${group}--2`, `BodyStructure/${group}--3`]);
   });
 
+  test("an R6 reference to a split BodyStructure is stored as a link to every R4 row", async () => {
+    const created = await s.send("POST", "/R6/BodyStructure", await fixture("multi"));
+    const group = ((await created.json()) as any).id;
+    const bodyStructure = [reference(`BodyStructure/${group}`, { display: "left arm" })];
+    const { id } = await createR6({ ...base, bodySite: { text: "Left arm" }, bodyStructure });
+
+    const r4 = await read("R4", id);
+    expect(storedLinks(r4)).toEqual([`BodyStructure/${group}`, `BodyStructure/${group}--2`, `BodyStructure/${group}--3`]);
+    expect(r4.bodySite.extension.every((e: any) => e.valueReference.display === "left arm")).toBe(true);
+    for (const target of storedLinks(r4)) expect((await s.send("GET", `/R4/${target}`)).status).toBe(200);
+
+    const r6 = await read("R6", id);
+    expect(r6.bodyStructure).toEqual(bodyStructure);
+    expect(r6.bodySite).toEqual({ text: "Left arm" });
+    expect((await put("R6", { ...r6, status: "amended" })).status).toBe(200);
+    expect(storedLinks(await read("R4", id))).toHaveLength(3);
+  });
+
+  test("an R4 link to only the primary row stays one link, through R4 and R6 writes", async () => {
+    const created = await s.send("POST", "/R6/BodyStructure", await fixture("multi"));
+    const group = ((await created.json()) as any).id;
+    const { id } = await createR4({ ...base, bodySite: { extension: [link(`BodyStructure/${group}`)] } });
+    expect(storedLinks(await read("R4", id))).toEqual([`BodyStructure/${group}`]);
+    expect((await put("R6", await read("R6", id))).status).toBe(200);
+    expect(storedLinks(await read("R4", id))).toEqual([`BodyStructure/${group}`]);
+    expect((await put("R4", await read("R4", id))).status).toBe(200);
+    expect(storedLinks(await read("R4", id))).toEqual([`BodyStructure/${group}`]);
+  });
+
   test("a row reference stored through R4 stays through a no-op R6 PUT", async () => {
     const { id } = await createR4({ ...base, bodySite: { text: "arm", extension: [link("BodyStructure/abc--2")] } });
     const r6 = await read("R6", id);
