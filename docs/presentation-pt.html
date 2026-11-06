@@ -317,6 +317,12 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
 .tin-fish { width: 240px; height: 160px; }
 .tin-fish img { object-fit: contain; object-position: center; }
 .tram-hero img { object-position: center top; }
+.stack { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.step { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 10px; background: var(--fg); color: var(--surface); font: 600 12px var(--sans); margin-right: 8px; vertical-align: 1px; }
+.big-statement { font: 700 clamp(40px, 5.2vw, 72px)/1.08 var(--serif); color: var(--r4); margin: 18px 0 28px; letter-spacing: -0.01em; }
+.big-statement span { color: var(--r6); font-style: italic; }
+.takeaways .card { font-size: 15px; }
+.arch .b-inner-r6s { fill: var(--surface); stroke: var(--r6); stroke-width: 1.5; }
 </style>
 </head>
 <body>
@@ -354,8 +360,8 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
         <li><a href="#6"><span class="roman">III</span><span class="t">O Encontro</span><span class="dots"></span><span class="e">Encounter, written as R6</span></a></li>
         <li><a href="#7"><span class="roman">IV</span><span class="t">A Pesquisa</span><span class="dots"></span><span class="e">Encounter search</span></a></li>
         <li><a href="#8"><span class="roman">V</span><span class="t">A Estrutura Corporal</span><span class="dots"></span><span class="e">BodyStructure</span></a></li>
-        <li><a href="#9"><span class="roman">VI</span><span class="t">As Referências</span><span class="dots"></span><span class="e">References</span></a></li>
-        <li><a href="#10"><span class="roman">VII</span><span class="t">Conclusão</span><span class="dots"></span><span class="e">Conclusion</span></a></li>
+        <li><a href="#9"><span class="roman">VI</span><span class="t">As Referências</span><span class="dots"></span><span class="e">Observation → BodyStructure</span></a></li>
+        <li><a href="#10"><span class="roman">VII</span><span class="t">Lições</span><span class="dots"></span><span class="e">Takeaways</span></a></li>
       </ol>
       <div class="tin-fish"><img src="presentation/images/03_sardinhas.svg" alt="Three sardines"></div>
       <p class="tin-foot">Desde 2026 · Produto de Lisboa</p>
@@ -371,7 +377,7 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
   <div class="pt-head"><span class="pt-chapter">Capítulo I · Arquitetura</span><span class="pt-saying">«Navegar é preciso» <em>· to sail is necessary. One single source of truth, two harbours.</em></span></div>
   <h2>FML R4 ↔ R6 FHIR server</h2>
   <h1>Architecture: store R4 once, serve R4 and R6</h1>
-  <p class="lede">Every resource is stored as <b style="color:var(--r4)">FHIR R4</b> in PostgreSQL 18. <code>/R4</code> reads and writes it directly. <code>/R6</code> runs FHIR Mapping Language (FML) maps over the same rows: R4 → R6 on every read, R6 → R4 on writes where a reverse map exists (Patient, Encounter, BodyStructure).</p>
+  <p class="lede">Every resource is stored as <b style="color:var(--r4)">FHIR R4</b> in PostgreSQL 18. <code>/R4</code> reads and writes it directly. <code>/R6</code> runs FHIR Mapping Language (FML) maps over the same rows: R4 → R6 on every read, R6 → R4 on writes for all four resource types.</p>
 
   <figure class="arch" role="img" aria-label="R4 clients use the /R4 API, which reads and writes the R4 database directly. R6 clients use the /R6 API, which goes through the FML converter: R4 to R6 on every read, R6 to R4 on writes for BodyStructure. The database stores R4 only and is the single source of truth.">
   <svg viewBox="0 0 1240 590" xmlns="http://www.w3.org/2000/svg">
@@ -438,9 +444,9 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
 
     <rect x="718" y="330" width="184" height="122" rx="10" class="b-inner"/>
     <text x="810" y="356" class="t-strong-r4" text-anchor="middle">R6 → R4</text>
-    <text x="810" y="378" class="t-mono-s" text-anchor="middle">*_6to4.fml · 62 maps</text>
-    <text x="810" y="400" class="t-sub" text-anchor="middle">R6 writes: Patient, Encounter,</text>
-    <text x="810" y="420" class="t-sub" text-anchor="middle">BodyStructure</text>
+    <text x="810" y="378" class="t-mono-s" text-anchor="middle">*_6to4.fml · 63 maps</text>
+    <text x="810" y="400" class="t-sub" text-anchor="middle">R6 writes: all four types</text>
+    <text x="810" y="420" class="t-sub" text-anchor="middle">valid in both versions</text>
     <text x="810" y="436" class="t-sub" text-anchor="middle">round-trip checked</text>
 
     <!-- Read lane: DB -> converter -> /R6 -->
@@ -463,9 +469,9 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
     <text x="1090" y="232" class="t-sub" text-anchor="middle">R6 core 6.0.0-ballot5</text>
     <text x="1090" y="270" class="t-body" text-anchor="middle">read: all four types</text>
     <text x="1090" y="290" class="t-body" text-anchor="middle">+ Encounter class search</text>
-    <text x="1090" y="328" class="t-body" text-anchor="middle">write: Patient · Encounter</text>
-    <text x="1090" y="350" class="t-body" text-anchor="middle">BodyStructure</text>
-    <text x="1090" y="372" class="t-sub" text-anchor="middle">Observation → 405</text>
+    <text x="1090" y="328" class="t-body" text-anchor="middle">write: all four types</text>
+    <text x="1090" y="350" class="t-sub" text-anchor="middle">round-trip checked</text>
+    
 
     <!-- Footer notes -->
     <text x="150" y="476" class="t-sub" text-anchor="middle">fhirschema validator</text>
@@ -486,7 +492,7 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
     <div class="brick"><b>@atomic-ehr/fhirschema</b><span>Validates R4 writes, and R6 input/output</span></div>
     <div class="brick"><b>@atomic-ehr/codegen</b><span>TypeScript types for R4 resources</span></div>
     <div class="brick"><b>FHIRPath Lab FML executor</b><span>Brian's engine, pinned as the <code>vendor/fhirpath-lab</code> submodule</span></div>
-    <div class="brick"><b>fml-maps/</b><span>164 R4 → R6 maps (163 generated + BodySiteReference) · 62 R6 → R4 maps (datatypes, Patient, Encounter, BodyStructure)</span></div>
+    <div class="brick"><b>fml-maps/</b><span>164 R4 → R6 maps (163 generated + BodySiteReference) · 63 R6 → R4 maps (datatypes + all four resource types)</span></div>
     <div class="brick"><b>Tests</b><span>129 integration tests against the real database, all passing</span></div>
   </div>
 </div>
@@ -515,34 +521,9 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
   <h1>Patient: written as R4, read as R6</h1>
   <p class="lede">Patient barely changed between R4 and R6, so the generated map is a field-by-field copy. The R6 response has the same content, id and version as the stored R4. Writes work through <code>/R6</code> too: <code>Patient_6to4</code> reverses the map, and R6-only fields (<code>contact.role</code>, <code>additionalName</code>, <code>additionalAddress</code>) return <code>422</code>.</p>
 
-  <div class="grid cols-2" style="margin-bottom:16px">
-    <div class="card">
-      <h3>The calls</h3>
-      <table class="calls">
-        <tr><td class="m">POST</td><td class="p">/R4/Patient</td><td class="s ok">201</td><td class="w">Location <code>/R4/Patient/d4ddfc62-…/_history/1</code></td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Patient/d4ddfc62-…</td><td class="s ok">200</td><td class="w">stored R4, as is</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Patient/d4ddfc62-…</td><td class="s ok">200</td><td class="w">converted by <code>Patient4to6</code></td></tr>
-        <tr><td class="m">PUT</td><td class="p">/R6/Patient/d4ddfc62-…</td><td class="s ok">200</td><td class="w">R6 update, stored as R4 through <code>Patient_6to4</code></td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <h3>Create request</h3>
-<pre>curl -X POST localhost:8080/R4/Patient \
-  -H 'content-type: application/fhir+json' -d '{
-  "resourceType": "Patient",
-  "identifier": [{ "system": "http://hospital.example/mrn", "value": "MRN-1001" }],
-  "name": [{ "family": "Doe", "given": ["Jane"] }],
-  "gender": "female", "birthDate": "1990-04-01",
-  "contact": [{ "relationship": [{ "text": "sister" }],
-                "name": { "family": "Doe", "given": ["Anna"] },
-                "telecom": [{ "system": "phone", "value": "+1 555 0100" }] }]
-}'</pre>
-    </div>
-  </div>
-
-  <div class="grid cols-3-wide">
+    <div class="grid cols-3-wide">
     <div class="card r4">
-      <h3><span class="tag r4">R4</span>Stored · GET /R4/Patient/…</h3>
+      <h3><span class="tag r4">R4</span>Sent and stored as R4</h3>
 <pre>{
   "resourceType": "Patient",
   "id": "d4ddfc62-…",
@@ -588,7 +569,7 @@ group PatientContact(source src, target tgt)
       <p class="note"><code>extends DomainResource</code> and the datatype maps (<code>HumanName</code>, <code>ContactPoint</code>, …) come from other files through the wildcard <code>imports</code>, which the embedded engine resolves.</p>
     </div>
     <div class="card r6">
-      <h3><span class="tag r6">R6</span>Converted · GET /R6/Patient/…</h3>
+      <h3><span class="tag r6">R6</span>Read through R6</h3>
 <pre>{
   "resourceType": "Patient",
   "id": "d4ddfc62-…",
@@ -621,40 +602,9 @@ group PatientContact(source src, target tgt)
   <h1>Encounter: written as R6, stored as R4</h1>
   <p class="lede">An R6 client creates the Encounter. The <code>Encounter_6to4</code> map turns it into R4 for storage: the R6 <code>class</code> list becomes one R4 Coding plus the cross-version extension, R6 status codes become R4 codes, and four renamed elements get their R4 names back. The server stores it only if converting back to R6 gives exactly what the client sent.</p>
 
-  <div class="grid cols-2" style="margin-bottom:16px">
-    <div class="card">
-      <h3>The calls</h3>
-      <table class="calls">
-        <tr><td class="m">POST</td><td class="p">/R6/Encounter</td><td class="s ok">201</td><td class="w">R6 body, class AMB + VR</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Encounter/&lt;id&gt;</td><td class="s ok">200</td><td class="w">what is stored: R4</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Encounter/&lt;id&gt;</td><td class="s ok">200</td><td class="w">the same content the client sent, plus id and meta</td></tr>
-        <tr><td class="m">PUT</td><td class="p">/R6/Encounter/&lt;id&gt;</td><td class="s ok">200</td><td class="w">update, with <code>If-Match</code> as through R4</td></tr>
-      </table>
-      <p class="note"><b>How a write is accepted:</b> (1) the body is valid R6, (2) <code>Encounter_6to4</code> produces valid R4, (3) <code>Encounter_4to6</code> turns that R4 back into the same R6. Any failure returns <code>422</code>, naming the first path that would be lost.</p>
-      <p class="note">R6 writes come from Patrick's PR #7, which is still open.</p>
-    </div>
+    <div class="grid cols-3-wide">
     <div class="card r6">
-      <h3><span class="tag r6">R6</span>Create request</h3>
-<pre>curl -X POST localhost:8080/R6/Encounter \
-  -H 'content-type: application/fhir+json' -d '{
-  "resourceType": "Encounter",
-<span class="n">5</span><mark class="r6">"status": "completed"</mark>,
-<span class="n">1</span><mark class="r6">"class": [
-    { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-                   "code": "AMB" }] },
-    { "coding": [{ "system": "…/v3-ActCode", "code": "VR" }] }
-  ]</mark>,
-  "subject": { "reference": "Patient/d4ddfc62-…" },
-  "participant": [{ <span class="n">3</span><mark class="r6">"actor"</mark>: { "reference": "Practitioner/dr-smith" } }],
-<span class="n">2</span><mark class="r6">"actualPeriod"</mark>: { "start": "2026-11-06T09:00:00Z", "end": "2026-11-06T09:30:00Z" },
-<span class="n">4</span><mark class="r6">"admission"</mark>: { "admitSource": { "text": "Referral" } }
-}'</pre>
-    </div>
-  </div>
-
-  <div class="grid cols-3-wide">
-    <div class="card r6">
-      <h3><span class="tag r6">R6</span>What the client sent</h3>
+      <h3><span class="tag r6">R6</span>What the client sent · POST /R6/Encounter</h3>
 <pre>{
   "resourceType": "Encounter",
 <span class="n">5</span><mark class="r6">"status": "completed"</mark>,
@@ -709,7 +659,7 @@ group EncounterParticipant(source src, target tgt) … {
       <p class="note">The reverse of the generated <code>Encounter_4to6</code>. Status codes follow HL7's R5 → R4 ConceptMap, since R5 and R6 share them. The read map now translates them back: <code>finished</code> reads as <code>completed</code>.</p>
     </div>
     <div class="card r4">
-      <h3><span class="tag r4">R4</span>Stored · GET /R4/Encounter/&lt;id&gt;</h3>
+      <h3><span class="tag r4">R4</span>How it was stored</h3>
 <pre>{
   "resourceType": "Encounter",
   "id": "…",
@@ -735,15 +685,6 @@ group EncounterParticipant(source src, target tgt) … {
       <p class="note">An R4 client reads a normal R4 Encounter: class AMB, plus an extension it can ignore. Search for this row is on the next slide.</p>
     </div>
   </div>
-  <div class="card" style="margin-top:16px">
-    <h3><span class="tag bad">Watch</span>What an R6 write can't carry</h3>
-    <ul class="tight">
-      <li><b>Returns 422:</b> <code>reason</code>, <code>dietPreference</code>, <code>specialArrangement</code>, <code>specialCourtesy</code> and other R6-only elements; a first <code>class</code> with more than one Coding or with text; and status <code>discharged</code> or <code>discontinued</code>, which have no R4 code.</li>
-      <li><b>Kept only partly:</b> <code>serviceType</code> and <code>diagnosis.condition</code>/<code>use</code> keep their first entry, because R4 holds one.</li>
-      <li><b>Returns 409 on R6 PUT:</b> if the stored R4 holds content R6 can't show (<code>reasonCode</code>, <code>statusHistory</code>, <code>diagnosis.rank</code>), the PUT would overwrite it, so it is refused and the row is left unchanged.</li>
-      <li><b>Our choice, not HL7's:</b> R4 <code>arrived</code> and <code>triaged</code> become R6 <code>in-progress</code> plus <code>subjectStatus</code>.</li>
-    </ul>
-  </div>
 </div>
 </section>
 
@@ -754,73 +695,79 @@ group EncounterParticipant(source src, target tgt) … {
   <div class="pt-head"><span class="pt-chapter">Capítulo IV · A Pesquisa</span><span class="pt-saying">«Quem procura sempre encontra» <em>· who searches always finds… unless it is R4 class and VR.</em></span></div>
   <h2>Case 2 / 3 · Search</h2>
   <h1>Encounter: searching by class in both versions</h1>
-  <p class="lede">The stored row has class <b>AMB</b> natively and <b>VR</b> in the cross-version extension. R4 <code>class</code> keeps its standard meaning, because R4 doesn't allow redefining a standard parameter. R6 <code>class</code> sees the whole list. <code>class-r6</code> gives R4 clients the R6 behaviour under its own name.</p>
+  <p class="lede">The Encounter from the previous slide was sent as R6 with class <b>AMB</b> and <b>VR</b>; R4 stores <b>AMB</b> natively and <b>VR</b> in the cross-version extension. R4 <code>class</code> keeps its standard meaning, because R4 doesn't allow redefining a standard parameter. R6 <code>class</code> sees the whole list. <code>class-r6</code> gives R4 clients the R6 behaviour under its own name.</p>
 
-  <figure class="arch" role="img" aria-label="One stored R4 Encounter with native class AMB and extension class VR. R4 class matches only AMB. R4 class-r6 and R6 class match both AMB and VR. R4 parameters return stored R4; R6 class returns R6 converted by FML." style="margin-bottom:16px">
+  <figure class="arch" role="img" aria-label="An R6 client sends an Encounter with class AMB and VR. Encounter_6to4 stores the first class as the native R4 class and the second in the cross-version extension. R4 class matches only AMB. R4 class-r6 and R6 class match both AMB and VR. R4 parameters return stored R4; R6 class returns R6 converted by FML." style="margin-bottom:16px">
   <svg viewBox="0 0 1240 330" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <marker id="ah-s4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
       <marker id="ah-s6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
     </defs>
 
+    <!-- R6 source -->
+    <rect x="20" y="30" width="220" height="270" rx="12" class="b-r6"/>
+    <text x="130" y="62" class="t-kicker6" text-anchor="middle">SENT AS FHIR R6</text>
+    <text x="130" y="88" class="t-mono" text-anchor="middle">POST /R6/Encounter</text>
+
+    <rect x="36" y="110" width="188" height="70" rx="10" class="b-inner-r6s"/>
+    <text x="52" y="136" class="t-sub">class[0]</text>
+    <text x="52" y="162" class="t-mono">coding = <tspan class="t-code">AMB</tspan></text>
+
+    <rect x="36" y="200" width="188" height="76" rx="10" class="b-inner-r6s"/>
+    <text x="52" y="226" class="t-sub">class[1]</text>
+    <text x="52" y="254" class="t-mono">coding = <tspan class="t-code">VR</tspan></text>
+
+    <!-- Encounter_6to4 -->
+    <text x="298" y="196" class="t-mono-s" text-anchor="middle" style="font-size:11px">Encounter_6to4</text>
+    <path d="M224,145 L352,145" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+    <text x="290" y="136" class="t-lab" text-anchor="middle">first class</text>
+    <path d="M224,238 L352,238" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+    <text x="290" y="229" class="t-lab" text-anchor="middle">further classes</text>
+
     <!-- Stored row -->
-    <rect x="20" y="30" width="380" height="270" rx="12" class="b-db"/>
-    <text x="210" y="62" class="t-kicker" text-anchor="middle">STORED ONCE · FHIR R4</text>
-    <text x="210" y="88" class="t-mono" text-anchor="middle">encounter / d936a286-…</text>
+    <rect x="358" y="30" width="350" height="270" rx="12" class="b-db"/>
+    <text x="533" y="62" class="t-kicker" text-anchor="middle">STORED ONCE · FHIR R4</text>
+    <text x="533" y="88" class="t-mono" text-anchor="middle">encounter / &lt;id&gt;</text>
 
-    <rect x="44" y="110" width="332" height="70" rx="10" class="b-inner-r4"/>
-    <text x="60" y="136" class="t-sub">native element</text>
-    <text x="60" y="162" class="t-mono">class.code = <tspan class="t-code">AMB</tspan></text>
+    <rect x="374" y="110" width="318" height="70" rx="10" class="b-inner-r4"/>
+    <text x="390" y="136" class="t-sub">native element</text>
+    <text x="390" y="162" class="t-mono">class.code = <tspan class="t-code">AMB</tspan></text>
 
-    <rect x="44" y="200" width="332" height="76" rx="10" class="b-inner-r6"/>
-    <text x="60" y="226" class="t-sub">extension …/6.0/…/extension-Encounter.class</text>
-    <text x="60" y="254" class="t-mono">valueCodeableConcept = <tspan class="t-code">VR</tspan></text>
+    <rect x="374" y="200" width="318" height="76" rx="10" class="b-inner-r6"/>
+    <text x="390" y="226" class="t-sub">extension …/extension-Encounter.class</text>
+    <text x="390" y="254" class="t-mono">valueCodeableConcept = <tspan class="t-code">VR</tspan></text>
 
     <!-- Search parameters -->
-    <rect x="610" y="20" width="610" height="84" rx="10" class="b-api"/>
-    <rect x="610" y="20" width="6" height="84" rx="3" class="fill-r4"/>
-    <text x="632" y="48" class="t-mono-b">GET /R4/Encounter?class=…</text>
-    <text x="632" y="72" class="t-body">matches <tspan class="t-strong-r4s">AMB only</tspan> · standard R4 meaning</text>
-    <text x="632" y="92" class="t-sub">returns stored R4</text>
+    <rect x="800" y="20" width="420" height="84" rx="10" class="b-api"/>
+    <rect x="800" y="20" width="6" height="84" rx="3" class="fill-r4"/>
+    <text x="822" y="48" class="t-mono-b">GET /R4/Encounter?class=…</text>
+    <text x="822" y="72" class="t-body">matches <tspan class="t-strong-r4s">AMB only</tspan> · standard R4 meaning</text>
+    <text x="822" y="92" class="t-sub">returns stored R4</text>
 
-    <rect x="610" y="122" width="610" height="84" rx="10" class="b-api"/>
-    <rect x="610" y="122" width="6" height="84" rx="3" class="fill-r4"/>
-    <text x="632" y="150" class="t-mono-b">GET /R4/Encounter?class-r6=…</text>
-    <text x="632" y="174" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · R6 behaviour, backported</text>
-    <text x="632" y="194" class="t-sub">returns stored R4 (class + extension, as stored)</text>
+    <rect x="800" y="122" width="420" height="84" rx="10" class="b-api"/>
+    <rect x="800" y="122" width="6" height="84" rx="3" class="fill-r4"/>
+    <text x="822" y="150" class="t-mono-b">GET /R4/Encounter?class-r6=…</text>
+    <text x="822" y="174" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · R6 meaning, backported</text>
+    <text x="822" y="194" class="t-sub">returns stored R4 (class + extension)</text>
 
-    <rect x="610" y="224" width="610" height="84" rx="10" class="b-api"/>
-    <rect x="610" y="224" width="6" height="84" rx="3" class="fill-r6"/>
-    <text x="632" y="252" class="t-mono-b">GET /R6/Encounter?class=…</text>
-    <text x="632" y="276" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · standard R6 meaning</text>
-    <text x="632" y="296" class="t-sub">returns R6 via FML: class = [AMB, VR], no extension</text>
+    <rect x="800" y="224" width="420" height="84" rx="10" class="b-api"/>
+    <rect x="800" y="224" width="6" height="84" rx="3" class="fill-r6"/>
+    <text x="822" y="252" class="t-mono-b">GET /R6/Encounter?class=…</text>
+    <text x="822" y="276" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · standard R6 meaning</text>
+    <text x="822" y="296" class="t-sub">returns R6 via FML: class = [AMB, VR]</text>
 
     <!-- AMB lines -->
-    <path d="M376,145 C500,145 490,58 604,58" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
-    <path d="M376,145 C500,145 490,156 604,156" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
-    <path d="M376,145 C500,145 490,258 604,258" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <path d="M692,145 C750,145 745,58 794,58" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <path d="M692,145 C750,145 745,156 794,156" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <path d="M692,145 C750,145 745,258 794,258" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
     <!-- VR lines -->
-    <path d="M376,238 C510,238 500,176 604,176" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
-    <path d="M376,238 C510,238 500,278 604,278" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+    <path d="M692,238 C755,238 750,176 794,176" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+    <path d="M692,238 C755,238 750,278 794,278" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
   </svg>
   </figure>
 
-  <div class="grid cols-2">
-    <div class="card">
-      <h3>The calls (searching for this encounter)</h3>
-      <table class="calls">
-        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…|AMB</td><td class="s ok">200</td><td class="w"><b>found</b>, R4</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…|VR</td><td class="s ok">200</td><td class="w"><b>not found</b> (total 0)</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class-r6=…|VR</td><td class="s ok">200</td><td class="w"><b>found</b>, R4: <code>class</code> object + extension</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class=…|VR</td><td class="s ok">200</td><td class="w"><b>found</b>, R6: <code>class</code> list, no extension</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class=…|AMB</td><td class="s ok">200</td><td class="w"><b>found</b>, R6</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…&amp;class-r6=…</td><td class="s bad">400</td><td class="w">“Combining class and class-r6 is not supported”</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class-r6=…</td><td class="s bad">400</td><td class="w">“Unsupported search parameter: class-r6”</td></tr>
-      </table>
-      <p class="note"><code>…</code> = <code>http://terminology.hl7.org/CodeSystem/v3-ActCode</code>. Accepted token forms: <code>code</code>, <code>system|code</code>, <code>|code</code>, <code>system|</code>. No modifiers, lists or paging yet.</p>
-    </div>
-
-    <div class="card fml">
+  <div class="grid">
+        <div class="card fml">
       <h3><span class="tag r4">R4</span>How we implemented it: a SearchParameter definition</h3>
 <pre>GET /R4/SearchParameter/Encounter-class-r6
 
@@ -858,39 +805,39 @@ group EncounterParticipant(source src, target tgt) … {
   <div class="pt-head"><span class="pt-chapter">Capítulo V · A Estrutura Corporal</span><span class="pt-saying">«Como sardinhas em lata» <em>· packed like sardines in a can: one R6 resource, many R4 rows.</em></span></div>
   <h2>Case 3 / 3</h2>
   <h1>BodyStructure: one R6 resource, several R4 rows</h1>
-  <p class="lede">R6 <code>includedStructure</code> repeats (1..*), but R4 has one <code>location</code> and one <code>morphology</code>. So an R6 BodyStructure is written as one R4 row per structure: <code>&lt;id&gt;</code>, <code>&lt;id&gt;--2</code>, …. R6-only values live in R4 extensions. This is the one type with writes through <code>/R6</code>, using hand-written maps in both directions.</p>
+  <p class="lede">R6 <code>includedStructure</code> repeats (1..*), but R4 has one <code>location</code> and one <code>morphology</code>. So an R6 BodyStructure is written as one R4 row per structure: <code>&lt;id&gt;</code>, <code>&lt;id&gt;--2</code>, …. R6-only values live in R4 extensions. Both directions use hand-written maps.</p>
 
-  <div class="grid cols-2" style="margin-bottom:16px">
-    <div class="card">
-      <h3>The calls</h3>
-      <table class="calls">
-        <tr><td class="m">POST</td><td class="p">/R6/BodyStructure</td><td class="s ok">201</td><td class="w">2 structures → 2 R4 rows</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/452142f2-…</td><td class="s ok">200</td><td class="w">row 1 (primary): forearm</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/452142f2-…--2</td><td class="s ok">200</td><td class="w">row 2: humerus</td></tr>
-        <tr><td class="m">PUT</td><td class="p">/R4/BodyStructure/452142f2-…--2</td><td class="s ok">200</td><td class="w">R4 client edits <code>description</code> on row 2</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/BodyStructure/452142f2-…</td><td class="s ok">200</td><td class="w">versionId 2, new description, both structures intact</td></tr>
-      </table>
-      <p class="note">Each write rewrites the whole group in one transaction. It commits only if every row is valid R4 and the group converts back to valid R6 without losing anything; otherwise <code>422</code>.</p>
-    </div>
+  <div class="grid cols-3-wide">
     <div class="card r6">
-      <h3><span class="tag r6">R6</span>Create request · POST /R6/BodyStructure</h3>
+      <h3><span class="tag r6">R6</span>What the client sent · POST /R6/BodyStructure</h3>
 <pre>{
   "resourceType": "BodyStructure",
   "active": true,
-  "description": "Lesion spreading across the left arm",
-  "patient": { "reference": "Patient/d4ddfc62-…" },
+  "description": "Lesion spreading
+                  across the left arm",
+  "patient": { "reference": "Patient/d4dd…" },
   "includedStructure": [
-    { <mark class="r6">"structure": { "coding": [{ "code": "14975008", "display": "Forearm" }] },</mark>
-      <mark class="r6">"laterality": { "coding": [{ "code": "419161000", "display": "Unilateral left" }] },</mark>
-      <mark class="r6">"morphology": [{ "text": "Basal cell carcinoma" }, { "text": "Nevus sebaceus" }]</mark> },
-    { <mark class="r6">"structure": { "coding": [{ "code": "85050009", "display": "Bone structure of humerus" }] },</mark>
-      <mark class="r6">"morphology": [{ "text": "Lesion" }]</mark> }
+    {
+      <mark class="r6">"structure": { "coding": [{
+        "code": "14975008",
+        "display": "Forearm" }] },</mark>
+      <mark class="r6">"laterality": { "coding": [{
+        "code": "419161000",
+        "display": "Unilateral left" }] },</mark>
+      <mark class="r6">"morphology": [
+        { "text": "Basal cell carcinoma" },
+        { "text": "Nevus sebaceus" } ]</mark>
+    },
+    {
+      <mark class="r6">"structure": { "coding": [{
+        "code": "85050009",
+        "display": "Bone structure of humerus" }] },</mark>
+      <mark class="r6">"morphology": [
+        { "text": "Lesion" } ]</mark>
+    }
   ]
 }</pre>
     </div>
-  </div>
-
-  <div class="grid cols-3-wide">
     <div class="card fml">
       <h3><span class="tag fml">FML</span>BodyStructure_6to4.fml (hand-written)</h3>
 <pre>group BodyStructureSplit(source src : BodyStructureR6,
@@ -920,8 +867,9 @@ group BodyStructureRow(source src, source inc,
 }</pre>
       <p class="note">The reverse map, <code>BodyStructure_4to6.fml</code>, merges the rows back: the first row gives the shared fields, and each row adds one <code>includedStructure</code>.</p>
     </div>
-    <div class="card r4">
-      <h3><span class="tag r4">R4</span>Row 1 · GET /R4/BodyStructure/452142f2-…</h3>
+    <div class="stack">
+      <div class="card r4">
+      <h3><span class="tag r4">R4</span>Stored as R4 · row 1 <code>452142f2-…</code></h3>
 <pre>{
   "resourceType": "BodyStructure",
   "id": "452142f2-…",
@@ -946,8 +894,8 @@ group BodyStructureRow(source src, source inc,
   ]
 }</pre>
     </div>
-    <div class="card r4">
-      <h3><span class="tag r4">R4</span>Row 2 · GET /R4/BodyStructure/452142f2-…--2</h3>
+      <div class="card r4">
+      <h3><span class="tag r4">R4</span>Stored as R4 · row 2 <code>452142f2-…--2</code></h3>
 <pre>{
   "resourceType": "BodyStructure",
   "id": "452142f2-…--2",
@@ -965,19 +913,7 @@ group BodyStructureRow(source src, source inc,
   ]
 }</pre>
       <p class="note">The <code>row-group</code> extension is added by the server (<code>src/fhir/bodystructure.ts</code>), not by FML. It lets an R4 client find the other rows and keeps their order.</p>
-      <details><summary>R6 read after the R4 edit on row 2</summary>
-<pre>{ "resourceType": "BodyStructure",
-  "id": "452142f2-…",
-  "meta": { "versionId": "2", … },
-  "description": "Lesion on the left arm (edited via R4)",
-  "includedStructure": [
-    { "id": "1", "structure": { … "Forearm" },
-      "laterality": { … "Unilateral left" },
-      "morphology": [ { "text": "Basal cell carcinoma" },
-                      { "text": "Nevus sebaceus" } ] },
-    { "id": "2", "structure": { … "humerus" },
-      "morphology": [ { "text": "Lesion" } ] } ] }</pre>
-      </details>
+    </div>
     </div>
   </div>
 </div>
@@ -989,99 +925,92 @@ group BodyStructureRow(source src, source inc,
   <div class="pt-emblem"><img src="presentation/images/08_fado_guitar.svg" alt="Portuguese Fado guitar"></div>
   <div class="pt-head"><span class="pt-chapter">Capítulo VI · As Referências</span><span class="pt-saying">«Cada macaco no seu galho» <em>· every monkey on its own branch, every reference on its own row. A fado about lost references.</em></span></div>
   <h2>Case 3 / 3 · References</h2>
-  <h1>BodyStructure: splitting breaks references</h1>
-  <p class="lede">Splitting one R6 BodyStructure into R4 rows gives it two identities: R4 clients see rows (<code>99dc…--2</code>), R6 clients see one resource (<code>99dc…</code>). Every resource that points at a BodyStructure has to be translated between the two, and kept valid when rows move. Artur's PR #6 does this for <b>Observation</b>.</p>
+  <h1>Observation: pointing at a split BodyStructure</h1>
+  <p class="lede">An R6 client creates an Observation whose <code>bodyStructure</code> points at the BodyStructure from the previous slide. R6 has one <code>BodyStructure/e7c8…</code>; R4 stores it as three rows. So <code>Observation_6to4</code> uses <code>resolve()</code> to find all of them and stores one standard <code>bodySite</code> link per row. Reading through R6, <code>Observation_4to6</code> folds them back into one <code>bodyStructure</code>.</p>
 
-  <figure class="arch" role="img" aria-label="In R4, Observation o1 references the BodyStructure row 99dc--2 through the bodySite extension. In R6, the same Observation references the whole BodyStructure 99dc through bodyStructure. The FML map BodySiteReference strips the row suffix." style="margin-bottom:16px">
-  <svg viewBox="0 0 1240 360" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <marker id="ah-ref4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
-      <marker id="ah-ref6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
-    </defs>
+  <div class="grid cols-3-wide" style="margin-bottom:16px">
+    <div class="card r6">
+      <h3><span class="tag r6">R6</span><span class="step">1</span>What the client sent · POST /R6/Observation</h3>
+<pre>{
+  "resourceType": "Observation",
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "subject": { "reference": "Patient/d4dd…" },
+  "valueQuantity": { "value": 33.2,
+                     "unit": "Cel" },
+  "bodySite": { "text": "Left arm" },
+  <mark class="r6">"bodyStructure": [{
+    "reference": {
+      "reference": "BodyStructure/e7c8…"
+    } }]</mark>
+}</pre>
+      <p class="note"><code>201 Created</code>. <code>BodyStructure/e7c8…</code> is one R6 resource with three structures: Forearm, Upper arm, Shoulder.</p>
+    </div>
+    <div class="card fml">
+      <h3><span class="tag fml">FML</span><span class="step">2</span>Observation_6to4.fml</h3>
+<pre>group ObservationBodySite(source src, target t) {
+  src.bodySite as s then { s.text -> t.text; … };
+  src.bodyStructure as bs then {
+    <span class="c">// the link R6 gave: the primary row</span>
+    bs.reference as r -> t.extension as x,
+      x.url = '…/StructureDefinition/bodySite',
+      x.valueReference as v then Reference(r, v);
+    <span class="c">// resolve() the BodyStructure: its primary R4
+    // row lists the other rows as members</span>
+    <mark class="fml">bs.reference as r
+        where (reference.startsWith('BodyStructure/'))
+      -> evaluate(r, resolve() as BodyStructure) as row
+      then BodyStructureRows(row, t);</mark>
+  };
+}
 
-    <!-- R4 world -->
-    <text x="20" y="28" class="t-kicker">R4 · WHAT IS STORED</text>
-    <rect x="20" y="44" width="250" height="96" rx="10" class="b-r4"/>
-    <text x="36" y="70" class="t-title">Observation o1</text>
-    <text x="36" y="94" class="t-mono-s4">bodySite.extension</text>
-    <text x="36" y="114" class="t-sub">…/StructureDefinition/bodySite</text>
-    <text x="36" y="132" class="t-sub">valueReference</text>
-
-    <rect x="330" y="44" width="250" height="56" rx="8" class="b-inner-r4"/>
-    <text x="346" y="68" class="t-mono">99dc…</text><text x="346" y="88" class="t-sub">row 1 · Forearm</text>
-    <rect x="330" y="112" width="250" height="56" rx="8" class="b-inner-r4 hl"/>
-    <text x="346" y="136" class="t-mono">99dc…--2</text><text x="346" y="156" class="t-sub">row 2 · Upper arm</text>
-    <rect x="330" y="180" width="250" height="56" rx="8" class="b-inner-r4"/>
-    <text x="346" y="204" class="t-mono">99dc…--3</text><text x="346" y="224" class="t-sub">row 3 · Shoulder</text>
-    <text x="455" y="262" class="t-sub" text-anchor="middle">three BodyStructure rows in R4</text>
-
-    <path d="M270,120 C300,120 300,140 326,140" class="l-r4" fill="none" marker-end="url(#ah-ref4)"/>
-
-    <!-- Middle: FML -->
-    <rect x="612" y="96" width="196" height="112" rx="12" class="b-fml"/>
-    <text x="710" y="124" class="t-head" text-anchor="middle">FML</text>
-    <text x="710" y="146" class="t-mono-s" text-anchor="middle">BodySiteReference</text>
-    <text x="710" y="168" class="t-sub" text-anchor="middle">strip "--N" from</text>
-    <text x="710" y="186" class="t-sub" text-anchor="middle">BodyStructure/&lt;id&gt;--N</text>
-    <line x1="584" y1="152" x2="606" y2="152" class="l-r4" marker-end="url(#ah-ref4)"/>
-    <line x1="812" y1="152" x2="834" y2="152" class="l-r6" marker-end="url(#ah-ref6)"/>
-
-    <!-- R6 world -->
-    <text x="1220" y="28" class="t-kicker6" text-anchor="end">R6 · WHAT CLIENTS SEE</text>
-    <rect x="840" y="44" width="380" height="192" rx="10" class="b-r6"/>
-    <text x="856" y="70" class="t-title">BodyStructure 99dc…</text>
-    <text x="856" y="92" class="t-sub">one resource, includedStructure:</text>
-    <text x="872" y="120" class="t-body">1 · Forearm</text>
-    <text x="872" y="146" class="t-body">2 · Upper arm</text>
-    <text x="872" y="172" class="t-body">3 · Shoulder</text>
-    <text x="856" y="208" class="t-sub">GET /R6/BodyStructure/99dc…--2 → 404</text>
-
-    <rect x="840" y="270" width="380" height="76" rx="10" class="b-r6"/>
-    <text x="856" y="296" class="t-title">Observation o1</text>
-    <text x="856" y="320" class="t-mono-s6">bodyStructure[0].reference</text>
-    <text x="856" y="338" class="t-sub">→ BodyStructure/99dc… (the whole resource)</text>
-    <path d="M1030,266 L1030,240" class="l-r6" fill="none" marker-end="url(#ah-ref6)"/>
-
-    <!-- Loss callout -->
-    <rect x="20" y="290" width="790" height="56" rx="10" class="b-note"/>
-    <text x="36" y="314" class="t-body"><tspan font-weight="600">Lossy in one direction:</tspan> R4 knows o1 is about the upper arm row; R6 only knows</text>
-    <text x="36" y="334" class="t-body">“this BodyStructure”. Two rows of one group become a single R6 entry.</text>
-  </svg>
-  </figure>
+group BodyStructureRows(source row : BodyStructure,
+                        target t) {
+  <mark class="fml">row.extension as g where (url = '…/bodystructure-row-group') then {
+    g.extension as m where (url = 'member') then {
+      m.value : Reference as member
+        -> t.extension as x,
+           x.url = '…/StructureDefinition/bodySite',
+           x.valueReference as v then Reference(member, v);
+    };
+  };</mark>
+}</pre>
+      <p class="note"><code>resolve()</code> is answered by the server from the stored R4 rows; it never goes to the network. A reference that doesn't resolve keeps its single link.</p>
+    </div>
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span><span class="step">3</span>How it is stored</h3>
+<pre>{
+  "resourceType": "Observation",
+  "id": "7ddf…",
+  "meta": { "versionId": "1" },
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "subject": { "reference": "Patient/d4dd…" },
+  "valueQuantity": { "value": 33.2,
+                     "unit": "Cel" },
+  "bodySite": {
+    "text": "Left arm",
+    "extension": [
+      { "url": "…/StructureDefinition/bodySite",
+        <mark class="r4">"valueReference": {
+          "reference": "BodyStructure/e7c8…" } }</mark>,
+      { "url": "…/StructureDefinition/bodySite",
+        <mark class="r4">"valueReference": {
+          "reference": "BodyStructure/e7c8…--2" } }</mark>,
+      { "url": "…/StructureDefinition/bodySite",
+        <mark class="r4">"valueReference": {
+          "reference": "BodyStructure/e7c8…--3" } }</mark>
+    ]
+  }
+}</pre>
+      <p class="note">One link per R4 row: Forearm, Upper arm, Shoulder. An R4 client that follows them gets every structure the R6 client meant, not just the first row.</p>
+    </div>
+  </div>
 
   <div class="grid cols-2" style="margin-bottom:16px">
-    <div class="card">
-      <h3>The calls</h3>
-      <table class="calls">
-        <tr><td class="m">POST</td><td class="p">/R6/BodyStructure</td><td class="s ok">201</td><td class="w">3 structures → rows <code>99dc…</code>, <code>--2</code>, <code>--3</code></td></tr>
-        <tr><td class="m">POST</td><td class="p">/R4/Observation</td><td class="s ok">201</td><td class="w">o1: bodySite extension → <code>BodyStructure/99dc…--2</code></td></tr>
-        <tr><td class="m">POST</td><td class="p">/R4/Observation</td><td class="s ok">201</td><td class="w">o2: references <code>--2</code> and <code>--3</code></td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Observation/o1</td><td class="s ok">200</td><td class="w"><code>bodyStructure</code> → <code>BodyStructure/99dc…</code></td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/Observation/o2</td><td class="s ok">200</td><td class="w">one entry, not two</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/99dc…--2</td><td class="s ok">200</td><td class="w">one row: Upper arm</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R6/BodyStructure/99dc…--2</td><td class="s bad">404</td><td class="w">rows don't exist in R6</td></tr>
-        <tr><td class="m">PUT</td><td class="p">/R6/BodyStructure/99dc…</td><td class="s ok">200</td><td class="w">remove Forearm, so Upper arm moves into the primary row</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/99dc…--2</td><td class="s bad">410</td><td class="w">old row is gone</td></tr>
-        <tr><td class="m">GET</td><td class="p">/R4/Observation/o1</td><td class="s ok">200</td><td class="w"><b>version 2</b>, now references <code>BodyStructure/99dc…</code></td></tr>
-      </table>
-      <h3 style="margin-top:14px">Rejected on R4 write <span class="tag bad">422</span></h3>
-      <table class="calls">
-        <tr><td class="p">BodyStructure/99dc…--2/_history/1</td><td class="w">“can't be version-specific”</td></tr>
-        <tr><td class="p">#bs1</td><td class="w">“can't reference a contained resource”</td></tr>
-        <tr><td class="p">http://localhost:8080/R4/BodyStructure/99dc…</td><td class="w">“must be relative for this server”</td></tr>
-        <tr><td class="p">Patient/d4ddfc62-…</td><td class="w">“must reference a BodyStructure”</td></tr>
-      </table>
-      <p class="note">These forms couldn't be translated to R6 or repointed safely, so they are refused up front. Whether the target exists isn't checked.</p>
-    </div>
-
     <div class="card fml">
-      <h3><span class="tag fml">FML</span>Observation_4to6.fml + BodySiteReference_4to6.fml</h3>
-<pre><span class="c">// Observation: keep bodySite, without the reference extension</span>
-src.bodySite as s where (coding.exists() or text.exists() or …)
-  -> tgt.bodySite as t then ObservationBodySite(s, t);
-
-<span class="c">// … and turn each bodySite extension into an R6 bodyStructure</span>
-<mark class="fml">src.bodySite as b then {
+      <h3><span class="tag fml">FML</span><span class="step">4</span>Observation_4to6.fml + BodySiteReference_4to6.fml</h3>
+<pre><mark class="fml">src.bodySite as b then {
   b.extension as e
       where (url = 'http://hl7.org/fhir/StructureDefinition/bodySite') then {
     e.value : Reference as r
@@ -1090,90 +1019,128 @@ src.bodySite as s where (coding.exists() or text.exists() or …)
   };
 };</mark>
 
-<span class="c">// Row reference → resource reference. No &lt;&lt;type+&gt;&gt;: it runs only
-// when called by name, so other References are untouched.</span>
-group BodySiteReference(source src : ReferenceR4,
-                        target tgt : ReferenceR6) extends Element {
+<span class="c">// A row reference becomes a resource reference: BodyStructure/x--2 → BodyStructure/x</span>
+group BodySiteReference(source src : ReferenceR4, target tgt : ReferenceR6) extends Element {
   <mark class="fml">src.reference as r -> tgt.reference =
     (r.replaceMatches('^(BodyStructure/[^/]+)--[0-9]+$', '$1'));</mark>
-  src.type       -> tgt.type;
-  src.identifier -> tgt.identifier;
-  src.display    -> tgt.display;
-}</pre>
-      <p class="note">Outside FML: <code>withUniqueBodyStructures</code> merges duplicate entries after the map (two rows of one group → one), and <code>writeGroup</code> repoints references when rows move.</p>
-    </div>
-  </div>
-
-  <div class="grid cols-3-wide">
-    <div class="card r4">
-      <h3><span class="tag r4">R4</span>o1 before the move · version 1</h3>
-<pre>{
-  "resourceType": "Observation",
-  "id": "9ab0a714-…",
-  "meta": { "versionId": "1" },
-  "status": "final",
-  "code": { "text": "Skin temperature" },
-  "bodySite": {
-    "text": "Upper arm",
-    "extension": [{
-      "url": "http://hl7.org/fhir/
-              StructureDefinition/bodySite",
-      "valueReference": {
-        <mark class="r4">"reference": "BodyStructure/99dc…--2"</mark>
-      } }] },
-  "valueQuantity": { "value": 33.2, "unit": "Cel" }
 }</pre>
     </div>
     <div class="card r6">
-      <h3><span class="tag r6">R6</span>o1 as R6 · GET /R6/Observation/…</h3>
+      <h3><span class="tag r6">R6</span><span class="step">5</span>Read back · GET /R6/Observation/7ddf…</h3>
 <pre>{
   "resourceType": "Observation",
-  "id": "9ab0a714-…",
+  "id": "7ddf…",
   "meta": { "versionId": "1" },
   "status": "final",
   "code": { "text": "Skin temperature" },
+  "subject": { "reference": "Patient/d4dd…" },
   "valueQuantity": { "value": 33.2, "unit": "Cel" },
-  "bodySite": { "text": "Upper arm" },
+  "bodySite": { "text": "Left arm" },
   <mark class="r6">"bodyStructure": [{
-    "reference": {
-      "reference": "BodyStructure/99dc…"
-    } }]</mark>
+    "reference": { "reference": "BodyStructure/e7c8…" } }]</mark>
 }</pre>
-      <p class="note">The extension is gone from <code>bodySite</code>; the reference now lives in R6's own element and points at the whole resource.</p>
-    </div>
-    <div class="card r4">
-      <h3><span class="tag r4">R4</span>o1 after the move · version 2</h3>
-<pre>{
-  "resourceType": "Observation",
-  "id": "9ab0a714-…",
-  "meta": { <mark class="fml">"versionId": "2"</mark> },
-  "status": "final",
-  "code": { "text": "Skin temperature" },
-  "bodySite": {
-    "text": "Upper arm",
-    "extension": [{
-      "url": "http://hl7.org/fhir/
-              StructureDefinition/bodySite",
-      "valueReference": {
-        <mark class="r4">"reference": "BodyStructure/99dc…"</mark>
-      } }] },
-  "valueQuantity": { "value": 33.2, "unit": "Cel" }
-}</pre>
-      <p class="note">Upper arm moved from <code>--2</code> into the primary row. The server rewrote o1 in the same transaction as the BodyStructure write, without the Observation's client doing anything. o2's reference to <code>--3</code> stayed, because row ids are stable.</p>
+      <p class="note">Exactly what the client sent, plus <code>id</code> and <code>meta</code>: the three row links fold into one <code>bodyStructure</code>. The server checks this before it stores: a write whose round trip loses anything is refused. For example, <code>bodyStructure.concept</code> has no R4 place and returns <code>422</code> “Not supported across FHIR versions yet: Observation.bodyStructure”.</p>
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px">
-    <h3><span class="tag bad">Watch</span>Problems this creates, and what's still open</h3>
-    <div class="grid cols-2" style="gap:24px">
+  <h3 style="margin:22px 0 10px">How we keep references working across both versions</h3>
+  <figure class="arch" role="img" aria-label="Writing through R6: one bodyStructure reference is resolved to the BodyStructure's primary R4 row, whose members give the other rows, and stored as one bodySite link per row. Reading through R6: each row link has its row suffix stripped and duplicates merge into one bodyStructure reference. Three rules keep it consistent: keep stored links on R6 writes, repoint links when a structure moves, refuse what can't round-trip.">
+  <svg viewBox="0 0 1240 430" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-s6w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
+      <marker id="ah-s4r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
+    </defs>
+
+    <!-- lane labels -->
+    <text x="20" y="22" class="t-kicker6">WRITE THROUGH R6</text>
+    <text x="20" y="214" class="t-kicker">READ THROUGH R6</text>
+
+    <!-- write lane -->
+    <rect x="20" y="34" width="270" height="118" rx="10" class="b-r6"/>
+    <text x="36" y="62" class="t-title">R6 Observation</text>
+    <text x="36" y="88" class="t-mono-s6">bodyStructure</text>
+    <text x="36" y="110" class="t-mono">→ BodyStructure/e7c8…</text>
+    <text x="36" y="136" class="t-sub">one reference, the whole resource</text>
+
+    <rect x="340" y="34" width="300" height="118" rx="10" class="b-fml"/>
+    <text x="356" y="62" class="t-title">Observation_6to4</text>
+    <text x="356" y="88" class="t-mono-s">resolve() → primary row e7c8…</text>
+    <text x="356" y="110" class="t-sub">its row-group lists the members</text>
+    <text x="356" y="130" class="t-mono-s">--2 · --3</text>
+
+    <line x1="292" y1="93" x2="334" y2="93" class="l-r6" marker-end="url(#ah-s6w)"/>
+    <line x1="642" y1="93" x2="694" y2="93" class="l-r6" marker-end="url(#ah-s6w)"/>
+
+    <!-- storage, spanning both lanes -->
+    <rect x="700" y="34" width="270" height="310" rx="12" class="b-db"/>
+    <text x="835" y="62" class="t-kicker" text-anchor="middle">STORED R4 OBSERVATION</text>
+    <text x="835" y="88" class="t-mono-s4" text-anchor="middle">bodySite.extension × 3</text>
+    <rect x="722" y="104" width="226" height="40" rx="8" class="b-inner-r4"/><text x="736" y="129" class="t-mono">e7c8…</text><text x="934" y="129" class="t-sub" text-anchor="end">Forearm</text>
+    <rect x="722" y="152" width="226" height="40" rx="8" class="b-inner-r4"/><text x="736" y="177" class="t-mono">e7c8…--2</text><text x="934" y="177" class="t-sub" text-anchor="end">Upper arm</text>
+    <rect x="722" y="200" width="226" height="40" rx="8" class="b-inner-r4"/><text x="736" y="225" class="t-mono">e7c8…--3</text><text x="934" y="225" class="t-sub" text-anchor="end">Shoulder</text>
+    <text x="835" y="272" class="t-sub" text-anchor="middle">one standard bodySite link per row,</text>
+    <text x="835" y="292" class="t-sub" text-anchor="middle">so R4 clients see every structure</text>
+
+    <!-- read lane -->
+    <rect x="340" y="226" width="300" height="118" rx="10" class="b-fml"/>
+    <text x="356" y="254" class="t-title">Observation_4to6</text>
+    <text x="356" y="280" class="t-mono-s">BodySiteReference: strip "--N"</text>
+    <text x="356" y="302" class="t-sub">three links → e7c8… three times</text>
+    <text x="356" y="324" class="t-sub">duplicates merge into one</text>
+
+    <rect x="20" y="226" width="270" height="118" rx="10" class="b-r6"/>
+    <text x="36" y="254" class="t-title">R6 Observation</text>
+    <text x="36" y="280" class="t-mono-s6">bodyStructure</text>
+    <text x="36" y="302" class="t-mono">→ BodyStructure/e7c8…</text>
+    <text x="36" y="328" class="t-sub">exactly what the client sent</text>
+
+    <line x1="698" y1="285" x2="646" y2="285" class="l-r4" marker-end="url(#ah-s4r)"/>
+    <line x1="338" y1="285" x2="296" y2="285" class="l-r4" marker-end="url(#ah-s4r)"/>
+
+    <!-- rules -->
+    <rect x="1000" y="34" width="220" height="96" rx="10" class="b-api"/>
+    <text x="1016" y="60" class="t-strong-r4">Keep</text>
+    <text x="1016" y="82" class="t-sub">If R4 already links some rows,</text>
+    <text x="1016" y="100" class="t-sub">an R6 write keeps them: R6</text>
+    <text x="1016" y="118" class="t-sub">can't undo an R4 narrowing.</text>
+
+    <rect x="1000" y="140" width="220" height="96" rx="10" class="b-api"/>
+    <text x="1016" y="166" class="t-strong-r4">Repoint</text>
+    <text x="1016" y="188" class="t-sub">A structure moves into the</text>
+    <text x="1016" y="206" class="t-sub">primary row: its links are</text>
+    <text x="1016" y="224" class="t-sub">rewritten in the same transaction.</text>
+
+    <rect x="1000" y="246" width="220" height="98" rx="10" class="b-api"/>
+    <text x="1016" y="272" class="t-strong-r6">Refuse</text>
+    <text x="1016" y="294" class="t-sub">Anything that doesn't survive</text>
+    <text x="1016" y="312" class="t-sub">R6 → R4 → R6, such as a</text>
+    <text x="1016" y="330" class="t-sub">bodyStructure.concept: 422.</text>
+
+    <rect x="20" y="364" width="1200" height="52" rx="10" class="b-note"/>
+    <text x="620" y="396" class="t-body" text-anchor="middle"><tspan font-weight="600">One R6 reference ⇄ one R4 link per row.</tspan> The maps translate in both directions; the server keeps the links consistent.</text>
+  </svg>
+  </figure>
+
+  <div class="grid cols-2" style="margin-top:16px">
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>An R4 client narrows it, an R6 client edits it</h3>
+<pre>PUT /R4/Observation/7ddf…   <span class="c">bodySite → BodyStructure/e7c8…--2</span>   200
+PUT /R6/Observation/7ddf…   <span class="c">status → amended</span>                    200
+
+<span class="c">// stored afterwards, version 3</span>
+"status": "amended",
+"bodySite": { "text": "Left arm", "extension": [{
+  "url": "…/StructureDefinition/bodySite",
+  "valueReference": { <mark class="r4">"reference": "BodyStructure/e7c8…--2"</mark> } }] }</pre>
+      <p class="note">The R6 client only sees <code>BodyStructure/e7c8…</code>, so its PUT would widen the reference back to the whole resource. The server keeps the stored row reference while the R6 body still points at the same BodyStructure (<code>keepRowReferences</code>).</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag bad">Watch</span>What's still open</h3>
       <ul class="tight">
-        <li><b>No R4 element to reference a BodyStructure.</b> R4 core has none, so the standard <code>bodySite</code> extension carries it. R6 has <code>Observation.bodyStructure</code>.</li>
-        <li><b>Two identities.</b> A row id is valid in R4 only; R6 needs the resource id. The map translates, and R6 can't say which structure was meant.</li>
-        <li><b>Rows move.</b> Removing the first structure moves the next into the primary row and leaves a <code>410</code>. Every referrer has to be found and rewritten in the same transaction, which creates new versions of resources nobody edited.</li>
-      </ul>
-      <ul class="tight">
-        <li><b>Only Observation, read-only in R6.</b> Every other type that can point at a BodyStructure (Procedure, Condition, Specimen, ServiceRequest… via <code>bodySite</code> or the procedure extensions) needs the same map, check and repoint.</li>
-        <li><b>Writes through R6 aren't possible yet.</b> An R6 Observation can't say which row it means, so there's no R6 → R4 map.</li>
+        <li><b>Lossy towards R6.</b> R4 can say “the upper arm row”; R6 can only say “this BodyStructure”.</li>
+        <li><b>Resolved at write time.</b> A structure added to the BodyStructure later isn't added to existing links.</li>
+        <li><b>Rows move.</b> Removing the first structure moves the next into the primary row; Observations pointing at the old row are rewritten in the same transaction, creating versions nobody edited.</li>
+        <li><b>Only Observation.</b> Procedure, Condition, Specimen, ServiceRequest… can point at a BodyStructure through <code>bodySite</code> or the procedure extensions, and need the same map, checks and repointing.</li>
         <li><b>Design question:</b> is splitting worth the reference cost, or should R4 keep one row with the extra structures in extensions?</li>
       </ul>
     </div>
@@ -1182,63 +1149,34 @@ group BodySiteReference(source src : ReferenceR4,
 </section>
 
 <!-- ===================================================== 7. CONCLUSION -->
-<section class="slide" data-title="Conclusion">
+<section class="slide" data-title="Takeaways">
 <div class="inner">
   <div class="pt-emblem"><img src="presentation/images/07_pasteis_de_nata.svg" alt="Pastéis de nata with coffee"></div>
-  <div class="pt-head"><span class="pt-chapter">Capítulo VII · Conclusão</span><span class="pt-saying">«Tudo vale a pena se a alma não é pequena» <em>· everything is worthwhile if the soul is not small (Pessoa).</em></span></div>
-  <h2>Conclusion</h2>
-  <h1>Conclusion</h1>
-  <p class="lede">Storing one version and projecting the other with FML works end to end. The generated maps run unchanged for reads. Writes need reverse maps and a decision on where R6-only data lives in R4.</p>
+  <div class="pt-head"><span class="pt-chapter">Capítulo VII · Lições</span><span class="pt-saying">«Tudo vale a pena se a alma não é pequena» <em>· everything is worthwhile if the soul is not small (Pessoa).</em></span></div>
+  <h2>Takeaways</h2>
+  <p class="big-statement">It's not a tooling problem.<br><span>It's a modelling exercise.</span></p>
 
-  <div class="grid cols-2">
+  <div class="grid cols-2 takeaways">
     <div class="card">
-      <h3>What works today</h3>
-      <table class="matrix">
-        <tr><th>Resource</th><th>/R4</th><th>/R6 read</th><th>/R6 write</th></tr>
-        <tr><td>Patient</td><td class="yes">CRUD</td><td class="yes">yes</td><td class="yes">CRUD</td></tr>
-        <tr><td>Encounter</td><td class="yes">CRUD + <code>class</code>, <code>class-r6</code> search</td><td class="yes">yes + <code>class</code> search</td><td class="yes">CRUD</td></tr>
-        <tr><td>BodyStructure</td><td class="yes">CRUD</td><td class="yes">yes</td><td class="yes">CRUD</td></tr>
-        <tr><td>Observation</td><td class="yes">CRUD, BodyStructure references</td><td class="yes">yes, <code>bodyStructure</code></td><td class="no">405</td></tr>
-      </table>
-      <ul class="tight" style="margin-top:12px">
-        <li>One FML engine: the FHIRPath Lab executor runs the 164 R4 → R6 maps (163 generated), including <code>imports</code> and <code>extends</code>.</li>
-        <li>R4 writes are validated against R4 4.0.1; R6 writes against R6 6.0.0-ballot5, plus a round-trip check.</li>
-        <li>Ids and <code>versionId</code> survive conversion, so an R6 response carries the same ETag as the stored R4 version.</li>
-        <li>129 integration tests pass against PostgreSQL 18.</li>
+      <h3><span class="tag fml">Tooling</span>Worked once it was in place</h3>
+      <ul class="tight">
+        <li>One FML engine runs the 164 generated R4 → R6 maps unchanged, imports included.</li>
+        <li>The canonical manager, fhirschema and Postgres did their jobs. One R4 store serves both versions with the same ids and versions.</li>
+        <li>The engine gaps we found (e.g. typing a <code>resolve()</code> result) are small fixes, not blockers.</li>
       </ul>
     </div>
     <div class="card">
-      <h3>Patterns we found</h3>
+      <h3><span class="tag r6">Model</span>Where the real decisions were</h3>
       <ul class="tight">
-        <li><b>Same shape</b> (Patient): a generated one-to-one map is enough.</li>
-        <li><b>Renamed element</b> (Encounter <code>period → actualPeriod</code>): handled by the generator.</li>
-        <li><b>0..1 became 0..*</b> (Encounter <code>class</code>, BodyStructure <code>morphology</code>): extra values go into an HL7-pattern cross-version extension (<code>…/6.0/StructureDefinition/extension-…</code>) on the R4 side, and the map folds them back.</li>
-        <li><b>A repeating group with no R4 equivalent</b> (BodyStructure <code>includedStructure</code>): split into linked R4 rows. This is our own design, not HL7's, and needs server code beyond FML.</li>
-        <li><b>Splitting changes identity</b>: references to a split resource must be translated (row → resource) on read, and repointed when rows move. FML handles the translation; the repointing is server code.</li>
-        <li><b>Search depends on the version</b>: R4 <code>class</code> keeps its standard meaning, so values that only exist in R6 need a separate backport parameter (<code>class-r6</code>). The search runs on the stored R4; FML only converts the results.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3><span class="tag bad">Risks</span>Open issues</h3>
-      <ul class="tight">
-        <li><b>Silent loss on read</b>: generated maps skip some elements (e.g. Encounter <code>reasonCode</code>), and the R6 view drops them without warning.</li>
-        <li><b>Draft maps</b>: generated against R6-ballot5 and still carry review warnings. Local fixes (the <code>6.0</code> extension filter) still have to go into the generator.</li>
-        <li><b>No data migration</b>: Encounters stored with the old <code>xver/encounter-class</code> URL lost their extra class in the R6 view.</li>
-        <li><b>Validation gaps</b>: date formats and required code bindings are not checked yet.</li>
-        <li><b>References to BodyStructure</b> work for Observation only. Other referrers (Procedure, Condition, Specimen, ServiceRequest…) still need the same map, checks and repointing, and R6 can't say which structure a reference meant.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>Next steps</h3>
-      <ul class="tight">
-        <li>Merge Patrick's PR #7 (R6 writes for Patient and Encounter), then add an R6 → R4 map for Observation.</li>
-        <li>Detect elements a map didn't read, and return a warning instead of losing them silently.</li>
-        <li>Generalise the extension convention for cardinality changes, and agree on it with the cross-version group.</li>
-        <li>Broader search: more parameters and paging, and decide whether the <code>-r6</code> backport naming becomes the general rule.</li>
-        <li>More resource types, using BodyStructure as the reference for hard cases.</li>
+        <li><b>Where does R6-only data live in R4?</b> Cross-version extensions (Encounter <code>class</code>, Observation <code>statusReason</code>).</li>
+        <li><b>What does a search mean in each version?</b> R4 <code>class</code> keeps its meaning, so <code>class-r6</code> is a separate parameter.</li>
+        <li><b>One resource or many?</b> One R6 BodyStructure becomes several R4 rows.</li>
+        <li><b>What does a reference point at?</b> A row in R4, the whole resource in R6, with rules to keep them in step.</li>
       </ul>
     </div>
   </div>
+  <p class="note" style="margin-top:14px">Each of these is a convention to agree on, ideally with the HL7 cross-version work, not a library to write.</p>
+
   <div class="obrigado"><div class="obrigado-in">
     <div class="obrigado-img"><img src="presentation/images/07_pasteis_de_nata.svg" alt="Pastéis de nata with coffee"></div>
     <div>
