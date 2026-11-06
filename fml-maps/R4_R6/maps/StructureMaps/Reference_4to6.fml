@@ -17,6 +17,7 @@ group Reference(source src : ReferenceR4, target tgt : ReferenceR6) extends Elem
   src.display -> tgt.display;
 }
 
-group Reference2CodeableReference(source src : ReferenceR4, target tgt : CodeableReferenceR6) extends Element <<type+>> {
-  src -> tgt.reference as r then Reference(src, r) "setReference";
-}
+// now in primitives
+// group Reference2CodeableReference(source src : ReferenceR4, target tgt : CodeableReferenceR6) extends Element <<type+>> {
+//   src -> tgt.reference as r then Reference(src, r) "setReference";
+// }

@@ -1,0 +1,4 @@
+[submodule "vendor/fhirpath-lab"]
+	path = vendor/fhirpath-lab
+	url = https://github.com/brianpos/fhirpath-lab.git
+	branch = cautious-doodle
