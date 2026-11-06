@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@atomic-ehr/fhir-canonical-manager": "^0.0.29",
-    "@atomic-ehr/fhirschema": "^0.0.14"
+    "@atomic-ehr/fhirschema": "^0.0.14",
+    "fhir-structuremap-js": "^1.2.1",
+    "fhirpath": "^5.2.3"
   },
   "devDependencies": {
     "@atomic-ehr/codegen": "^0.0.24",
