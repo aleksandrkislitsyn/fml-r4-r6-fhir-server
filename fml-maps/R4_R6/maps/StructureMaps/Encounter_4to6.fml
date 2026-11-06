@@ -45,7 +45,7 @@ group Encounter(source src : EncounterR4, target tgt : EncounterR6) extends Doma
   src.class as s -> tgt.class as t then {
     s -> t.coding as c then Coding(s, c);
   };
-  src.extension as e where (url = 'xver/encounter-class') then {
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class') then {
     e.value : CodeableConcept as s -> tgt.class as t then CodeableConcept(s, t);
   };
   src.type -> tgt.type;

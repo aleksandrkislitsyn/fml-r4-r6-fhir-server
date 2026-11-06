@@ -39,7 +39,14 @@ export interface ClassToken {
   code?: string;
 }
 
-/** R4 uses the native Coding; R6 also searches codings materialized by the FML map. */
+/** Cross-version extension that carries additional R6 `Encounter.class` values in R4 storage. */
+export const ENCOUNTER_CLASS_EXTENSION = "http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class";
+
+/**
+ * Without `includeCrossVersion`, only the native R4 Coding is searched (R4 `class`).
+ * With it, the codings of the cross-version extension count too, which is what R6 `class`
+ * and its R4 backport `class-r6` see.
+ */
 export async function searchEncounterClass(token: ClassToken = {}, includeCrossVersion = false): Promise<StoredResource[]> {
   const rows = await sql.unsafe(
     `SELECT resource FROM encounter
@@ -50,12 +57,12 @@ export async function searchEncounterClass(token: ClassToken = {}, includeCrossV
        SELECT 1
        FROM jsonb_array_elements(COALESCE(resource->'extension', '[]'::jsonb)) AS e(value)
        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(e.value #> '{valueCodeableConcept,coding}', '[]'::jsonb)) AS c(value)
-       WHERE e.value->>'url' = 'xver/encounter-class'
+       WHERE e.value->>'url' = $4
          AND ($1::text IS NULL OR COALESCE(c.value->>'system', '') = $1)
          AND ($2::text IS NULL OR c.value->>'code' = $2)
      ))
      ORDER BY id`,
-    [token.system ?? null, token.code ?? null, includeCrossVersion],
+    [token.system ?? null, token.code ?? null, includeCrossVersion, ENCOUNTER_CLASS_EXTENSION],
   );
   return rows.map((row: { resource: StoredResource }) => row.resource);
 }

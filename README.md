@@ -11,6 +11,7 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] `/R6/Patient/:id` reads and `/R6/metadata`
 - [x] R4 Encounter CRUD and native `class` token search
 - [x] R6 Encounter class search over native R4 class and cross-version extensions
+- [x] R4 `class-r6`: the R6 class search backported to R4. See the [mapping diagrams](docs/mappings.html#encounter-class)
 - [x] FML conversion for `BodyStructure` in both directions, with one R6 resource stored as several R4 rows. See the [mapping diagrams](docs/mappings.html)
 - [x] `/R6/BodyStructure` CRUD on the same data as `/R4/BodyStructure`
 - [ ] R6 writes for other types, including `Device`
@@ -80,7 +81,8 @@ curl -G localhost:8080/R4/Encounter \
 ```
 
 Returns a `Bundle` of type `searchset`. Searches the native R4 `Encounter.class`
-Coding only; `xver/encounter-class` extensions do not match this R4 parameter.
+Coding only; cross-version class extensions do not match this R4 parameter
+(use `class-r6` for that).
 Supports one token: `code`, `system|code`, `|code` (no system), or `system|`
 (any code in that system). Without parameters, returns all current Encounters.
 This initial implementation has no pagination. Repeated parameters, comma lists,
@@ -95,16 +97,53 @@ curl -G localhost:8080/R6/Encounter \
 ```
 
 R6 searches the native R4 `class` and every Coding in
-`extension.where(url = 'xver/encounter-class').valueCodeableConcept.coding`.
+`extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').valueCodeableConcept.coding`.
+The extension URL follows the HL7 cross-version pattern
+`http://hl7.org/fhir/[version]/StructureDefinition/extension-[element id]`.
+The extension carries the classes beyond the native `class`; R6 receives the
+native Coding first, then one CodeableConcept per extension.
 System and code must match the same Coding. Each Encounter is returned once,
 even when both the native field and extensions match.
 
 Search results use the same injected FML converter as individual R6 reads,
 including cancellation and diagnostic handling. The response contains R6
 Encounters with `class` as an array of CodeableConcepts. The consumed
-`xver/encounter-class` extension is omitted from the R6 representation, while
+class extension is omitted from the R6 representation, while
 the stored R4 resource remains unchanged. R6 writes still return `405`.
 Token syntax and search limitations are the same as R4.
+
+The generic extension copy in the R4 → R6 maps skips cross-version extensions
+(`http://hl7.org/fhir/5.0/StructureDefinition/extension-…` and
+`http://hl7.org/fhir/6.0/StructureDefinition/extension-…`). A resource map that
+knows such an extension turns it into the R6 element; otherwise it is not
+copied into the R6 output. The generated maps (`DomainResource`, `Element`,
+`BackboneElement`) carry the `6.0` part of this filter locally; it still needs
+to go upstream to the map generator.
+
+### Encounter class backport (R4)
+
+```sh
+curl -G localhost:8080/R4/Encounter \
+  --data-urlencode 'class-r6=http://terminology.hl7.org/CodeSystem/v3-ActCode|VR'
+```
+
+`class-r6` gives R4 clients the R6 `class` semantics. It matches the native
+`class` and every Coding of the class extension, the same set that `/R6`
+`class` matches, but returns the stored R4 resources. As a FHIRPath expression:
+
+```
+Encounter.class | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
+```
+
+R4 `class` keeps its standard meaning, so the backport has its own name. The
+CapabilityStatement lists it with the definition
+`http://hl7.org/fhir/6.0/SearchParameter/Encounter-class`. That canonical
+applies the cross-version extension URL pattern to SearchParameters. HL7 does
+not define that pattern for SearchParameters, and the server does not serve a
+SearchParameter resource under the URL. `class` and `class-r6` cannot be
+combined in one request (`400`). The other limitations are the same as `class`.
+[`docs/mappings.html`](docs/mappings.html#encounter-class) explains the
+mapping with a diagram, real server output, and the hard cases.
 
 ## Layout
 

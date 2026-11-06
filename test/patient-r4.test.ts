@@ -8,6 +8,8 @@ import type { Patient } from "../src/fhir-types/hl7-fhir-r4-core/Patient.ts";
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 
+const CLASS_EXTENSION = "http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class";
+
 beforeAll(async () => {
   await migrate();
   const r4 = await loadValidator("R4");
@@ -140,7 +142,7 @@ describe("R4 Encounter", () => {
       code: "AMB",
     },
     extension: [{
-      url: "xver/encounter-class",
+      url: CLASS_EXTENSION,
       valueCodeableConcept: {
         coding: [{
           system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
@@ -180,7 +182,7 @@ describe("R4 Encounter", () => {
       {
         ...encounter,
         class: { system, code: "VR" },
-        extension: [{ url: "xver/encounter-class", valueCodeableConcept: { coding: [{ system, code: "AMB" }] } }],
+        extension: [{ url: CLASS_EXTENSION, valueCodeableConcept: { coding: [{ system, code: "AMB" }] } }],
       },
       { resourceType: "Encounter", status: "in-progress", class: { code: `no-system-${crypto.randomUUID()}` } },
     ];
@@ -226,21 +228,67 @@ describe("R4 Encounter", () => {
     }
   });
 
+  test("class-r6 backports R6 class search: native Coding plus extension codings, each Encounter once", async () => {
+    const system = `https://example.org/class-r6/${crypto.randomUUID()}`;
+    const withClass = (code: string, extension: object) => ({ ...encounter, class: { system, code }, extension: [extension] });
+    const fixtures = [
+      withClass("AMB", { url: CLASS_EXTENSION, valueCodeableConcept: { coding: [{ system, code: "VR" }] } }),
+      withClass("VR", { url: CLASS_EXTENSION, valueCodeableConcept: { coding: [{ system, code: "VR" }] } }),
+      withClass("IMP", { url: CLASS_EXTENSION, valueCodeableConcept: { coding: [{ system: `${system}/other`, code: "VR" }] } }),
+      withClass("EMER", { url: "https://example.org/other-extension", valueCodeableConcept: { coding: [{ system, code: "VR" }] } }),
+    ];
+    const ids: string[] = [];
+    const search = async (params: Record<string, string>) => {
+      const response = await send("GET", `/Encounter?${new URLSearchParams(params)}`);
+      expect(response.status).toBe(200);
+      return (await response.json()) as any;
+    };
+    const matches = (bundle: any) => bundle.entry.map((e: any) => e.resource.id).sort();
+    try {
+      for (const fixture of fixtures) {
+        const response = await send("POST", "/Encounter", fixture);
+        expect(response.status).toBe(201);
+        ids.push(((await response.json()) as any).id);
+      }
+      const backport = await search({ "class-r6": `${system}|VR` });
+      expect(backport.type).toBe("searchset");
+      expect(backport.total).toBe(2);
+      expect(matches(backport)).toEqual([ids[0]!, ids[1]!].sort());
+      const first = backport.entry.find((e: any) => e.resource.id === ids[0]).resource;
+      expect(first.class).toEqual(fixtures[0]!.class);
+      expect(first.extension).toEqual(fixtures[0]!.extension);
+
+      expect(matches(await search({ class: `${system}|VR` }))).toEqual([ids[1]]);
+      expect(matches(await search({ "class-r6": `${system}|IMP` }))).toEqual([ids[2]]);
+      expect(matches(await search({ "class-r6": `${system}/other|VR` }))).toEqual([ids[2]]);
+    } finally {
+      for (const id of ids) await send("DELETE", `/Encounter/${id}`);
+    }
+  });
+
   test("unsupported and malformed class queries return OperationOutcome", async () => {
-    for (const query of ["class=", "class=%7C", "class=a%7Cb%7Cc", "class=AMB,VR", "class=AMB&class=VR", "class:text=ambulatory", "status=in-progress"]) {
+    for (const query of [
+      "class=", "class=%7C", "class=a%7Cb%7Cc", "class=AMB,VR", "class=AMB&class=VR", "class:text=ambulatory", "status=in-progress",
+      "class-r6=", "class-r6=AMB&class-r6=VR", "class=AMB&class-r6=VR",
+    ]) {
       const response = await send("GET", `/Encounter?${query}`);
       expect(response.status).toBe(400);
       expect(((await response.json()) as any).resourceType).toBe("OperationOutcome");
     }
   });
 
-  test("metadata advertises Encounter class search only", async () => {
+  test("metadata advertises class and its R6 backport for Encounter only", async () => {
     const response = await send("GET", "/metadata");
     const metadata = (await response.json()) as any;
     const resources = metadata.rest[0].resource;
     const advertised = resources.find((r: any) => r.type === "Encounter");
     expect(advertised.interaction).toContainEqual({ code: "search-type" });
-    expect(advertised.searchParam).toContainEqual(expect.objectContaining({ name: "class", type: "token" }));
+    expect(advertised.searchParam).toContainEqual(expect.objectContaining({
+      name: "class", type: "token", definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
+    }));
+    expect(advertised.searchParam).toContainEqual(expect.objectContaining({
+      name: "class-r6", type: "token", definition: "http://hl7.org/fhir/6.0/SearchParameter/Encounter-class",
+    }));
     expect(resources.find((r: any) => r.type === "Patient").interaction).not.toContainEqual({ code: "search-type" });
   });
 });
@@ -257,7 +305,7 @@ describe("R6 Encounter read facade", () => {
       class: { system, code: "AMB" },
       period: { start: "2026-11-06T10:00:00Z" },
       extension: [{
-        url: "xver/encounter-class",
+        url: CLASS_EXTENSION,
         valueCodeableConcept: { coding: [
           { system, code: "VR" },
           { system: `${system}/other`, code: "IMP" },
@@ -311,7 +359,7 @@ describe("R6 Encounter read facade", () => {
     const coding = { system, code: "VR" };
     const response = await send("POST", "/Encounter", {
       resourceType: "Encounter", status: "in-progress", class: coding,
-      extension: [{ url: "xver/encounter-class", valueCodeableConcept: { coding: [coding] } }],
+      extension: [{ url: CLASS_EXTENSION, valueCodeableConcept: { coding: [coding] } }],
     });
     expect(response.status).toBe(201);
     const saved = (await response.json()) as any;
@@ -329,10 +377,12 @@ describe("R6 Encounter read facade", () => {
     expect(metadata.fhirVersion).toBe("6.0.0-ballot5");
     const encounter = metadata.rest[0].resource.find((r: any) => r.type === "Encounter");
     expect(encounter.interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
+    expect(encounter.searchParam.map((p: any) => p.name)).toEqual(["class"]);
     expect(metadata.rest[0].resource.find((r: any) => r.type === "Patient").interaction).toEqual([{ code: "read" }]);
     expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(405);
     expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(405);
     expect((await getR6("/Patient/anything")).status).toBe(404);
     expect((await getR6("/Encounter?class:text=virtual")).status).toBe(400);
+    expect((await getR6("/Encounter?class-r6=VR")).status).toBe(400);
   });
 });
