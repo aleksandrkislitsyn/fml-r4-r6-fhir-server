@@ -239,7 +239,7 @@ describe("R6 Encounter writes", () => {
       plannedEndDate: "2026-11-06T12:00:00Z",
       reason: [
         { value: [{ concept: { text: "chest pain" } }] },
-        { use: [{ text: "chief complaint" }], value: [{ concept: { text: "dizziness" } }, { reference: { reference: "Observation/o" } }] },
+        { value: [{ concept: { text: "dizziness" }, reference: { reference: "Observation/o" } }] },
       ],
       diagnosis: [
         { condition: [{ reference: { reference: "Condition/c" } }], use: [{ text: "billing" }] },
@@ -259,10 +259,26 @@ describe("R6 Encounter writes", () => {
     expect(r4.class.code).toBe("IMP");
     expect(r4.class.extension).toEqual([{ url: CLASS_EXTENSION, valueCodeableConcept: input.class[0] }]);
     expect(r4.reasonCode).toEqual([{ text: "chest pain" }]);
-    expect(r4.diagnosis).toEqual([{ condition: { reference: "Condition/c" }, use: { text: "billing" } }]);
+    expect(r4.diagnosis[0]).toEqual({ condition: { reference: "Condition/c" }, use: { text: "billing" } });
+    // Every diagnosis stays a diagnosis. A concept-only condition gets its text as display, and the
+    // whole value in HL7's diagnosis.condition extension on it; further conditions and uses go on the entry.
+    const datatype = { url: "http://hl7.org/fhir/StructureDefinition/_datatype", valueString: "CodeableReference" };
+    expect(r4.diagnosis[1]).toEqual({
+      condition: {
+        display: "flu",
+        extension: [{ url: `${R6_ELEMENT}Encounter.diagnosis.condition`, extension: [datatype, { url: "concept", valueCodeableConcept: { text: "flu" } }] }],
+      },
+      use: { text: "AD" },
+      extension: [
+        { url: `${R6_ELEMENT}Encounter.diagnosis.condition`, extension: [datatype, { url: "reference", valueReference: { reference: "Condition/c2" } }] },
+        { url: `${R6_ELEMENT}Encounter.diagnosis.use`, valueCodeableConcept: { text: "DD" } },
+      ],
+    });
+    // Complex types R4 doesn't have carry _datatype.
+    expect(r4.extension.find((e: any) => e.url === `${R6_ELEMENT}Encounter.serviceType`).extension[0]).toEqual(datatype);
     expect(r4.hospitalization).toEqual({ dietPreference: input.dietPreference, specialArrangement: input.specialArrangement, specialCourtesy: input.specialCourtesy });
     const urls = r4.extension.map((e: any) => e.url.replace(R6_ELEMENT, ""));
-    for (const element of ["subjectStatus", "businessStatus", "careTeam", "virtualService", "plannedStartDate", "plannedEndDate", "reason", "diagnosis", "serviceType"]) {
+    for (const element of ["subjectStatus", "businessStatus", "careTeam", "virtualService", "plannedStartDate", "plannedEndDate", "reason.value", "serviceType"]) {
       expect(urls).toContain(`Encounter.${element}`);
     }
 
@@ -273,19 +289,20 @@ describe("R6 Encounter writes", () => {
     await s.send("DELETE", `/R4/Encounter/${id}`);
   });
 
-  test("references to targets R4 doesn't allow there are kept in extensions", async () => {
+  test("references are copied even where R4 doesn't allow their target", async () => {
+    // R4 can represent the reference itself, and HL7 defines no extension for other targets.
     const input = {
       resourceType: "Encounter", status: "in-progress", class: [{ coding: [{ code: "AMB" }] }],
       basedOn: [{ reference: "ServiceRequest/s" }, { reference: "CarePlan/cp" }],
       participant: [{ actor: { reference: "Practitioner/x" } }, { actor: { reference: "Patient/p" } }],
-      reason: [{ value: [{ reference: { reference: "Observation/o" } }] }, { value: [{ reference: { reference: "DiagnosticReport/d" } }] }],
+      reason: [{ value: [{ reference: { reference: "DiagnosticReport/d" } }] }],
     };
     const { id } = await json(await s.send("POST", "/R6/Encounter", input));
     const r4 = await json(await s.send("GET", `/R4/Encounter/${id}`));
-    expect(r4.basedOn).toEqual([{ reference: "ServiceRequest/s" }]);
-    expect(r4.extension).toContainEqual({ url: `${R6_ELEMENT}Encounter.basedOn`, valueReference: { reference: "CarePlan/cp" } });
-    expect(r4.participant[1]).toEqual({ extension: [{ url: `${R6_ELEMENT}Encounter.participant.actor`, valueReference: { reference: "Patient/p" } }] });
-    expect(r4.reasonReference).toEqual([{ reference: "Observation/o" }]);
+    expect(r4.basedOn).toEqual(input.basedOn);
+    expect(r4.participant[1]).toEqual({ individual: { reference: "Patient/p" } });
+    expect(r4.reasonReference).toEqual([{ reference: "DiagnosticReport/d" }]);
+    expect(r4.extension).toBeUndefined();
     expect(lostContent(input, await json(await s.send("GET", `/R6/Encounter/${id}`)), fhirListOrder)).toBeUndefined();
     await s.send("DELETE", `/R4/Encounter/${id}`);
   });
@@ -295,6 +312,9 @@ describe("R6 Encounter writes", () => {
       // TODO in Encounter6to4.fml: no R4 mapping, to be handled with implicitRules.
       [{ status: "discontinued" }, "Encounter.status"],
       [{ length: { value: 1, comparator: "~", unit: "h" } }, "Encounter.length.comparator"],
+      // R4 has no reason.use and no grouping of values, and HL7 defines no extension for them.
+      [{ reason: [{ use: [{ text: "chief complaint" }], value: [{ concept: { text: "dizziness" } }] }] }, "Encounter.reason"],
+      [{ reason: [{ value: [{ concept: { text: "dizziness" } }, { reference: { reference: "Observation/o" } }] }] }, "Encounter.reason"],
       [{ virtualService: [{ addressExtendedContactDetail: { name: [{ text: "Front desk" }] } }] }, "Encounter.virtualService"],
       [{ extension: [{ url: CLASS_EXTENSION, valueCodeableConcept: { text: "x" } }] }, "Encounter.class"],
     ];

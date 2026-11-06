@@ -104,22 +104,17 @@ group Encounter(source src : EncounterR4, target tgt : EncounterR6) extends Doma
   src.subject -> tgt.subject;
   src.episodeOfCare -> tgt.episodeOfCare;
   src.basedOn -> tgt.basedOn;
-  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.basedOn') then {
-    e.value : Reference as v -> tgt.basedOn as t then Reference(v, t) "value";
-  } "basedOnExtra";
   src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
   src.appointment -> tgt.appointment;
   src.period -> tgt.actualPeriod; // renamed
   src.length -> tgt.length;
 
-  // R4 reasonCode and reasonReference: one R6 reason per value. Reasons R4 can't hold come
-  // whole from extensions.
+  // R4 reasonCode and reasonReference, and HL7's reason.value extension: one R6 reason per value.
   src.reasonCode as v -> tgt.reason as r, r.value as rv, rv.concept as t then CodeableConcept(v, t) "reasonCode";
   src.reasonReference as v -> tgt.reason as r, r.value as rv, rv.reference as t then Reference(v, t) "reasonReference";
-  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason') -> tgt.reason as t then EncounterExtensionToReason(e, t) "reasonExtra";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason.value') -> tgt.reason as r, r.value as t then EncounterExtensionToCodeableReference(e, t) "reasonValue";
 
   src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
-  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis') -> tgt.diagnosis as t then EncounterExtensionToDiagnosis(e, t) "diagnosisExtra";
   src.account -> tgt.account;
 
   // R4 hospitalization holds R6 admission plus dietPreference, specialArrangement and
@@ -158,15 +153,22 @@ group EncounterParticipant(source src, target tgt) extends BackboneElement {
   src.type -> tgt.type;
   src.period -> tgt.period;
   src.individual -> tgt.actor; // renamed
-  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.participant.actor') then {
-    e.value : Reference as v -> tgt.actor as t then Reference(v, t) "value";
-  } "actorExtension";
 }
 
 
+// The first condition comes in full from the condition extension on the R4 condition if there
+// is one (see Encounter6to4), otherwise from the reference. Further conditions and uses come
+// from HL7's extension-Encounter.diagnosis.condition and .use on the diagnosis.
 group EncounterDiagnosis(source src, target tgt) extends BackboneElement {
-  src.condition -> tgt.condition; // Warning: Source TargetProfile unsupported: Procedure  (Condition,Procedure -> Condition)
+  src.condition where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition').empty()) -> tgt.condition "condition"; // Warning: Source TargetProfile unsupported: Procedure  (Condition,Procedure -> Condition)
+  src.condition as c where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition').exists()) then {
+    c.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition') -> tgt.condition as t then EncounterExtensionToCodeableReference(e, t) "extension";
+  } "conditionFull";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition') -> tgt.condition as t then EncounterExtensionToCodeableReference(e, t) "conditionExtra";
   src.use -> tgt.use;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.use') then {
+    e.value : CodeableConcept as v -> tgt.use as t then CodeableConcept(v, t) "value";
+  } "useExtra";
 }
 
 
@@ -188,6 +190,7 @@ group EncounterLocation(source src, target tgt) extends BackboneElement {
 }
 
 
+// _datatype names the R6 type and isn't read.
 group EncounterExtensionToCodeableReference(source x, target c) {
   x.extension as e where (url = 'concept') then {
     e.value : CodeableConcept as v -> c.concept as t then CodeableConcept(v, t) "value";
@@ -195,22 +198,6 @@ group EncounterExtensionToCodeableReference(source x, target c) {
   x.extension as e where (url = 'reference') then {
     e.value : Reference as v -> c.reference as t then Reference(v, t) "value";
   } "reference";
-}
-
-
-group EncounterExtensionToReason(source x, target r) {
-  x.extension as e where (url = 'use') then {
-    e.value : CodeableConcept as v -> r.use as t then CodeableConcept(v, t) "value";
-  } "use";
-  x.extension as e where (url = 'value') -> r.value as t then EncounterExtensionToCodeableReference(e, t) "value";
-}
-
-
-group EncounterExtensionToDiagnosis(source x, target d) {
-  x.extension as e where (url = 'condition') -> d.condition as t then EncounterExtensionToCodeableReference(e, t) "condition";
-  x.extension as e where (url = 'use') then {
-    e.value : CodeableConcept as v -> d.use as t then CodeableConcept(v, t) "value";
-  } "use";
 }
 
 
