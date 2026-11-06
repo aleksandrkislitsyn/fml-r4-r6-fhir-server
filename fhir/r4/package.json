@@ -1,0 +1,11 @@
+{
+  "name": "fml-r4-r6.server.r4",
+  "version": "0.1.0",
+  "description": "Conformance resources this server defines for its R4 API. Loaded by @atomic-ehr/fhir-canonical-manager next to hl7.fhir.r4.core.",
+  "type": "Conformance",
+  "canonical": "http://example.org/fhir",
+  "fhirVersions": ["4.0.1"],
+  "dependencies": {
+    "hl7.fhir.r4.core": "4.0.1"
+  }
+}

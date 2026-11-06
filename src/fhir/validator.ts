@@ -1,4 +1,5 @@
-import { CanonicalManager } from "@atomic-ehr/fhir-canonical-manager";
+import { resolve } from "node:path";
+import { CanonicalManager, type LocalPackageConfig, type TCanonicalManager } from "@atomic-ehr/fhir-canonical-manager";
 import { translate, validate, type FHIRSchema } from "@atomic-ehr/fhirschema";
 import type { OperationOutcome } from "../fhir-types/hl7-fhir-r4-core/OperationOutcome.ts";
 
@@ -10,9 +11,19 @@ const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R6: "hl7.fhir.r6.core@6.0.0-ballot5",
 };
 
+/**
+ * Conformance resources this server defines itself, loaded next to the core package.
+ * fhir/r4 holds the SearchParameter for the R4 `class-r6` backport.
+ */
+const LOCAL_PACKAGES: Partial<Record<FhirVersion, LocalPackageConfig[]>> = {
+  R4: [{ name: "fml-r4-r6.server.r4", version: "0.1.0", path: resolve(import.meta.dir, "../../fhir/r4") }],
+};
+
 export interface Validator {
   validate(resource: unknown): OperationOutcome;
   knowsType(type: string): boolean;
+  /** Core and local conformance resources for this version, e.g. SearchParameters. */
+  definitions: TCanonicalManager;
 }
 
 /**
@@ -27,6 +38,7 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
     workingDir: `.fhir/${version.toLowerCase()}`,
   });
   await manager.init();
+  for (const local of LOCAL_PACKAGES[version] ?? []) await manager.addLocalPackage(local);
 
   const byUrl: Record<string, FHIRSchema> = {};
   const entries = await manager.searchEntries({});
@@ -54,6 +66,7 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
 
   return {
     knowsType: (type) => schemas[type]?.kind === "resource",
+    definitions: manager,
     validate(resource) {
       const type = (resource as any)?.resourceType;
       const schema = typeof type === "string" ? schemas[type] : undefined;

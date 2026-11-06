@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { migrate } from "../src/db/index.ts";
-import { loadValidator } from "../src/fhir/validator.ts";
+import { hasErrors, loadValidator } from "../src/fhir/validator.ts";
 import { createHandler } from "../src/http/server.ts";
 import { createFmlConverter } from "../src/fhir/convert.ts";
 import type { Patient } from "../src/fhir-types/hl7-fhir-r4-core/Patient.ts";
@@ -287,9 +287,49 @@ describe("R4 Encounter", () => {
       name: "class", type: "token", definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
     }));
     expect(advertised.searchParam).toContainEqual(expect.objectContaining({
-      name: "class-r6", type: "token", definition: "http://hl7.org/fhir/6.0/SearchParameter/Encounter-class",
+      name: "class-r6", type: "token", definition: "http://example.org/fhir/SearchParameter/Encounter-class-r6",
     }));
     expect(resources.find((r: any) => r.type === "Patient").interaction).not.toContainEqual({ code: "search-type" });
+  });
+});
+
+describe("class-r6 SearchParameter definition", () => {
+  let r4: Awaited<ReturnType<typeof loadValidator>>;
+  beforeAll(async () => { r4 = await loadValidator("R4"); }, 120_000);
+
+  test("is served from the canonical manager and is a valid R4 SearchParameter", async () => {
+    const response = await send("GET", "/SearchParameter/Encounter-class-r6");
+    expect(response.status).toBe(200);
+    const sp = (await response.json()) as any;
+    expect(sp).toMatchObject({
+      resourceType: "SearchParameter",
+      id: "Encounter-class-r6",
+      url: "http://example.org/fhir/SearchParameter/Encounter-class-r6",
+      code: "class-r6",
+      base: ["Encounter"],
+      type: "token",
+    });
+    expect(sp.expression).toBe(`Encounter.class | Encounter.extension('${CLASS_EXTENSION}').value`);
+    expect(hasErrors(r4.validate(sp))).toBe(false);
+    const known = await r4.definitions.getSearchParametersForResource("Encounter");
+    expect(known.map((p: any) => p.code)).toContain("class-r6");
+  });
+
+  test("every Encounter searchParam definition in R4 metadata resolves", async () => {
+    const metadata = (await (await send("GET", "/metadata")).json()) as any;
+    const params = metadata.rest[0].resource.find((r: any) => r.type === "Encounter").searchParam;
+    for (const param of params) {
+      const id = param.definition.split("/").pop();
+      const response = await send("GET", `/SearchParameter/${id}`);
+      expect(response.status).toBe(200);
+      const sp = (await response.json()) as any;
+      expect(sp.url).toBe(param.definition);
+      expect(sp.code).toBe(param.name);
+    }
+  });
+
+  test("unknown SearchParameter returns 404", async () => {
+    expect((await send("GET", "/SearchParameter/does-not-exist")).status).toBe(404);
   });
 });
 
