@@ -1,0 +1,36 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "fml",
+            "request": "launch",
+            "name": "FML (ts)",
+            "program": "${file}",
+            "input": "${workspaceFolder}/test-input-resources/${fileBasenameNoExtension}.json",
+            "stopOnEntry": true
+        },
+        {
+            "type": "fml",
+            "request": "launch",
+            "name": "FML HAPI",
+            "program": "${file}",
+            "input": "${workspaceFolder}/test-input-resources/${fileBasenameNoExtension}.json",
+            "serverUrl": "https://fml-hapi.fhirpath-lab.com/fhir/$transform?debug=true",
+            "legacyPost": true,
+            "stopOnEntry": true
+        },
+        {
+            "type": "fml",
+            "request": "launch",
+            "name": "FML Matchbox",
+            "program": "${file}",
+            "input": "${workspaceFolder}/test-input-resources/${fileBasenameNoExtension}.json",
+            "serverUrl": "https://test.ahdis.ch/matchbox/fhir/StructureMap/$transform?debug=true",
+            "legacyPost": true,
+            "stopOnEntry": true
+        }
+    ]
+}
