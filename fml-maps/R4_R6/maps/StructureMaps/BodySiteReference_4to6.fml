@@ -1,0 +1,19 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BodySiteReference4to6'
+/// name = 'BodySiteReference4to6'
+/// title = 'Reference to a BodyStructure row, as a reference to the R6 BodyStructure: R4 to R6'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Reference" alias ReferenceR4 as source
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Reference" alias ReferenceR6 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+
+// R4 rows <id>--N don't exist in R6, where they are all part of BodyStructure/<id>.
+// No <<type+>> or <<types>>: this must only run when called by name, or every Reference
+// would have two default mappings, and a reference to another server's "x--2" would change.
+group BodySiteReference(source src : ReferenceR4, target tgt : ReferenceR6) extends Element {
+  src.reference as r -> tgt.reference = (r.replaceMatches('^(BodyStructure/[^/]+)--[0-9]+$', '$1'));
+  src.type -> tgt.type;
+  src.identifier -> tgt.identifier;
+  src.display -> tgt.display;
+}

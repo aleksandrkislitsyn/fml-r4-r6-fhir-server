@@ -287,8 +287,43 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <li><code>X-Replace-Extensions</code> is this server's own header, so a client has to know about it. A client that sends an <code>extension</code> array but leaves ours out of it removes them.</li>
     <li>Decimal precision isn't kept: <code>2.0</code> comes back as <code>2</code>, because JSON is parsed as JavaScript numbers. This applies to the whole server.</li>
     <li>Search and history interactions aren't available for these resources.</li>
-    <li>No R4 element can reference BodyStructure, so R6 references such as <code>Condition.bodyStructure</code> aren't mapped.</li>
+    <li>R6 references to BodyStructure are mapped for <code>Observation.bodyStructure</code> only, as described below. Other types, such as <code>Condition.bodyStructure</code>, aren't mapped yet.</li>
   </ul>
+</section>
+
+<section>
+  <h2>References to a BodyStructure</h2>
+  <p>No core R4 element can reference a BodyStructure, but the standard <code>http://hl7.org/fhir/StructureDefinition/bodySite</code> extension can. R4 stores the reference there. R6 reads it as <code>bodyStructure</code>, and the extension isn't shown. R4 <code>bodySite</code> holds one value and R6 <code>bodyStructure</code> repeats, so several references means repeating the extension. Tests are in <code>test/observation-bodystructure-reference.test.ts</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Stored in <span class="r4">R4</span></th><th>Read through <span class="r6">R6</span></th></tr></thead>
+    <tbody>
+      <tr><td><code>BodyStructure/abc</code></td><td><code>BodyStructure/abc</code></td></tr>
+      <tr><td><code>BodyStructure/abc--2</code></td><td><code>BodyStructure/abc</code>, the whole resource</td></tr>
+      <tr><td><code>BodyStructure/abc--2</code> and <code>BodyStructure/abc--3</code></td><td>One entry: <code>BodyStructure/abc</code></td></tr>
+      <tr><td><code>https://other.example.org/fhir/BodyStructure/abc--2</code></td><td>Unchanged, because it belongs to another server</td></tr>
+      <tr><td>A <code>bodySite</code> with only the extension</td><td>No <code>bodySite</code>, only <code>bodyStructure</code></td></tr>
+    </tbody>
+  </table></div>
+  <h3>When a structure moves</h3>
+  <p>If the first structure is removed through R6, the next one moves into the primary row and its old row returns 410. In the same transaction, every Observation that references the old row is changed to reference the primary row, and gets a new version. Nothing else rewrites references.</p>
+  <h3>What is rejected</h3>
+  <p>An R4 create or update returns 422 if a <code>bodySite</code> extension on <code>Observation.bodySite</code> has no <code>valueReference</code>, or if its reference targets another type, is version-specific, points at a contained resource, or is an absolute URL on this server. Whether the target exists isn't checked, as with every other reference on this server.</p>
+  <h3>Limits</h3>
+  <ul>
+    <li>R6 can't tell which structure an R4 reference meant. It only shows the whole resource.</li>
+    <li>A reference to <code>abc</code> can change meaning in R4. After the first structure is removed, <code>abc</code> returns what used to be the second structure, with no error. <code>abc</code> can mean the whole resource or the first structure, so it can't be rewritten.</li>
+    <li>Deleting a referenced row leaves the R4 reference returning 410, and R6 still shows <code>abc</code>, now without that structure. Deleting the whole group leaves both returning 410.</li>
+    <li>References held outside this server, or as absolute URLs, aren't rewritten when a structure moves.</li>
+    <li>An Observation PUT sent without <code>If-Match</code> by a client holding an older copy can put the old row reference back. With <code>If-Match</code> it gets a 412.</li>
+    <li>Only <code>Observation.bodySite</code> is mapped. The same extension elsewhere on an Observation is copied to R6 unchanged, including any row id.</li>
+    <li>Observation is read-only through R6, so an R6 client can't write <code>bodyStructure</code>.</li>
+  </ul>
+  <h3>Adding another type</h3>
+  <ol>
+    <li>Add the type to <code>STORED_RESOURCE_TYPES</code> and to <code>BODY_SITE_REFERRERS</code> in <code>src/db/repository.ts</code>.</li>
+    <li>In its 4→6 map, consume the extension and call the shared <code>BodySiteReference</code> group, as <code>Observation_4to6.fml</code> does. R4 <code>Condition</code>, <code>Procedure</code> and <code>ServiceRequest</code> have a repeating <code>bodySite</code>, and <code>Specimen</code> and <code>ImagingStudy</code> nest theirs, so the rewrite and the checks, which read a single <code>bodySite</code> at the root, need extending for them.</li>
+    <li>Call <code>checkBodySiteReferences</code> for the type in <code>src/http/server.ts</code>.</li>
+  </ol>
 </section>
 
 <section>
@@ -302,6 +337,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
       <tr><td>Read an extension's value</td><td><code>e.value : CodeableConcept -&gt; tgt.a;</code></td><td><code>e.value -&gt; tgt.a;</code> is ambiguous across all value types</td></tr>
       <tr><td>Add a resource to a Bundle</td><td><code>create('BodyStructure') as out, b.entry as e, e.resource = out</code></td><td><code>create()</code> with a <code>uses</code> alias</td></tr>
       <tr><td>Reuse rules in two places</td><td>One group per contextual type</td><td>One group for a resource and an Extension</td></tr>
+      <tr><td>Convert a type differently in one place</td><td><code>group X(source src : ReferenceR4, target tgt : ReferenceR6)</code>, called by name</td><td><code>&lt;&lt;type+&gt;&gt;</code> or <code>&lt;&lt;types&gt;&gt;</code>, which apply to every value of that type. Untyped parameters only work inside the file that calls the group</td></tr>
     </tbody>
   </table></div>
   <p class="note">Open type groups must be unique per source type. Two <code>&lt;&lt;type+&gt;&gt;</code> groups for <code>string</code> make every <code>valueString</code> extension fail with "Ambiguous default mapping". Use <code>&lt;&lt;types&gt;&gt;</code> for a conversion to a specific other type.</p>

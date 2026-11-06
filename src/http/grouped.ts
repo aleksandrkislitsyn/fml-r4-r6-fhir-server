@@ -73,11 +73,17 @@ export function createGroupedHandlers(validators: { R4: Validator; R6: Validator
   async function saveR6(type: StoredResourceType, id: string, body: any, ifMatch: number | undefined) {
     const existing = orderRows(await repo.readGroup(type, id));
     const existingStructures = existing.length > 0 ? ((await converter.fromStorage(existing)) as any).includedStructure : [];
-    const rowIds = assignRowIds(id, existingStructures, body.includedStructure, await repo.maxGroupSuffix(type, id));
+    const { rowIds, movedFrom } = assignRowIds(id, existingStructures, body.includedStructure, await repo.maxGroupSuffix(type, id));
     const rows = await converter.toStorage(body, rowIds);
     const invalid = (await checkRows(rows)) ?? (await lossFromR6(body, rows));
     if (invalid) return invalid;
-    const stored = await repo.writeGroup(type, id, rows, ifMatch === undefined ? undefined : { id, version: ifMatch });
+    const stored = await repo.writeGroup(
+      type,
+      id,
+      rows,
+      ifMatch === undefined ? undefined : { id, version: ifMatch },
+      movedFrom ? { from: movedFrom, to: id } : undefined,
+    );
     return converter.fromStorage(orderRows(stored));
   }
 

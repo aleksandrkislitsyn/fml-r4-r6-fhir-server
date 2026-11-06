@@ -68,6 +68,18 @@
     {
       "key": "encounterId",
       "value": ""
+    },
+    {
+      "key": "refBsId",
+      "value": ""
+    },
+    {
+      "key": "observationId",
+      "value": ""
+    },
+    {
+      "key": "refBsWithoutFirst",
+      "value": ""
     }
   ],
   "item": [
@@ -2417,6 +2429,367 @@
               }
             ],
             "url": "{{baseUrl}}/R6/Encounter/{{encounterId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8d. Observation references to a split BodyStructure",
+      "description": "In R4 the reference is the standard bodySite extension on Observation.bodySite, and can point at one row. In R6 it is Observation.bodyStructure and always points at the whole resource. Observation is read-only through R6.",
+      "item": [
+        {
+          "name": "Create a BodyStructure with three structures through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"refBsId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"text\": \"Forearm\"\n      }\n    },\n    {\n      \"structure\": {\n        \"text\": \"Upper arm\"\n      }\n    },\n    {\n      \"structure\": {\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create an Observation through R4, referencing row 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"observationId\", pm.response.json().id);",
+                  "pm.test(\"the row reference is stored as sent\", () => pm.expect(pm.response.json().bodySite.extension[0].valueReference.reference).to.eql(\"BodyStructure/\" + pm.collectionVariables.get(\"refBsId\") + \"--2\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"bodySite\": {\n    \"text\": \"arm\",\n    \"extension\": [\n      {\n        \"url\": \"http://hl7.org/fhir/StructureDefinition/bodySite\",\n        \"valueReference\": {\n          \"reference\": \"BodyStructure/{{refBsId}}--2\"\n        }\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R6: bodyStructure is the whole resource",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"bodyStructure references the R6 resource\", () => pm.expect(pm.response.json().bodyStructure).to.eql([{ reference: { reference: \"BodyStructure/\" + pm.collectionVariables.get(\"refBsId\") } }]));",
+                  "pm.test(\"the extension isn't left on bodySite\", () => pm.expect(pm.response.json().bodySite).to.eql({ text: \"arm\" }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation/{{observationId}}"
+          }
+        },
+        {
+          "name": "Follow the R6 reference: all three structures",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"structures are Forearm, Upper arm, Shoulder\", () => pm.expect(body.includedStructure.map(i => i.structure.text)).to.eql([\"Forearm\", \"Upper arm\", \"Shoulder\"]));",
+                  "body.includedStructure.shift();",
+                  "pm.collectionVariables.set(\"refBsWithoutFirst\", JSON.stringify(body));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{refBsId}}"
+          }
+        },
+        {
+          "name": "Remove the first structure through R6: row 2 moves into the primary row",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{refBsId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{refBsWithoutFirst}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the Observation through R4: the reference moved with it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"now references the primary row\", () => pm.expect(body.bodySite.extension[0].valueReference.reference).to.eql(\"BodyStructure/\" + pm.collectionVariables.get(\"refBsId\")));",
+                  "pm.test(\"the change is a new version\", () => pm.expect(body.meta.versionId).to.eql(\"2\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation/{{observationId}}"
+          }
+        },
+        {
+          "name": "Follow the R4 reference: the same structure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"location is Upper arm\", () => pm.expect(pm.response.json().location.text).to.eql(\"Upper arm\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{refBsId}}"
+          }
+        },
+        {
+          "name": "The old row returns 410",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{refBsId}}--2"
+          }
+        },
+        {
+          "name": "A bodySite reference to another type returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"bodySite\": {\n    \"text\": \"arm\",\n    \"extension\": [\n      {\n        \"url\": \"http://hl7.org/fhir/StructureDefinition/bodySite\",\n        \"valueReference\": {\n          \"reference\": \"Patient/example\"\n        }\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "A version-specific bodySite reference returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"bodySite\": {\n    \"text\": \"arm\",\n    \"extension\": [\n      {\n        \"url\": \"http://hl7.org/fhir/StructureDefinition/bodySite\",\n        \"valueReference\": {\n          \"reference\": \"BodyStructure/{{refBsId}}/_history/1\"\n        }\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R6 writes return 405",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 405\", () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"x\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]

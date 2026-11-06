@@ -1,3 +1,4 @@
+import { BODY_SITE_URL, withBodySiteRepointed } from "../fhir/bodystructure.ts";
 import { sql, tableName, type StoredResourceType } from "./index.ts";
 
 /** A resource as stored: always FHIR R4 JSON. */
@@ -147,12 +148,14 @@ export async function readGroup(type: StoredResourceType, base: string): Promise
 /**
  * Replaces a group's rows in one transaction: every given row gets a new version and any
  * row not given is deleted. `ifMatch` is checked against the row a client addressed.
+ * `repoint` moves references from a row that is gone to the row its structure moved into.
  */
 export async function writeGroup(
   type: StoredResourceType,
   base: string,
   rows: StoredResource[],
   ifMatch?: { id: string; version: number },
+  repoint?: { from: string; to: string },
 ): Promise<StoredResource[]> {
   const t = tableName(type);
   return sql.begin(async (tx) => {
@@ -174,8 +177,27 @@ export async function writeGroup(
     }
     const stored: StoredResource[] = [];
     for (const row of rows) stored.push(await writeRow(tx, t, row.id!, row));
+    if (repoint) await repointBodySiteReferences(tx, repoint.from, repoint.to);
     return stored;
   });
+}
+
+/** Types that reference a BodyStructure through `bodySite.extension`. */
+const BODY_SITE_REFERRERS: readonly StoredResourceType[] = ["Observation"];
+
+/** Each changed resource gets a new version, in the caller's transaction. */
+async function repointBodySiteReferences(tx: any, from: string, to: string): Promise<void> {
+  const link = { url: BODY_SITE_URL, valueReference: { reference: `BodyStructure/${from}` } };
+  for (const type of BODY_SITE_REFERRERS) {
+    const t = tableName(type);
+    const referrers: { id: string; resource: StoredResource }[] = await tx.unsafe(
+      `SELECT id, resource FROM ${t} WHERE resource #> '{bodySite,extension}' @> jsonb_build_array($1::jsonb) ORDER BY id FOR UPDATE`,
+      [link],
+    );
+    for (const { id, resource } of referrers) {
+      await writeRow(tx, t, id, withBodySiteRepointed(resource, from, to));
+    }
+  }
 }
 
 /** Deletes every row of a group. Returns false if there was nothing to delete. */

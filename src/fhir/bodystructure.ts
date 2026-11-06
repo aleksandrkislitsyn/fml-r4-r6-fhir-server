@@ -242,9 +242,15 @@ const content = (structure: any) => {
  * the highest number the group has ever used, so numbers are never reused.
  *
  * The R6 resource needs a row with its own id. If nothing claims the primary row, the first
- * structure moves into it. That is the one case where a structure changes row.
+ * structure moves into it. That is the one case where a structure changes row, and
+ * `movedFrom` is then the row it left, if it had one.
  */
-export function assignRowIds(base: string, existing: any[], incoming: any[], lastSuffix: number): string[] {
+export function assignRowIds(
+  base: string,
+  existing: any[],
+  incoming: any[],
+  lastSuffix: number,
+): { rowIds: string[]; movedFrom?: string } {
   const free = new Map<string, any>(existing.map((s) => [String(s.id), s]));
   const assigned: (string | undefined)[] = incoming.map(() => undefined);
 
@@ -263,10 +269,73 @@ export function assignRowIds(base: string, existing: any[], incoming: any[], las
     }
   });
 
-  if (!assigned.includes("1") && incoming.length > 0) assigned[0] = "1";
+  let movedFrom: string | undefined;
+  if (!assigned.includes("1") && incoming.length > 0) {
+    if (assigned[0] !== undefined) movedFrom = idForSuffix(base, Number(assigned[0]));
+    assigned[0] = "1";
+  }
 
   let next = Math.max(lastSuffix, 1);
-  return assigned.map((key) => idForSuffix(base, key === undefined ? ++next : Number(key)));
+  const rowIds = assigned.map((key) => idForSuffix(base, key === undefined ? ++next : Number(key)));
+  return movedFrom ? { rowIds, movedFrom } : { rowIds };
+}
+
+/* References from other resources. R4 has no element for them, so they are bodySite extensions. */
+
+export const BODY_SITE_URL = "http://hl7.org/fhir/StructureDefinition/bodySite";
+
+const isBodySiteLink = (e: any) => e.url === BODY_SITE_URL;
+const ABSOLUTE_URL = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+const RELATIVE_REFERENCE = /^BodyStructure\/[A-Za-z0-9\-.]{1,64}$/;
+const ABSOLUTE_REFERENCE = /\/BodyStructure\/[A-Za-z0-9\-.]{1,64}$/;
+
+/**
+ * Why a resource's bodySite references can't be followed through both versions, if so.
+ * Whether the target exists isn't checked, as with every other reference on this server.
+ */
+export function bodySiteReferenceProblem(resource: any, origin: string): string | undefined {
+  for (const link of (resource.bodySite?.extension ?? []).filter(isBodySiteLink)) {
+    const path = `${resource.resourceType}.bodySite.extension(${BODY_SITE_URL})`;
+    const target = link.valueReference;
+    if (!target) return `${path} needs a valueReference`;
+    if (target.type !== undefined && target.type !== "BodyStructure") return `${path} must reference a BodyStructure`;
+    const reference: string | undefined = target.reference;
+    if (reference === undefined) continue;
+    if (reference.startsWith("#")) return `${path} can't reference a contained resource: ${reference}`;
+    if (reference.includes("/_history/")) return `${path} can't be version-specific: ${reference}`;
+    if (reference.startsWith(`${origin}/`)) return `${path} must be relative for this server: ${reference}`;
+    const valid = ABSOLUTE_URL.test(reference) ? ABSOLUTE_REFERENCE.test(reference) : RELATIVE_REFERENCE.test(reference);
+    if (!valid) return `${path} must reference a BodyStructure: ${reference}`;
+  }
+  return undefined;
+}
+
+/** Rows of one group become one R6 reference, so the same target can come out of a map twice. */
+export function withUniqueBodyStructures<T extends StoredResource>(resource: T): T {
+  const links: any = resource.bodyStructure;
+  if (!Array.isArray(links)) return resource;
+  const seen = new Set<string>();
+  const unique = links.filter((link: any) => {
+    const reference = link.reference?.reference;
+    if (reference === undefined) return true;
+    if (seen.has(reference)) return false;
+    seen.add(reference);
+    return true;
+  });
+  return { ...resource, bodyStructure: unique };
+}
+
+/** Points a resource's bodySite references at `to` instead of `from`, without repeating `to`. */
+export function withBodySiteRepointed<T extends StoredResource>(resource: T, from: string, to: string): T {
+  const source = `BodyStructure/${from}`;
+  const replacement = `BodyStructure/${to}`;
+  const site: any = resource.bodySite;
+  const alreadyThere = site.extension.some((e: any) => isBodySiteLink(e) && e.valueReference?.reference === replacement);
+  const extension = site.extension.flatMap((e: any) => {
+    if (!isBodySiteLink(e) || e.valueReference?.reference !== source) return [e];
+    return alreadyThere ? [] : [{ ...e, valueReference: { ...e.valueReference, reference: replacement } }];
+  });
+  return { ...resource, bodySite: { ...site, extension } };
 }
 
 const UNORDERED = new Set(["extension", "locationQualifier"]);

@@ -1,5 +1,5 @@
 import type { StoredResource } from "../db/repository.ts";
-import { baseId, elementId, isSecondaryId, withRowLinks } from "./bodystructure.ts";
+import { baseId, elementId, isSecondaryId, withRowLinks, withUniqueBodyStructures } from "./bodystructure.ts";
 import type { FhirVersion } from "./validator.ts";
 import {
   createSingleInputRequest, FmlExecutor, stringifyFmlJson,
@@ -121,7 +121,7 @@ export function createFmlConverter(directories = configuredMapDirectories()): Re
         || target.meta?.lastUpdated !== resource.meta?.lastUpdated) {
         throw new ConversionError(`R4 -> R6 map for ${resource.resourceType} did not preserve resource identity and version metadata`);
       }
-      return target;
+      return withUniqueBodyStructures(target);
     },
 
     async toStorage(resource, rowIds, signal) {
