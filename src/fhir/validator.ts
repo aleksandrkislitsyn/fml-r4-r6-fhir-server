@@ -7,7 +7,7 @@ export type FhirVersion = "R4" | "R6";
 // R6 is still a draft, so its version stays pinned.
 const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R4: "hl7.fhir.r4.core@4.0.1",
-  R6: "hl7.fhir.r6.core@6.0.0-snapshot1",
+  R6: "hl7.fhir.r6.core@6.0.0-ballot5",
 };
 
 export interface Validator {

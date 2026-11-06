@@ -6,7 +6,7 @@ Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All res
 - One R6 resource can be several R4 rows (`<id>`, `<id>--2`, ...). A write from either version rewrites the group in one transaction and must be valid in both versions (`src/http/grouped.ts`, `src/fhir/bodystructure.ts`). Row ids are stable and numbers are never reused (`assignRowIds`). Tests in `test/bodystructure-cross-version.test.ts` are the acceptance criteria.
 - FML runs on `fhir-structuremap-js`, which has no type information. Maps must use the style listed at the top of `src/fhir/fml.ts`; the generated maps in `fml-maps/R4_R6` don't yet, so they can't run unchanged.
 - Don't call `sql.close()` in tests: Bun shares the pool across test files.
-- Check R6 element names against the pinned `6.0.0-snapshot1` package in `.fhir/r6`, not build.fhir.org: the rolling build has elements the pinned package doesn't (e.g. `BodyStructure.predecessor`).
+- Check R6 element names against the pinned `6.0.0-ballot5` package in `.fhir/r6`, not build.fhir.org: the rolling build has elements the pinned package doesn't (e.g. `BodyStructure.predecessor`).
 - Keep `docs/mappings.html` and `postman/` in line with the maps when mappings change.
 - Validation: `@atomic-ehr/fhirschema`. Its `validate()` expects schemas already merged with their base chain. `src/fhir/validator.ts` flattens them (`mergeSchema`).
 - Postgres: pass objects (not `JSON.stringify` strings) as jsonb parameters to `Bun.SQL`, or they get double-encoded as jsonb strings.
