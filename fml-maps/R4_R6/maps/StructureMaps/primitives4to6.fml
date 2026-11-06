@@ -237,19 +237,10 @@ group uri2url(source src : uriR4, target tgt : urlR6) extends Element <<types>> 
 //   src.value as v -> tgt.value = v "xhtmlValue";
 // }
 
+// Reference -> CodeableReference lives here in the embedded-engine integration.
+// CodeableConcept -> CodeableReference is defined in CodeableConcept_4to6.fml.
 group reference2CodeableReferece(source src : ReferenceR4, target tgt : CodeableReferenceR6) extends Element <<types>> {
-  src -> tgt.reference as tgtTref then {
-  src.reference as r -> tgtTref.reference = r "reference2CodeableReferenceValue";
-  src.type as t -> tgtTref.type = t "reference2CodeableReferenceValue";
-  src.identifier as i -> tgtTref.identifier = i "reference2CodeableReferenceValue";
-  src.display as d -> tgtTref.display = d "reference2CodeableReferenceValue";
-  } "createReference";
-}
-
-group codeableConcept2CodeableReference(source src : CodeableConceptR4, target tgt : CodeableReferenceR6) extends Element <<types>> {
-  src -> tgt.concept as tgtTref then {
-  src.coding -> tgtTref.coding;
-  } "createConcept";
+  src -> tgt.reference as r then Reference(src, r) "createReference";
 }
 
 group coding2CodeableReference(source src : CodingR4, target tgt : CodeableReferenceR6) extends Element <<types>> {

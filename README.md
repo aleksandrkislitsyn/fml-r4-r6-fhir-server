@@ -11,6 +11,7 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] `/R6/Patient/:id` reads and `/R6/metadata`
 - [ ] R6 writes (reverse maps and R6 input validation are still needed)
 - [x] R4 Encounter CRUD and native `class` token search
+- [x] R6 Encounter class search over native R4 class and cross-version extensions
 - [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
@@ -63,10 +64,11 @@ engine diagnostics where available. There is no pass-through fallback or partial
 success. R6 `POST`, `PUT`, and `DELETE` return `405`.
 
 The maps remain draft R6-ballot5 maps, not a production conformance guarantee.
-Preparation warnings are logged as a diagnostic count. R6 output validation,
-search, history interactions, terminology services, and external reference
-resolution are not added by this integration. Only Patient currently has a
-database table and HTTP support.
+Preparation warnings are logged as a diagnostic count. The converted Encounter
+fixture is validated against R6 ballot5 in the integration tests; runtime output
+validation, history interactions, terminology services, and external reference
+resolution are not implemented. Patient and Encounter have storage and HTTP support.
+`bun test` runs the server's `test/` suite; the vendored Lab has its own tests.
 
 ### Encounter class search (R4)
 
@@ -81,7 +83,26 @@ Supports one token: `code`, `system|code`, `|code` (no system), or `system|`
 (any code in that system). Without parameters, returns all current Encounters.
 This initial implementation has no pagination. Repeated parameters, comma lists,
 escaped tokens, modifiers, and other search parameters return `400` with an
-`OperationOutcome`. R6 search is not implemented.
+`OperationOutcome`.
+
+### Encounter class search (R6)
+
+```sh
+curl -G localhost:8080/R6/Encounter \
+  --data-urlencode 'class=http://terminology.hl7.org/CodeSystem/v3-ActCode|VR'
+```
+
+R6 searches the native R4 `class` and every Coding in
+`extension.where(url = 'xver/encounter-class').valueCodeableConcept.coding`.
+System and code must match the same Coding. Each Encounter is returned once,
+even when both the native field and extensions match.
+
+Search results use the same injected FML converter as individual R6 reads,
+including cancellation and diagnostic handling. The response contains R6
+Encounters with `class` as an array of CodeableConcepts. The consumed
+`xver/encounter-class` extension is omitted from the R6 representation, while
+the stored R4 resource remains unchanged. R6 writes still return `405`.
+Token syntax and search limitations are the same as R4.
 
 ## Layout
 

@@ -75,8 +75,8 @@ export function createHandler({ validators, converter }: ServerDeps) {
     try {
       if (id === undefined) {
         if (req.method === "POST" && validator) return await createResource(req, type, version, base, validator);
-        if (req.method === "GET" && type === "Encounter" && version === "R4") {
-          return await searchEncounters(url, base);
+        if (req.method === "GET" && type === "Encounter") {
+          return await searchEncounters(url, base, version, converter, req.signal);
         }
         return error(405, `${req.method} not allowed on /${type}`, "not-supported");
       }
@@ -113,7 +113,13 @@ export function createHandler({ validators, converter }: ServerDeps) {
   };
 }
 
-async function searchEncounters(url: URL, base: string): Promise<Response> {
+async function searchEncounters(
+  url: URL,
+  base: string,
+  version: FhirVersion,
+  converter?: ResourceConverter,
+  signal?: AbortSignal,
+): Promise<Response> {
   for (const key of url.searchParams.keys()) {
     if (key !== "class") return error(400, `Unsupported search parameter: ${key}`, "not-supported");
   }
@@ -135,7 +141,8 @@ async function searchEncounters(url: URL, base: string): Promise<Response> {
       if (parts[1]) token.code = parts[1];
     }
   }
-  const resources = await repo.searchEncounterClass(token);
+  const stored = await repo.searchEncounterClass(token, version === "R6");
+  const resources = await Promise.all(stored.map((resource) => fromStorage(version, resource, converter, signal)));
   return json({
     resourceType: "Bundle",
     type: "searchset",
@@ -216,7 +223,7 @@ function capabilityStatement(version: FhirVersion) {
     status: "draft",
     date: new Date().toISOString(),
     kind: "instance",
-    fhirVersion: version === "R4" ? "4.0.1" : "6.0.0",
+    fhirVersion: version === "R4" ? "4.0.1" : "6.0.0-ballot5",
     format: ["json"],
     rest: [
       {
@@ -224,17 +231,19 @@ function capabilityStatement(version: FhirVersion) {
         resource: STORED_RESOURCE_TYPES.map((type) => ({
           type,
           versioning: "versioned",
-          updateCreate: true,
-          interaction: [
+          updateCreate: version === "R4",
+          interaction: version === "R6" ? [
+            { code: "read" }, ...(type === "Encounter" ? [{ code: "search-type" }] : []),
+          ] : [
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
             ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
           ],
-          ...(type === "Encounter" && version === "R4" ? {
+          ...(type === "Encounter" ? {
             searchParam: [{
               name: "class",
               definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
               type: "token",
-              documentation: "Native R4 class only. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.",
+              documentation: `${version === "R4" ? "Native R4 class only" : "Native class and xver/encounter-class extension codings"}. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.`,
             }],
           } : {}),
         })),
