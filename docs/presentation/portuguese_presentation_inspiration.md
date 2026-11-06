@@ -22,6 +22,8 @@ Decorative ceramic tile patterns with cobalt-blue geometry and floral ornament. 
 
 Portugal's famous souvenir rooster: bold black silhouette, bright red comb, flowers and hearts. Use as a humorous mascot, oversized hero visual, or recurring marker on a few slides.
 
+*Rooster: [Galo de Barcelos.svg](https://commons.wikimedia.org/wiki/File:Galo_de_Barcelos.svg) by Di (they-them), Wikimedia Commons, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Credit it wherever the image is used.*
+
 **Slide idea:** Large rooster on the right, headline on the left: *Bem-vindos a Portugal!*
 
 ### 3. Sardinhas — illustrated sardines
