@@ -311,14 +311,6 @@ describe("the form of a bodySite reference", () => {
 });
 
 describe("Observation through both versions", () => {
-  test("R6 is read-only", async () => {
-    const { id } = await create(observation());
-    const r6 = await getR6(id);
-    expect((await s.send("POST", "/R6/Observation", r6)).status).toBe(405);
-    expect((await s.send("PUT", `/R6/Observation/${id}`, r6)).status).toBe(405);
-    expect((await s.send("DELETE", `/R6/Observation/${id}`)).status).toBe(405);
-  });
-
   test("R4 update and delete work, and the deleted resource returns 410 in both versions", async () => {
     const { id } = await create(observation());
     const updated = await s.send("PUT", `/R4/Observation/${id}`, { ...observation({ text: "hand" }), id });
@@ -343,11 +335,12 @@ describe("Observation through both versions", () => {
     }
   });
 
-  test("the CapabilityStatement lists Observation as read-only in R6", async () => {
+  test("the CapabilityStatement lists Observation as writable in both versions", async () => {
     const statement = async (version: string): Promise<any> => (await s.send("GET", `/${version}/metadata`)).json();
-    const interactions = async (version: string) =>
-      (await statement(version)).rest[0].resource.find((r: any) => r.type === "Observation").interaction.map((i: any) => i.code);
-    expect(await interactions("R4")).toEqual(["read", "create", "update", "delete"]);
-    expect(await interactions("R6")).toEqual(["read"]);
+    for (const version of ["R4", "R6"]) {
+      const entry = (await statement(version)).rest[0].resource.find((r: any) => r.type === "Observation");
+      expect(entry.interaction.map((i: any) => i.code)).toEqual(["read", "create", "update", "delete"]);
+      expect(entry.updateCreate).toBe(true);
+    }
   });
 });

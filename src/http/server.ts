@@ -1,9 +1,9 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
-import { bodySiteReferenceProblem } from "../fhir/bodystructure.ts";
-import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter } from "../fhir/convert.ts";
+import { ConversionError, fromStorage, toStorage, type GroupConverter, type ResourceConverter, type WriteConverter } from "../fhir/convert.ts";
 import { outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
 import { createGroupedHandlers } from "./grouped.ts";
+import { createObservationHandlers } from "./observation.ts";
 import { checkBody, error, json, parseIfMatch, readBody, resourceHeaders } from "./responses.ts";
 
 const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
@@ -12,16 +12,23 @@ const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
 /** Types stored as linked rows, which need the group logic in both versions. */
 const GROUPED: readonly StoredResourceType[] = ["BodyStructure"];
 
+/** Stored as one R4 resource and writable through R6, so writes need both versions. */
+const CROSS_VERSION: readonly StoredResourceType[] = ["Observation"];
+
 export interface ServerDeps {
   validators: Partial<Record<FhirVersion, Validator>>;
-  /** Reads any type with an R4 -> R6 map. Grouped types also need both validators, or they return 501. */
-  converter?: ResourceConverter & Partial<GroupConverter>;
+  /** Reads any type with an R4 -> R6 map. Types writable through R6 also need both validators, or they return 501. */
+  converter?: ResourceConverter & Partial<GroupConverter> & Partial<WriteConverter>;
 }
 
 export function createHandler({ validators, converter }: ServerDeps) {
   const grouped =
     converter?.toStorage && converter.fromStorage && validators.R4 && validators.R6
       ? createGroupedHandlers({ R4: validators.R4, R6: validators.R6 }, converter as GroupConverter)
+      : undefined;
+  const observations =
+    converter?.toR4 && validators.R4 && validators.R6
+      ? createObservationHandlers({ R4: validators.R4, R6: validators.R6 }, converter as WriteConverter)
       : undefined;
 
   return async function handle(req: Request): Promise<Response> {
@@ -51,7 +58,14 @@ export function createHandler({ validators, converter }: ServerDeps) {
         if (!grouped) return error(501, `${type} needs both FHIR versions and the FML maps`, "not-supported");
         return await grouped.handle(req, type, id, version, base);
       }
-      if (version === "R6" && req.method !== "GET") {
+      const crossVersion = CROSS_VERSION.includes(type);
+      const isCreate = req.method === "POST" && id === undefined;
+      const isUpdate = req.method === "PUT" && id !== undefined;
+      if (crossVersion && (isCreate || isUpdate)) {
+        if (!observations) return error(501, `${type} needs both FHIR versions and the FML maps`, "not-supported");
+        return await (isCreate ? observations.create(req, version, base) : observations.update(req, id!, version, base));
+      }
+      if (version === "R6" && req.method !== "GET" && !crossVersion) {
         return json(outcome("R6 is read-only for this type; use /R4 for writes", "not-supported"), 405, { allow: "GET" });
       }
       if (id === undefined) {
@@ -175,13 +189,6 @@ async function searchEncounters(
   });
 }
 
-/** 422 for an Observation whose bodySite references wouldn't work through both versions. */
-function checkBodySiteReferences(body: any, type: StoredResourceType, base: string): Response | null {
-  if (type !== "Observation") return null;
-  const problem = bodySiteReferenceProblem(body, new URL(base).origin);
-  return problem ? error(422, problem) : null;
-}
-
 async function createResource(
   req: Request,
   type: StoredResourceType,
@@ -191,7 +198,7 @@ async function createResource(
 ): Promise<Response> {
   const body = await readBody(req);
   if (body instanceof Response) return body;
-  const invalid = checkBody(body, type, validator) ?? checkBodySiteReferences(body, type, base);
+  const invalid = checkBody(body, type, validator);
   if (invalid) return invalid;
   const { id: _ignored, ...resource } = body; // server assigns the id on create
   const stored = await repo.create(type, toStorage(version, resource));
@@ -227,7 +234,7 @@ async function updateResource(
   if (ifMatch === "invalid") return error(400, "Malformed If-Match header");
   const body = await readBody(req);
   if (body instanceof Response) return body;
-  const invalid = checkBody(body, type, validator) ?? checkBodySiteReferences(body, type, base);
+  const invalid = checkBody(body, type, validator);
   if (invalid) return invalid;
   if (body.id !== id) return error(400, `Resource id ${JSON.stringify(body.id)} does not match URL id ${id}`);
   const { resource, created } = await repo.update(type, id, toStorage(version, body), ifMatch);
@@ -249,8 +256,8 @@ function capabilityStatement(version: FhirVersion) {
         resource: STORED_RESOURCE_TYPES.map((type) => ({
           type,
           versioning: "versioned",
-          updateCreate: version === "R4" || GROUPED.includes(type),
-          interaction: version === "R6" && !GROUPED.includes(type) ? [
+          updateCreate: version === "R4" || GROUPED.includes(type) || CROSS_VERSION.includes(type),
+          interaction: version === "R6" && !GROUPED.includes(type) && !CROSS_VERSION.includes(type) ? [
             { code: "read" }, ...(type === "Encounter" ? [{ code: "search-type" }] : []),
           ] : [
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },

@@ -8,17 +8,6 @@ uses "http://hl7.org/fhir/6.0/StructureDefinition/Observation" alias Observation
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
 
-/* The following target properties were not populated:
-    Observation.triggeredBy BackboneElement[0..*]
-    Observation.triggeredBy.observation Reference[1..1] (Observation)
-    Observation.triggeredBy.type code[1..1]
-    Observation.triggeredBy.reason string[0..1]
-    Observation.statusReason CodeableConcept[0..1]
-    Observation.organizer boolean[0..1]
-    Observation.context CodeableReference[0..*] (Resource)
-    Observation.supportingDevice CodeableReference[0..*] (Device)
-    Observation.referenceRange.normalValue CodeableConcept[0..1]
-*/
 group Observation(source src : ObservationR4, target tgt : ObservationR6) extends DomainResource <<type+>> {
   src.identifier -> tgt.identifier;
   src.basedOn -> tgt.basedOn; // Warning: Source TargetProfile unsupported: ImmunizationRecommendation  (CarePlan,DeviceRequest,ImmunizationRecommendation,MedicationRequest,NutritionOrder,ServiceRequest -> CarePlan,DeviceRequest,MedicationRequest,NutritionOrder,ServiceRequest)
@@ -49,6 +38,39 @@ group Observation(source src : ObservationR4, target tgt : ObservationR6) extend
   src.hasMember -> tgt.hasMember; // Warning: Source TargetProfile unsupported: MolecularSequence  (Observation,QuestionnaireResponse,MolecularSequence -> Observation,QuestionnaireResponse)
   src.derivedFrom -> tgt.derivedFrom; // Warning: Source TargetProfile unsupported: Media,MolecularSequence  (DocumentReference,ImagingStudy,Media,QuestionnaireResponse,Observation,MolecularSequence -> DocumentReference,ImagingStudy,ImagingSelection,QuestionnaireResponse,Observation)
   src.component as s -> tgt.component as t then ObservationComponent(s, t);
+
+  // R6-only elements, written by Observation_6to4. DomainResource keeps these extensions out of the result.
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.statusReason') then {
+    e.value : CodeableConcept as v -> tgt.statusReason as t then CodeableConcept(v, t);
+  };
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.organizer') then {
+    e.value : boolean as v -> tgt.organizer as t then Boolean(v, t);
+  };
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.value') then {
+    e.value : Attachment as v -> tgt.valueAttachment as t then Attachment(v, t);
+  };
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.triggeredBy') -> tgt.triggeredBy as t then ObservationTriggeredBy(e, t);
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.context') -> tgt.context as t then CodeableReferenceValue(e, t);
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.supportingDevice') -> tgt.supportingDevice as t then CodeableReferenceValue(e, t);
+}
+
+
+group ObservationTriggeredBy(source e, target t) {
+  e.extension as i where (url = 'observation') then {
+    i.value : Reference as v -> t.observation as o then Reference(v, o);
+  };
+  e.extension as i where (url = 'type') then {
+    i.value : code as v -> t.type as o then Code(v, o);
+  };
+  e.extension as i where (url = 'reason') then {
+    i.value : string as v -> t.reason as o then String(v, o);
+  };
+}
+
+
+group CodeableReferenceValue(source e, target t) {
+  e.value : CodeableConcept as v -> t.concept as o then CodeableConcept(v, o);
+  e.value : Reference as v -> t.reference as o then Reference(v, o);
 }
 
 
@@ -61,7 +83,14 @@ group ObservationBodySite(source src, target tgt) {
 }
 
 
-group ObservationReferenceRange(source src, target tgt) extends BackboneElement {
+// These two don't extend BackboneElement, which would copy our extensions onto the R6 element.
+group ObservationReferenceRange(source src, target tgt) {
+  src.id -> tgt.id;
+  src.extension where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.').not()) -> tgt.extension;
+  src.modifierExtension -> tgt.modifierExtension;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.referenceRange.normalValue') then {
+    e.value : CodeableConcept as v -> tgt.normalValue as t then CodeableConcept(v, t);
+  };
   src.low -> tgt.low;
   src.high -> tgt.high;
   src.type -> tgt.type;
@@ -71,7 +100,13 @@ group ObservationReferenceRange(source src, target tgt) extends BackboneElement 
 }
 
 
-group ObservationComponent(source src, target tgt) extends BackboneElement {
+group ObservationComponent(source src, target tgt) {
+  src.id -> tgt.id;
+  src.extension where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.').not()) -> tgt.extension;
+  src.modifierExtension -> tgt.modifierExtension;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.component.value') then {
+    e.value : Attachment as v -> tgt.valueAttachment as t then Attachment(v, t);
+  };
   src.code -> tgt.code;
   src.value -> tgt.value;
   src.dataAbsentReason -> tgt.dataAbsentReason;

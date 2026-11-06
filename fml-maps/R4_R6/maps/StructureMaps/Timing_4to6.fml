@@ -12,7 +12,9 @@ imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
     Timing.repeat.startOffset Quantity[0..1]
     Timing.repeat.endOffset Quantity[0..1]
 */
-group Timing(source src : TimingR4, target tgt : TimingR6) extends BackboneElement <<type+>> {
+group Timing(source src : TimingR4, target tgt : TimingR6) extends Element <<type+>> {
+  // Element, not BackboneElement: Timing is a BackboneType in R6, and the engine won't bind the two.
+  src.modifierExtension -> tgt.modifierExtension;
   src.event -> tgt.event;
   src.repeat as s -> tgt.repeat as t then TimingRepeat(s, t);
   src.code -> tgt.code;

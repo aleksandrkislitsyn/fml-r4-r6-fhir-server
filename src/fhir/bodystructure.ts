@@ -66,7 +66,7 @@ function outside(node: any, allowed: Set<string>, path: string): string[] {
 }
 
 /** R4 Attachment.size is an unsignedInt, and the validator doesn't enforce its maximum. */
-const R4_MAX_UNSIGNED_INT = 2_147_483_647;
+export const R4_MAX_UNSIGNED_INT = 2_147_483_647;
 
 function reservedExtensions(node: any, path: string): string[] {
   return (node.extension ?? [])

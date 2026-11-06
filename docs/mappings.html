@@ -402,7 +402,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
       <tr><td>A <code>bodySite</code> with only the extension</td><td>No <code>bodySite</code>, only <code>bodyStructure</code></td></tr>
     </tbody>
   </table></div>
-  <p class="note">The examples below are real server output for <code>test/fixtures/r6/bodystructure-multi.json</code> and one Observation. They are shortened: ids are replaced with <code>abc</code> and <code>o1</code>, <code>meta</code>, <code>coding</code> and fields that don't matter here are left out, and <code>…</code> stands for the start of the extension URL above. Highlights show the values that change.</p>
+  <p class="note">The examples below are real server output for <code>test/fixtures/r6/bodystructure-multi.json</code> and the Observations shown. They are shortened: ids are replaced with names like <code>abc</code> and <code>o1</code>, <code>meta</code>, <code>coding</code> and fields that don't matter here are left out, and <code>…</code> stands for the start of an extension URL. Highlights show the values that change.</p>
 
   <h3>Example: the BodyStructure being referenced</h3>
   <p>One R6 resource with three structures is stored as three R4 rows. An R4 client can reference any row. An R6 client only has <code>abc</code>, because <code>GET /R6/BodyStructure/abc--2</code> returns 404.</p>
@@ -434,6 +434,88 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   <mark>"id": "abc--3"</mark>,
   "location": { "text": "Shoulder" } }</pre></div>
   </div>
+
+  <h3>Example: how the R4 rows reference each other</h3>
+  <p>When an R6 write splits a resource, the server adds an <code>http://example.org/fhir/StructureDefinition/bodystructure-row-group</code> extension to every row, so an R4 client can find the whole group from any row. The primary row lists the others as <code>member</code>, and each of the others points back with <code>primary</code>. <code>position</code> holds the order of <code>includedStructure</code>.</p>
+  <div class="json">
+    <div><span class="cap r4">R4: GET /R4/BodyStructure/abc, the primary row</span>
+<pre class="v4">{
+  "resourceType": "BodyStructure",
+  "id": "abc",
+  "location": { "text": "Forearm" },
+  "extension": [{
+    "url": "…/bodystructure-row-group",
+    "extension": [
+      { "url": "position",
+        "valuePositiveInt": 1 },
+      { "url": "member",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc--2"</mark>
+        } },
+      { "url": "member",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc--3"</mark>
+        } }
+    ]
+  }]
+}</pre></div>
+    <div><span class="cap r4">R4: GET /R4/BodyStructure/abc--2, a member row</span>
+<pre class="v4">{
+  "resourceType": "BodyStructure",
+  "id": "abc--2",
+  "location": { "text": "Upper arm" },
+  "extension": [{
+    "url": "…/bodystructure-row-group",
+    "extension": [
+      { "url": "primary",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc"</mark>
+        } },
+      { "url": "position",
+        "valuePositiveInt": 2 }
+    ]
+  }]
+}</pre></div>
+  </div>
+  <p>Row <code>abc--3</code> looks the same as <code>abc--2</code>, with <code>"location": { "text": "Shoulder" }</code> and position 3. An R4 client starting from <code>abc--3</code> follows <code>primary</code> to <code>abc</code>, then follows each <code>member</code>.</p>
+  <p>The server rewrites these links on every write and replaces anything a client sends, so they always match the group. Removing Forearm through R6 moves Upper arm into <code>abc</code>, and the links become:</p>
+  <div class="json">
+    <div><span class="cap r4">R4: abc after the move</span>
+<pre class="v4">{
+  "resourceType": "BodyStructure",
+  "id": "abc",
+  "location": { "text": "Upper arm" },
+  "extension": [{
+    "url": "…/bodystructure-row-group",
+    "extension": [
+      { "url": "position",
+        "valuePositiveInt": 1 },
+      { "url": "member",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc--3"</mark>
+        } }
+    ]
+  }]
+}</pre></div>
+    <div><span class="cap r4">R4: abc--3 after the move</span>
+<pre class="v4">{
+  "resourceType": "BodyStructure",
+  "id": "abc--3",
+  "location": { "text": "Shoulder" },
+  "extension": [{
+    "url": "…/bodystructure-row-group",
+    "extension": [
+      { "url": "primary",
+        "valueReference": {
+          "reference": "BodyStructure/abc"
+        } },
+      { "url": "position",
+        <mark>"valuePositiveInt": 2</mark> }
+    ]
+  }]
+}</pre></div>
+  </div>
+  <p>A group of one row has no extension, so a plain R4 resource stays plain. Removing <code>abc--3</code> through R4 here would leave <code>abc</code> with no <code>bodystructure-row-group</code> at all. R6 never shows these links: it returns one resource, with <code>includedStructure.id</code> in their place.</p>
 
   <h3>Example: an Observation that references one row</h3>
   <p>The R4 client writes the reference as the <code>bodySite</code> extension, here to the upper arm row. R4 returns it as stored. R6 moves it to <code>bodyStructure</code>, changes it to the whole resource, and removes the extension from <code>bodySite</code>.</p>
@@ -574,6 +656,122 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   }]
 }</pre></div>
   </div>
+
+  <h3>The other direction: an Observation written through R6</h3>
+  <p>The examples so far start in R4. An R6 client writes <code>bodyStructure</code> instead, and the server stores each reference as a <code>bodySite</code> extension, because R4 storage has nowhere else to put it. <code>bodySite</code> holds one value in R4, so two references means two extensions on the same element, next to the text.</p>
+  <div class="json">
+    <div><span class="cap r6">R6: POST /R6/Observation</span>
+<pre class="v6">{
+  "resourceType": "Observation",
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "valueQuantity": { "value": 33.2, "unit": "Cel" },
+  "bodySite": { "text": "Upper arm" },
+  "bodyStructure": [
+    { "reference": {
+        <mark>"reference": "BodyStructure/abc"</mark> } },
+    { "reference": {
+        <mark>"reference": "BodyStructure/def"</mark> } }
+  ]
+}</pre></div>
+    <div><span class="cap r4">R4: stored, GET /R4/Observation/o2</span>
+<pre class="v4">{
+  "resourceType": "Observation",
+  "id": "o2",
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "valueQuantity": { "value": 33.2, "unit": "Cel" },
+  "bodySite": {
+    "text": "Upper arm",
+    "extension": [{
+      "url": "…/StructureDefinition/bodySite",
+      "valueReference": {
+        <mark>"reference": "BodyStructure/abc"</mark>
+      }
+    }, {
+      "url": "…/StructureDefinition/bodySite",
+      "valueReference": {
+        <mark>"reference": "BodyStructure/def"</mark>
+      }
+    }]
+  }
+}</pre></div>
+  </div>
+  <p>Reading it back through R6 returns what was sent, plus <code>id</code> and <code>meta</code>.</p>
+
+  <h3>Following a reference written through R6</h3>
+  <p>The stored reference is the same in both versions, <code>BodyStructure/abc</code>, but it returns different amounts of data. R6 returns every structure. R4 returns the primary row, and the client follows its <code>member</code> links for the rest.</p>
+  <div class="json">
+    <div><span class="cap r6">R6: GET /R6/BodyStructure/abc</span>
+<pre class="v6">{
+  "resourceType": "BodyStructure",
+  "id": "abc",
+  "includedStructure": [
+    { "id": "1",
+      "structure": { "text": "Forearm" } },
+    { "id": "2",
+      "structure": { "text": "Upper arm" } },
+    { "id": "3",
+      "structure": { "text": "Shoulder" } }
+  ]
+}</pre></div>
+    <div><span class="cap r4">R4: GET /R4/BodyStructure/abc</span>
+<pre class="v4">{
+  "resourceType": "BodyStructure",
+  "id": "abc",
+  "location": { "text": "Forearm" },
+  "extension": [{
+    "url": "…/bodystructure-row-group",
+    "extension": [
+      { "url": "position",
+        "valuePositiveInt": 1 },
+      { "url": "member",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc--2"</mark>
+        } },
+      { "url": "member",
+        "valueReference": {
+          <mark>"reference": "BodyStructure/abc--3"</mark>
+        } }
+    ]
+  }]
+}</pre></div>
+  </div>
+
+  <h3>An R6 update doesn't widen a row reference</h3>
+  <p>R6 can only reference the whole resource, so an R6 write on its own always stores <code>abc</code>. If R4 already stored a row reference, an R6 client sees <code>abc</code> and sends <code>abc</code> back. The server keeps the stored row reference, so an edit through R6 doesn't lose which structure was meant.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Step</th><th>Request</th><th>Stored in <span class="r4">R4</span> afterwards</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>POST /R4/Observation</code> referencing <code>BodyStructure/abc--2</code></td><td><code>BodyStructure/abc--2</code>, version 1</td></tr>
+      <tr><td>2</td><td><code>GET /R6/Observation/o3</code></td><td>No change. R6 shows <code>BodyStructure/abc</code></td></tr>
+      <tr><td>3</td><td><code>PUT /R6/Observation/o3</code> with <code>BodyStructure/abc</code> and <code>"status": "amended"</code></td><td><code>BodyStructure/abc--2</code>, version 2, status <code>amended</code></td></tr>
+      <tr><td>4</td><td><code>PUT /R6/Observation/o3</code> without <code>bodyStructure</code></td><td>No reference, version 3. <code>bodySite</code> keeps its text</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>What R6 can't write</h3>
+  <p>A row id doesn't exist in R6, and R4 has no place for a <code>concept</code> in <code>bodyStructure</code>. Both return 422 with nothing stored.</p>
+  <div class="json">
+    <div><span class="cap r6">R6: a row id</span>
+<pre class="v6">"bodyStructure": [{
+  "reference": {
+    <mark>"reference": "BodyStructure/abc--2"</mark>
+  }
+}]</pre>
+<span class="cap">Response: 422</span>
+<pre>"diagnostics": "Not supported across FHIR versions
+  yet: Observation.bodyStructure[0]
+  .reference.reference"</pre></div>
+    <div><span class="cap r6">R6: a concept</span>
+<pre class="v6">"bodyStructure": [{
+  <mark>"concept": { "text": "Left arm" }</mark>
+}]</pre>
+<span class="cap">Response: 422</span>
+<pre>"diagnostics": "Not supported across FHIR versions
+  yet: Observation.bodyStructure"</pre></div>
+  </div>
+
   <h3>Limits</h3>
   <ul>
     <li>R6 can't tell which structure an R4 reference meant. It only shows the whole resource.</li>
@@ -582,14 +780,77 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <li>References held outside this server, or as absolute URLs, aren't rewritten when a structure moves.</li>
     <li>An Observation PUT sent without <code>If-Match</code> by a client holding an older copy can put the old row reference back. With <code>If-Match</code> it gets a 412.</li>
     <li>Only <code>Observation.bodySite</code> is mapped. The same extension elsewhere on an Observation is copied to R6 unchanged, including any row id.</li>
-    <li>Observation is read-only through R6, so an R6 client can't write <code>bodyStructure</code>.</li>
+    <li><code>bodyStructure.concept</code> returns 422. Storing it apart from the references couldn't keep the order of a mixed list.</li>
+    <li>Keeping a row reference reads the stored Observation outside the write transaction, so a concurrent R6 PUT without <code>If-Match</code> can use a stale copy.</li>
   </ul>
   <h3>Adding another type</h3>
   <ol>
     <li>Add the type to <code>STORED_RESOURCE_TYPES</code> and to <code>BODY_SITE_REFERRERS</code> in <code>src/db/repository.ts</code>.</li>
     <li>In its 4→6 map, consume the extension and call the shared <code>BodySiteReference</code> group, as <code>Observation_4to6.fml</code> does. R4 <code>Condition</code>, <code>Procedure</code> and <code>ServiceRequest</code> have a repeating <code>bodySite</code>, and <code>Specimen</code> and <code>ImagingStudy</code> nest theirs, so the rewrite and the checks, which read a single <code>bodySite</code> at the root, need extending for them.</li>
-    <li>Call <code>checkBodySiteReferences</code> for the type in <code>src/http/server.ts</code>.</li>
+    <li>Call <code>bodySiteReferenceProblem</code> on its writes, as <code>src/http/observation.ts</code> does.</li>
   </ol>
+</section>
+
+<section>
+  <h2>Observation: writable through both versions</h2>
+  <p>One R6 Observation is one R4 row, so there is no grouping. Every write, from either version, must be valid in both, and anything that wouldn't survive the conversion returns 422 rather than being lost. The code is in <code>src/http/observation.ts</code> and <code>src/fhir/observation.ts</code>, the map back is <code>Observation_6to4.fml</code>, and the tests are in <code>test/observation-crud.test.ts</code>.</p>
+  <h3>Elements only R6 has</h3>
+  <p>These are stored as R4 extensions and restored on R6 read, where no extension is left behind. Each URL starts with <code>http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation</code>. <code>bodyStructure</code> is described in the section above.</p>
+  <div class="tw"><table>
+    <thead><tr><th><span class="r6">R6</span> element</th><th><span class="r4">R4</span> extension, URL ending</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td><code>statusReason</code></td><td><code>.statusReason</code></td><td><code>valueCodeableConcept</code></td></tr>
+      <tr><td><code>organizer</code></td><td><code>.organizer</code></td><td><code>valueBoolean</code></td></tr>
+      <tr><td><code>triggeredBy</code></td><td><code>.triggeredBy</code></td><td>Nested <code>observation</code>, <code>type</code> and <code>reason</code></td></tr>
+      <tr><td><code>context</code></td><td><code>.context</code></td><td><code>valueReference</code> or <code>valueCodeableConcept</code></td></tr>
+      <tr><td><code>supportingDevice</code></td><td><code>.supportingDevice</code></td><td><code>valueReference</code> or <code>valueCodeableConcept</code></td></tr>
+      <tr><td><code>referenceRange.normalValue</code></td><td><code>.referenceRange.normalValue</code>, on that range</td><td><code>valueCodeableConcept</code></td></tr>
+      <tr><td><code>valueAttachment</code></td><td><code>.value</code></td><td><code>valueAttachment</code></td></tr>
+      <tr><td><code>component.valueAttachment</code></td><td><code>.component.value</code>, on that component</td><td><code>valueAttachment</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="json">
+    <div><span class="cap r6">R6: request</span>
+<pre class="v6">{
+  "resourceType": "Observation",
+  "status": "final",
+  "code": { "text": "x" },
+  <mark>"statusReason": { "text": "Sensor replaced" }</mark>,
+  "referenceRange": [{
+    "text": "Normal",
+    <mark>"normalValue": { "text": "Normal" }</mark>
+  }]
+}</pre></div>
+    <div><span class="cap r4">R4: stored</span>
+<pre class="v4">{
+  "resourceType": "Observation",
+  "status": "final",
+  "code": { "text": "x" },
+  "extension": [{
+    "url": "…extension-Observation.statusReason",
+    <mark>"valueCodeableConcept":
+      { "text": "Sensor replaced" }</mark>
+  }],
+  "referenceRange": [{
+    "text": "Normal",
+    "extension": [{
+      "url": "…extension-Observation
+              .referenceRange.normalValue",
+      <mark>"valueCodeableConcept": { "text": "Normal" }</mark>
+    }]
+  }]
+}</pre></div>
+  </div>
+  <h3>An R4 update that leaves out our extensions</h3>
+  <p>It works like BodyStructure. No <code>extension</code> array means the client dropped what it doesn't understand, so ours come back, on the resource, on <code>bodySite</code>, and on <code>referenceRange</code> and <code>component</code> items that are otherwise unchanged. An array states the client's intent, and <code>X-Replace-Extensions: true</code> removes them. Leaving out <code>bodySite</code> altogether removes it and its references.</p>
+  <h3>Limits</h3>
+  <ul>
+    <li><code>contained</code> returns 422 through both versions, because the engine can't copy a resource across versions. R4 writes accepted it before R6 writes existed.</li>
+    <li><code>modifierExtension</code> and <code>implicitRules</code> return 422 through both versions, because they can change what a resource means and the server can't interpret them.</li>
+    <li>Extensions on primitive values (<code>_status</code>) and <code>Timing.repeat</code> return 422 from the validator through both versions, before any mapping runs. This isn't specific to Observation.</li>
+    <li>A <code>valueSampledData</code> interval must be in milliseconds, because R4 <code>period</code> is. Other units return 422.</li>
+    <li>Reference targets aren't checked against the version. R6 <code>subject: Organization/1</code> is stored even though R4 doesn't allow that target, and R4 <code>derivedFrom: Media/1</code> is returned through R6 even though R6 has no Media.</li>
+  </ul>
 </section>
 
 <section>
