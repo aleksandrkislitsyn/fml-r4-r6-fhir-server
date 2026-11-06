@@ -1,35 +1,44 @@
 /// url = 'http://hl7.org/fhir/uv/xver/StructureMap/BodyStructure4to6'
 /// name = 'BodyStructure4to6'
-/// title = 'BodyStructure Transforms: R4 to R6'
+/// title = 'BodyStructure Transforms: R4 to R6 (one or more linked R4 rows into one R6 resource)'
 /// status = 'draft'
 
-uses "http://hl7.org/fhir/4.0/StructureDefinition/BodyStructure" alias BodyStructureR4 as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as source
 uses "http://hl7.org/fhir/6.0/StructureDefinition/BodyStructure" alias BodyStructureR6 as target
 
-imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
+// The input is a Bundle of R4 rows belonging to one group, primary row first. A row that
+// was created alone through /R4 is simply a group of one. Id and meta are set in
+// src/fhir/convert.ts. Rewritten by hand from the generated map, which could not fill a
+// single includedStructure per row or run on fhir-structuremap-js (see src/fhir/fml.ts).
+group BodyStructureMerge(source rows : Bundle, target tgt : BodyStructureR6) {
+  rows.entry first as e then {
+    e.resource as r then BodyStructureShared(r, tgt) "shared";
+  } "primary";
+  rows.entry as e then {
+    e.resource as r -> tgt.includedStructure = create('BodyStructure.includedStructure') as inc then BodyStructureIncluded(r, inc) "included";
+  } "each";
+}
 
-/* The following target properties were not populated:
-    BodyStructure.includedStructure BackboneElement[1..*]
-    BodyStructure.includedStructure.laterality CodeableConcept[0..1]
-    BodyStructure.includedStructure.bodyLandmarkOrientation BackboneElement[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.landmarkDescription CodeableConcept[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.clockFacePosition CodeableConcept[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark BackboneElement[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.device CodeableReference[0..*] (Device)
-    BodyStructure.includedStructure.bodyLandmarkOrientation.distanceFromLandmark.value Quantity[0..*]
-    BodyStructure.includedStructure.bodyLandmarkOrientation.surfaceOrientation CodeableConcept[0..*]
-    BodyStructure.includedStructure.spatialReference Reference[0..*] (ImagingSelection)
-    BodyStructure.includedStructure.image Attachment[0..*]
-    BodyStructure.includedStructure.origin CodeableConcept[0..*]
-    BodyStructure.excludedStructure [0..*]
-*/
-group BodyStructure(source src : BodyStructureR4, target tgt : BodyStructureR6) extends DomainResource <<type+>> {
-  src.identifier -> tgt.identifier;
-  src.active -> tgt.active;
-  src.morphology -> tgt.includedStructure.morphology; // renamed
-  src.location /* [0..1] */ -> tgt.includedStructure.structure /* [1..1] */; // renamed // Warning: source optional, target mandatory
-  src.locationQualifier -> tgt.includedStructure.qualifier; // renamed
-  src.description -> tgt.description;
-  src.image -> tgt.image;
-  src.patient -> tgt.patient;
+group BodyStructureShared(source r, target tgt) {
+  r -> tgt.resourceType = 'BodyStructure' "resourceType";
+  r.language as v -> tgt.language = v "language";
+  r.text as v -> tgt.text = v "text";
+  r.identifier as v -> tgt.identifier = v "identifier";
+  r.active as v -> tgt.active = v "active";
+  r.description as v -> tgt.description = v "description";
+  r.image as v -> tgt.image = v "image";
+  r.patient as v -> tgt.patient = v "patient";
+}
+
+group BodyStructureIncluded(source r, target inc) {
+  r.location as v -> inc.structure = v "structure";
+  r.morphology as v -> inc.morphology = v "morphology";
+  r.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology') -> inc.morphology = evaluate(e, valueCodeableConcept) "morphologyExtra";
+  r.locationQualifier as q where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality').exists()) -> inc.laterality = create('CodeableConcept') as lat then UnmarkLaterality(q, lat) "laterality";
+  r.locationQualifier as q where (extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality').exists().not()) -> inc.qualifier = q "qualifier";
+}
+
+group UnmarkLaterality(source q, target lat) {
+  q.coding as c -> lat.coding = c "coding";
+  q.text as t -> lat.text = t "text";
 }

@@ -1,0 +1,49 @@
+/// url = 'http://example.org/fhir/StructureMap/BodyStructure6to4'
+/// name = 'BodyStructure6to4'
+/// title = 'BodyStructure Transforms: R6 to R4 (one R4 row per includedStructure)'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/BodyStructure" alias BodyStructureR6 as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+
+// R6 includedStructure is 1..*, but R4 location and morphology are 0..1, so each
+// structure becomes its own R4 BodyStructure. HL7 does not define this split; it is
+// this project's design. Row ids and meta are assigned in src/fhir/convert.ts.
+//
+// Style required by fhir-structuremap-js (see src/fhir/fml.ts): copy with
+// "as v -> tgt.x = v", and add to a repeating element with "= create(...)".
+group BodyStructureSplit(source src : BodyStructureR6, target bundle : Bundle) {
+  src -> bundle.type = 'collection' "type";
+  src.includedStructure as inc -> bundle.entry = create('BackboneElement') as e, e.resource = create('BodyStructure') as out then BodyStructureRow(src, inc, out) "entry";
+}
+
+group BodyStructureRow(source src, source inc, target out) {
+  src -> out.resourceType = 'BodyStructure' "resourceType";
+
+  // Shared fields: copied to every row (kept in sync by src/fhir/bodystructure.ts).
+  src.language as v -> out.language = v "language";
+  src.text as v -> out.text = v "text";
+  src.identifier as v -> out.identifier = v "identifier";
+  src.active as v -> out.active = v "active";
+  src.description as v -> out.description = v "description";
+  src.image as v -> out.image = v "image";
+  src.patient as v -> out.patient = v "patient";
+
+  // Per-row fields.
+  inc.structure as v -> out.location = v "location";
+  inc.morphology first as v -> out.morphology = v "morphology";
+
+  // R4 morphology holds one value: the rest are kept in an extension.
+  inc.morphology not_first as v -> out.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.morphology', x.valueCodeableConcept = v "morphologyExtra";
+
+  // laterality and qualifier both land in locationQualifier. A marker on the laterality
+  // item lets the read path put it back, and it disappears if an R4 client removes the item.
+  inc.qualifier as v -> out.locationQualifier = v "qualifier";
+  inc.laterality as v -> out.locationQualifier = create('CodeableConcept') as q then MarkLaterality(v, q) "laterality";
+}
+
+group MarkLaterality(source v, target q) {
+  v.coding as c -> q.coding = c "coding";
+  v.text as t -> q.text = t "text";
+  v -> q.extension = create('Extension') as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-BodyStructure.includedStructure.laterality', x.valueBoolean = true "marker";
+}
