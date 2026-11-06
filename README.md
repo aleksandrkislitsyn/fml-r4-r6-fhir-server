@@ -9,7 +9,8 @@ A sample FHIR server on Bun and PostgreSQL 18. It serves two FHIR versions, `/R4
 - [x] One table per resource type, plus a history table
 - [ ] FML conversion for `/R6` in `src/fhir/convert.ts`: R4 → R6 on read (maps in `fml-maps/R4_R6`), R6 → R4 on write (maps still needed)
 - [ ] `/R6` endpoints. They return `501` for now
-- [ ] Search, history interactions, more resource types
+- [x] R4 Encounter CRUD and native `class` token search
+- [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
 
@@ -28,6 +29,21 @@ curl -X POST localhost:8080/R4/Patient -H 'content-type: application/fhir+json' 
   -d '{"resourceType":"Patient","name":[{"family":"Doe","given":["Jane"]}],"gender":"female"}'
 curl localhost:8080/R4/Patient/<id>
 ```
+
+### Encounter class search (R4)
+
+```sh
+curl -G localhost:8080/R4/Encounter \
+  --data-urlencode 'class=http://terminology.hl7.org/CodeSystem/v3-ActCode|AMB'
+```
+
+Returns a `Bundle` of type `searchset`. Searches the native R4 `Encounter.class`
+Coding only; `xver/encounter-class` extensions do not match this R4 parameter.
+Supports one token: `code`, `system|code`, `|code` (no system), or `system|`
+(any code in that system). Without parameters, returns all current Encounters.
+This initial implementation has no pagination. Repeated parameters, comma lists,
+escaped tokens, modifiers, and other search parameters return `400` with an
+`OperationOutcome`. R6 search is not implemented.
 
 ## Layout
 

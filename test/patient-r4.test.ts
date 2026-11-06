@@ -143,4 +143,76 @@ describe("R4 Encounter", () => {
     expect(response.status).toBe(422);
     expect(((await response.json()) as any).resourceType).toBe("OperationOutcome");
   });
+
+  test("class search matches native Coding, respects system, and excludes extensions and deleted resources", async () => {
+    const system = `https://example.org/class/${crypto.randomUUID()}`;
+    const fixtures = [
+      { ...encounter, class: { system, code: "AMB" } },
+      { ...encounter, class: { system: `${system}/other`, code: "AMB" } },
+      {
+        ...encounter,
+        class: { system, code: "VR" },
+        extension: [{ url: "xver/encounter-class", valueCodeableConcept: { coding: [{ system, code: "AMB" }] } }],
+      },
+      { resourceType: "Encounter", status: "in-progress", class: { code: `no-system-${crypto.randomUUID()}` } },
+    ];
+    const ids: string[] = [];
+    const search = async (value: string) => {
+      const response = await send("GET", `/Encounter?${new URLSearchParams({ class: value })}`);
+      expect(response.status).toBe(200);
+      return (await response.json()) as any;
+    };
+    const matches = (bundle: any) => bundle.entry.map((e: any) => e.resource.id);
+    try {
+      for (const fixture of fixtures) {
+        const response = await send("POST", "/Encounter", fixture);
+        expect(response.status).toBe(201);
+        ids.push(((await response.json()) as any).id);
+      }
+      const exact = await search(`${system}|AMB`);
+      expect(exact.resourceType).toBe("Bundle");
+      expect(exact.type).toBe("searchset");
+      expect(exact.total).toBe(1);
+      expect(matches(exact)).toEqual([ids[0]]);
+      expect(exact.entry[0].fullUrl).toBe(`${base}/Encounter/${ids[0]}`);
+      expect(exact.entry[0].search.mode).toBe("match");
+      expect(new URL(exact.link[0].url).searchParams.get("class")).toBe(`${system}|AMB`);
+
+      const codeOnly = matches(await search("AMB"));
+      expect(codeOnly).toContain(ids[0]);
+      expect(codeOnly).toContain(ids[1]);
+      expect(codeOnly).not.toContain(ids[2]);
+      expect(matches(await search(`${system}|`)).sort()).toEqual([ids[0]!, ids[2]!].sort());
+      expect(matches(await search(`|${fixtures[3]!.class.code}`))).toEqual([ids[3]]);
+
+      expect((await send("DELETE", `/Encounter/${ids[0]}`)).status).toBe(204);
+      const empty = await search(`${system}|AMB`);
+      expect(empty.total).toBe(0);
+      expect(empty.entry).toEqual([]);
+
+      const list = await send("GET", "/Encounter");
+      expect(list.status).toBe(200);
+      expect(matches(await list.json())).toContain(ids[2]);
+    } finally {
+      for (const id of ids) await send("DELETE", `/Encounter/${id}`);
+    }
+  });
+
+  test("unsupported and malformed class queries return OperationOutcome", async () => {
+    for (const query of ["class=", "class=%7C", "class=a%7Cb%7Cc", "class=AMB,VR", "class=AMB&class=VR", "class:text=ambulatory", "status=in-progress"]) {
+      const response = await send("GET", `/Encounter?${query}`);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as any).resourceType).toBe("OperationOutcome");
+    }
+  });
+
+  test("metadata advertises Encounter class search only", async () => {
+    const response = await send("GET", "/metadata");
+    const metadata = (await response.json()) as any;
+    const resources = metadata.rest[0].resource;
+    const advertised = resources.find((r: any) => r.type === "Encounter");
+    expect(advertised.interaction).toContainEqual({ code: "search-type" });
+    expect(advertised.searchParam).toContainEqual(expect.objectContaining({ name: "class", type: "token" }));
+    expect(resources.find((r: any) => r.type === "Patient").interaction).not.toContainEqual({ code: "search-type" });
+  });
 });

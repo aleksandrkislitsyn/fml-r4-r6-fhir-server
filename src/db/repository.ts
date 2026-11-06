@@ -34,6 +34,23 @@ export async function read(type: StoredResourceType, id: string): Promise<ReadRe
   return hist ? { status: "deleted", versionId: hist.version_id } : { status: "not-found" };
 }
 
+export interface ClassToken {
+  system?: string;
+  code?: string;
+}
+
+/** Search only the native R4 Coding; cross-version extensions are not R4 class values. */
+export async function searchEncounterClass(token: ClassToken = {}): Promise<StoredResource[]> {
+  const rows = await sql.unsafe(
+    `SELECT resource FROM encounter
+     WHERE ($1::text IS NULL OR COALESCE(resource #>> '{class,system}', '') = $1)
+       AND ($2::text IS NULL OR resource #>> '{class,code}' = $2)
+     ORDER BY id`,
+    [token.system ?? null, token.code ?? null],
+  );
+  return rows.map((row: { resource: StoredResource }) => row.resource);
+}
+
 /**
  * Create-or-update with a client-chosen id.
  * `ifMatch` is the expected current versionId (from an If-Match header), if any.

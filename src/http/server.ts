@@ -70,6 +70,9 @@ export function createHandler({ validators }: ServerDeps) {
     try {
       if (id === undefined) {
         if (req.method === "POST") return await createResource(req, type, version, base, validator);
+        if (req.method === "GET" && type === "Encounter" && version === "R4") {
+          return await searchEncounters(url, base);
+        }
         return error(405, `${req.method} not allowed on /${type}`, "not-supported");
       }
       switch (req.method) {
@@ -89,6 +92,42 @@ export function createHandler({ validators }: ServerDeps) {
       return error(500, "Internal server error", "exception");
     }
   };
+}
+
+async function searchEncounters(url: URL, base: string): Promise<Response> {
+  for (const key of url.searchParams.keys()) {
+    if (key !== "class") return error(400, `Unsupported search parameter: ${key}`, "not-supported");
+  }
+  const values = url.searchParams.getAll("class");
+  if (values.length > 1) return error(400, "Repeated class parameters are not supported", "not-supported");
+  const token: repo.ClassToken = {};
+  if (values.length) {
+    const value = values[0]!;
+    if (/[,\\$]/.test(value)) {
+      return error(400, "Comma lists and escaped token values are not supported", "not-supported");
+    }
+    const parts = value.split("|");
+    if (!value || parts.length > 2 || (parts.length === 2 && !parts[0] && !parts[1])) {
+      return error(400, "Expected class=code, system|code, |code, or system|");
+    }
+    if (parts.length === 1) token.code = value;
+    else {
+      token.system = parts[0]!;
+      if (parts[1]) token.code = parts[1];
+    }
+  }
+  const resources = await repo.searchEncounterClass(token);
+  return json({
+    resourceType: "Bundle",
+    type: "searchset",
+    total: resources.length,
+    link: [{ relation: "self", url: url.href }],
+    entry: resources.map((resource) => ({
+      fullUrl: `${base}/Encounter/${resource.id}`,
+      resource,
+      search: { mode: "match" },
+    })),
+  });
 }
 
 function checkBody(body: any, type: StoredResourceType, validator: Validator): Response | null {
@@ -165,7 +204,18 @@ function capabilityStatement(version: FhirVersion) {
           type,
           versioning: "versioned",
           updateCreate: true,
-          interaction: [{ code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" }],
+          interaction: [
+            { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
+            ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
+          ],
+          ...(type === "Encounter" && version === "R4" ? {
+            searchParam: [{
+              name: "class",
+              definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
+              type: "token",
+              documentation: "Native R4 class only. Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.",
+            }],
+          } : {}),
         })),
       },
     ],
