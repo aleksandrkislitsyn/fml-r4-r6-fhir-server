@@ -73,7 +73,10 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
       if (!schema || schema.kind !== "resource") {
         return outcome(`Unknown resourceType: ${JSON.stringify(type)}`);
       }
-      return validate(resource as any, schema, schemas).outcome as OperationOutcome;
+      const shadowIssues: Issue[] = [];
+      const plain = withoutPrimitiveElements(resource, type, shadowIssues);
+      const result = validate(plain as any, schema, schemas).outcome as OperationOutcome;
+      return shadowIssues.length > 0 ? { ...result, issue: [...(result.issue ?? []), ...shadowIssues] } : result;
     },
   };
 }
@@ -122,4 +125,42 @@ function mergeSchema(base: any, overlay: any): any {
     out.elements = elements;
   }
   return out;
+}
+
+type Issue = NonNullable<OperationOutcome["issue"]>[number];
+
+/**
+ * FHIR JSON keeps a primitive's id and extensions in a sibling `_<name>` property (an array for
+ * repeating primitives), for example `_status` next to `status`. The schema validator doesn't
+ * know that form and would report it as an extra field, so it is checked here, shallowly, and
+ * left out of schema validation.
+ */
+function withoutPrimitiveElements(node: unknown, path: string, issues: Issue[]): unknown {
+  if (Array.isArray(node)) return node.map((item, i) => withoutPrimitiveElements(item, `${path}[${i}]`, issues));
+  if (!node || typeof node !== "object") return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key.length > 1 && key.startsWith("_")) checkPrimitiveElement(value, `${path}.${key}`, issues);
+    else out[key] = withoutPrimitiveElements(value, `${path}.${key}`, issues);
+  }
+  return out;
+}
+
+function checkPrimitiveElement(value: unknown, path: string, issues: Issue[]): void {
+  const problem = (at: string, text: string) =>
+    issues.push({ severity: "error", code: "invalid", details: { text: `${text}: ${at}` }, expression: [at] } as Issue);
+  const items = Array.isArray(value) ? value : [value];
+  items.forEach((item, i) => {
+    const at = Array.isArray(value) ? `${path}[${i}]` : path;
+    if (item === null && Array.isArray(value)) return; // a repeating primitive without id or extensions at this position
+    if (!item || typeof item !== "object" || Array.isArray(item)) return problem(at, "Expected an object with id or extension");
+    for (const key of Object.keys(item)) {
+      if (key !== "id" && key !== "extension") problem(`${at}.${key}`, "Extra field detected");
+    }
+    const extensions = (item as any).extension;
+    if (extensions !== undefined && !Array.isArray(extensions)) return problem(`${at}.extension`, "Expected an array");
+    (extensions ?? []).forEach((extension: any, j: number) => {
+      if (typeof extension?.url !== "string") problem(`${at}.extension[${j}].url`, "Field is required");
+    });
+  });
 }

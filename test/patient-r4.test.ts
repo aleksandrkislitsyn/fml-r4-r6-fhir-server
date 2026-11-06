@@ -98,6 +98,25 @@ describe("R4 Patient CRUD", () => {
     expect(oo.issue.length).toBeGreaterThan(0);
   });
 
+  test("primitive extensions (_element) are accepted, malformed ones rejected", async () => {
+    const withExtension = {
+      ...patient,
+      _birthDate: { extension: [{ url: "http://hl7.org/fhir/StructureDefinition/patient-birthTime", valueDateTime: "1990-04-01T08:30:00Z" }] },
+      name: [{ family: "Doe", given: ["Jane", "Ann"], _given: [null, { extension: [{ url: "http://example.org/given-kind", valueString: "middle" }] }] }],
+    };
+    const created = await send("POST", "/Patient", withExtension);
+    expect(created.status).toBe(201);
+    const stored = (await created.json()) as any;
+    expect(stored._birthDate).toEqual(withExtension._birthDate);
+    expect(stored.name[0]._given).toEqual(withExtension.name[0]!._given);
+    await send("DELETE", `/Patient/${stored.id}`);
+
+    const malformed = await send("POST", "/Patient", { ...patient, _birthDate: { foo: 1, extension: [{ valueString: "no url" }] } });
+    expect(malformed.status).toBe(422);
+    const oo = (await malformed.json()) as any;
+    expect(oo.issue.map((i: any) => i.expression[0])).toEqual(["Patient._birthDate.foo", "Patient._birthDate.extension[0].url"]);
+  });
+
   test("wrong resourceType → 400", async () => {
     expect((await send("POST", "/Patient", { resourceType: "Observation" })).status).toBe(400);
   });
