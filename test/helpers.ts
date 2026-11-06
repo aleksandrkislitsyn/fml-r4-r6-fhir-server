@@ -42,3 +42,21 @@ export function sansMeta<T extends Record<string, unknown>>(resource: T) {
   const { meta: _meta, ...rest } = resource;
   return rest;
 }
+
+/** A resource without `meta` or the server-assigned `includedStructure.id`, for comparing with a request. */
+export function asRequest(resource: any) {
+  const { meta: _meta, ...rest } = resource;
+  return {
+    ...rest,
+    includedStructure: rest.includedStructure.map(({ id: _id, ...structure }: any) => structure),
+  };
+}
+
+/** Element-order-independent comparison value. */
+export function canonical(value: any): any {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((k) => [k, canonical(value[k])]));
+  }
+  return value;
+}

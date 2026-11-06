@@ -1,0 +1,48 @@
+{
+  "resourceType": "BodyStructure",
+  "identifier": [{ "system": "http://goodhealth.org/bodystructure/identifiers", "value": "full-1" }],
+  "active": true,
+  "includedStructure": [
+    {
+      "structure": { "coding": [{ "system": "http://snomed.info/sct", "code": "14975008", "display": "Forearm" }], "text": "Forearm" },
+      "laterality": { "coding": [{ "system": "http://snomed.info/sct", "code": "419161000", "display": "Unilateral left" }], "text": "Left" },
+      "bodyLandmarkOrientation": [
+        {
+          "landmarkDescription": [{ "text": "heart tattoo" }],
+          "clockFacePosition": [{ "text": "3 o'clock" }],
+          "distanceFromLandmark": [
+            {
+              "device": [{ "concept": { "text": "ruler" } }, { "reference": { "reference": "Device/ruler-1" } }],
+              "value": [{ "value": 2.5, "unit": "cm", "system": "http://unitsofmeasure.org", "code": "cm" }]
+            }
+          ],
+          "surfaceOrientation": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "46053002", "display": "distal" }] }]
+        }
+      ],
+      "spatialReference": [{ "reference": "ImagingSelection/selection-1" }],
+      "image": [
+        { "contentType": "image/jpeg", "url": "http://imaging.acme.com/forearm.jpg", "size": "1234", "title": "Forearm", "height": 480, "width": 640, "frames": 1, "duration": 0.5, "pages": 1 }
+      ],
+      "qualifier": [{ "text": "Volar" }],
+      "morphology": [{ "text": "Basal cell carcinoma" }, { "text": "Nevus sebaceus" }],
+      "origin": [{ "text": "Primary site" }]
+    },
+    {
+      "structure": { "text": "Upper arm" },
+      "origin": [{ "text": "Spread" }]
+    }
+  ],
+  "excludedStructure": [
+    {
+      "structure": { "text": "Elbow" },
+      "laterality": { "text": "Left" },
+      "qualifier": [{ "text": "Dorsal" }],
+      "morphology": [{ "text": "No lesion" }, { "text": "Normal skin" }],
+      "bodyLandmarkOrientation": [{ "landmarkDescription": [{ "text": "elbow crease" }] }],
+      "origin": [{ "text": "Checked" }]
+    }
+  ],
+  "description": "Every BodyStructure element, to prove nothing is lost",
+  "image": [{ "contentType": "image/png", "url": "http://imaging.acme.com/overview.png", "size": "99", "height": 100 }],
+  "patient": { "reference": "Patient/example" }
+}

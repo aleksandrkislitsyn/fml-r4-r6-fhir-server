@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { hasErrors } from "../src/fhir/validator.ts";
-import { fixture, sansMeta, startServer, type TestServer } from "./helpers.ts";
+import { asRequest, fixture, startServer, type TestServer } from "./helpers.ts";
 
 let s: TestServer;
 beforeAll(async () => {
@@ -11,7 +11,7 @@ afterAll(() => s.stop());
 const structures = (r: any) => r.includedStructure.map((i: any) => i.structure.text);
 
 describe("R6 BodyStructure stored as R4", () => {
-  for (const name of ["tumor", "fetus"]) {
+  for (const name of ["tumor", "fetus", "skin-patch"]) {
     test(`single structure: ${name} is one R4 row and reads back the same`, async () => {
       const { id: _ignored, ...input } = await fixture(name);
       const res = await s.send("POST", "/R6/BodyStructure", input);
@@ -24,7 +24,7 @@ describe("R6 BodyStructure stored as R4", () => {
 
       const read = await s.send("GET", `/R6/BodyStructure/${created.id}`);
       const body: any = await read.json();
-      expect(sansMeta(body)).toEqual({ ...input, id: created.id });
+      expect(asRequest(body)).toEqual({ ...input, id: created.id });
       expect(hasErrors(s.validators.R6.validate(body))).toBe(false);
     });
   }
@@ -41,7 +41,7 @@ describe("R6 BodyStructure stored as R4", () => {
     expect(rows.map((r: any) => r.location.text)).toEqual(["Forearm", "Upper arm", "Shoulder"]);
     for (const row of rows) expect(hasErrors(s.validators.R4.validate(row))).toBe(false);
 
-    expect(sansMeta(created)).toEqual({ ...input, id });
+    expect(asRequest(created)).toEqual({ ...input, id });
     expect(structures(created)).toEqual(["Forearm", "Upper arm", "Shoulder"]);
   });
 
@@ -67,13 +67,26 @@ describe("R6 BodyStructure stored as R4", () => {
     expect(await s.rows(id)).toEqual([]);
   });
 
-  test("unsupported element: 422 naming it, nothing stored", async () => {
-    const { id: _ignored, ...input } = await fixture("skin-patch");
-    const id = `skin-${crypto.randomUUID().slice(0, 8)}`;
-    const res = await s.send("PUT", `/R6/BodyStructure/${id}`, { ...input, id });
+  test("content with no place in R4: 422 naming it, nothing stored", async () => {
+    const input = await fixture("multi");
+    const id = `contained-${crypto.randomUUID().slice(0, 8)}`;
+    const body = { ...input, id, contained: [{ resourceType: "Patient", id: "p" }] };
+    const res = await s.send("PUT", `/R6/BodyStructure/${id}`, body);
     expect(res.status).toBe(422);
-    expect(JSON.stringify(await res.json())).toContain("bodyLandmarkOrientation");
+    expect(JSON.stringify(await res.json())).toContain("contained");
     expect(await s.rows(id)).toEqual([]);
+  });
+
+  test("every element survives the trip through R4", async () => {
+    const input = await fixture("full");
+    const res = await s.send("POST", "/R6/BodyStructure", input);
+    expect(res.status).toBe(201);
+    const { id }: any = await res.json();
+    for (const row of await s.rows(id)) expect(hasErrors(s.validators.R4.validate(row))).toBe(false);
+
+    const read: any = await (await s.send("GET", `/R6/BodyStructure/${id}`)).json();
+    expect(hasErrors(s.validators.R6.validate(read))).toBe(false);
+    expect(asRequest(read)).toEqual({ ...input, id });
   });
 
   test("update with fewer structures removes the surplus row", async () => {
