@@ -11,6 +11,12 @@ export interface ResourceConverter {
   toR6(resource: StoredResource, signal?: AbortSignal): Promise<StoredResource>;
 }
 
+/** Conversion for types stored as one R4 resource and writable through R6. */
+export interface WriteConverter extends ResourceConverter {
+  /** The R4 form of an R6 resource. Keeps its id, and of `meta` only the labels. */
+  toR4(resource: StoredResource, signal?: AbortSignal): Promise<StoredResource>;
+}
+
 /** Conversion for types where one R6 resource is stored as several linked R4 rows. */
 export interface GroupConverter {
   /** One R6 resource to its R4 rows, in `includedStructure` order, with the given row ids. */
@@ -24,7 +30,7 @@ const BODY_STRUCTURE_TO_R4 = `${XVER}/BodyStructure6to4`;
 const BODY_STRUCTURE_TO_R6 = `${XVER}/BodyStructure4to6`;
 
 /** The engine returns numbers as lossless objects; validators and storage need plain JSON. */
-const plainJson = <T>(value: unknown): T => JSON.parse(stringifyFmlJson(value));
+export const plainJson = <T>(value: unknown): T => JSON.parse(stringifyFmlJson(value));
 
 /** Version and timestamps are per row and profiles are version-specific, so only labels carry over. */
 function keepLabels(meta: any): Record<string, unknown> | undefined {
@@ -47,7 +53,7 @@ function isResource(value: unknown): value is StoredResource {
   return typeof value === "object" && value !== null && "resourceType" in value && typeof value.resourceType === "string";
 }
 
-export function createFmlConverter(directories = configuredMapDirectories()): ResourceConverter & GroupConverter {
+export function createFmlConverter(directories = configuredMapDirectories()): WriteConverter & GroupConverter {
   let runtime: Promise<{ catalog: Awaited<ReturnType<typeof loadMapCatalog>>; executor: FmlExecutor }> | undefined;
   const programs = new Map<string, Promise<{ program: PreparedFmlProgram; entryGroup: string; executor: FmlExecutor }>>();
 
@@ -122,6 +128,16 @@ export function createFmlConverter(directories = configuredMapDirectories()): Re
         throw new ConversionError(`R4 -> R6 map for ${resource.resourceType} did not preserve resource identity and version metadata`);
       }
       return withUniqueBodyStructures(target);
+    },
+
+    async toR4(resource, signal) {
+      const mapped = await runGroupMap<StoredResource>(`${XVER}/${resource.resourceType}6to4`, resource, signal);
+      const labels = keepLabels(resource.meta);
+      return {
+        ...mapped,
+        ...(resource.id === undefined ? {} : { id: resource.id }),
+        ...(labels ? { meta: labels } : {}),
+      };
     },
 
     async toStorage(resource, rowIds, signal) {

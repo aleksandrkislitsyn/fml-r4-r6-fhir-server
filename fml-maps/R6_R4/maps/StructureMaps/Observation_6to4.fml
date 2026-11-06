@@ -1,0 +1,121 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Observation6to4'
+/// name = 'Observation6to4'
+/// title = 'Observation Transforms: R6 to R4'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/Observation" alias ObservationR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/Observation" alias ObservationR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// Hand-written. Elements R4 lacks are kept in extensions that Observation_4to6 reads back.
+// id and meta are set in src/fhir/convert.ts. Anything not mapped here, such as
+// bodyStructure.concept and contained (the engine can't copy a resource across versions), is
+// caught by the loss check in src/http/observation.ts and returns 422.
+group ObservationToR4(source src : ObservationR6, target tgt : ObservationR4) {
+  src.language -> tgt.language;
+  src.text -> tgt.text;
+  src.extension -> tgt.extension;
+  src.identifier -> tgt.identifier;
+  src.basedOn -> tgt.basedOn;
+  src.partOf -> tgt.partOf;
+  src.status -> tgt.status;
+  src.category -> tgt.category;
+  src.code -> tgt.code;
+  src.subject -> tgt.subject;
+  src.focus -> tgt.focus;
+  src.encounter -> tgt.encounter;
+  src.effective -> tgt.effective;
+  src.issued -> tgt.issued;
+  src.performer -> tgt.performer;
+  // Listed by type, because an Attachment goes to an extension instead.
+  src.value : Quantity -> tgt.value;
+  src.value : CodeableConcept -> tgt.value;
+  src.value : string -> tgt.value;
+  src.value : boolean -> tgt.value;
+  src.value : integer -> tgt.value;
+  src.value : Range -> tgt.value;
+  src.value : Ratio -> tgt.value;
+  src.value : SampledData -> tgt.value;
+  src.value : time -> tgt.value;
+  src.value : dateTime -> tgt.value;
+  src.value : Period -> tgt.value;
+  src.value : Attachment as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.value', x.valueAttachment as t then Attachment(v, t) "valueAttachment";
+  src.dataAbsentReason -> tgt.dataAbsentReason;
+  src.interpretation -> tgt.interpretation;
+  src.note -> tgt.note;
+  // One rule: writing tgt.bodySite from two rules would make the second replace the first.
+  src where (bodySite.exists() or bodyStructure.reference.exists()) -> tgt.bodySite as t then ObservationBodySite(src, t) "bodySite";
+  src.method -> tgt.method;
+  src.specimen -> tgt.specimen;
+  src.device -> tgt.device;
+  src.referenceRange as s -> tgt.referenceRange as t then ObservationReferenceRange(s, t);
+  src.hasMember -> tgt.hasMember;
+  src.derivedFrom -> tgt.derivedFrom;
+  src.component as s -> tgt.component as t then ObservationComponent(s, t);
+
+  src.statusReason as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.statusReason', x.valueCodeableConcept as t then CodeableConcept(v, t) "statusReason";
+  src.organizer as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.organizer', x.valueBoolean as t then Boolean(v, t) "organizer";
+  src.triggeredBy as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.triggeredBy' then ObservationTriggeredBy(v, x) "triggeredBy";
+  src.context as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.context' then CodeableReferenceValue(v, x) "context";
+  src.supportingDevice as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.supportingDevice' then CodeableReferenceValue(v, x) "supportingDevice";
+}
+
+
+group ObservationBodySite(source src, target t) {
+  src.bodySite as s then {
+    s.id -> t.id;
+    s.extension -> t.extension;
+    s.coding -> t.coding;
+    s.text -> t.text;
+  };
+  src.bodyStructure as bs then {
+    bs.reference as r -> t.extension as x, x.url = 'http://hl7.org/fhir/StructureDefinition/bodySite', x.valueReference as v then Reference(r, v) "reference";
+  };
+}
+
+
+group ObservationTriggeredBy(source s, target x) {
+  s.observation as v -> x.extension as e, e.url = 'observation', e.valueReference as t then Reference(v, t) "observation";
+  s.type as v -> x.extension as e, e.url = 'type', e.valueCode as t then Code(v, t) "type";
+  s.reason as v -> x.extension as e, e.url = 'reason', e.valueString as t then String(v, t) "reason";
+}
+
+
+group CodeableReferenceValue(source s, target x) {
+  s.concept as v -> x.valueCodeableConcept as t then CodeableConcept(v, t) "concept";
+  s.reference as v -> x.valueReference as t then Reference(v, t) "reference";
+}
+
+
+group ObservationReferenceRange(source src, target tgt) extends BackboneElement {
+  src.low -> tgt.low;
+  src.high -> tgt.high;
+  src.type -> tgt.type;
+  src.appliesTo -> tgt.appliesTo;
+  src.age -> tgt.age;
+  // markdown in R6, string in R4.
+  src.text as v -> tgt.text = evaluate(v, $this.toString()) "text";
+  src.normalValue as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.referenceRange.normalValue', x.valueCodeableConcept as t then CodeableConcept(v, t) "normalValue";
+}
+
+
+group ObservationComponent(source src, target tgt) extends BackboneElement {
+  src.code -> tgt.code;
+  // Listed by type, because an Attachment goes to an extension instead.
+  src.value : Quantity -> tgt.value;
+  src.value : CodeableConcept -> tgt.value;
+  src.value : string -> tgt.value;
+  src.value : boolean -> tgt.value;
+  src.value : integer -> tgt.value;
+  src.value : Range -> tgt.value;
+  src.value : Ratio -> tgt.value;
+  src.value : SampledData -> tgt.value;
+  src.value : time -> tgt.value;
+  src.value : dateTime -> tgt.value;
+  src.value : Period -> tgt.value;
+  src.value : Attachment as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.component.value', x.valueAttachment as t then Attachment(v, t) "valueAttachment";
+  src.dataAbsentReason -> tgt.dataAbsentReason;
+  src.interpretation -> tgt.interpretation;
+  src.referenceRange as s -> tgt.referenceRange as t then ObservationReferenceRange(s, t);
+}

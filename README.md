@@ -1,6 +1,6 @@
 # fml-r4-r6-fhir-server
 
-A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6` executes FHIR Mapping Language (FML) maps over the stored R4 content. It is read-only except for `BodyStructure`, which supports full CRUD.
+A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6` executes FHIR Mapping Language (FML) maps over the stored R4 content. It is read-only except for `BodyStructure` and `Observation`, which support full CRUD.
 
 ## Status
 
@@ -14,7 +14,7 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] R4 `class-r6`: the R6 class search backported to R4. See the [mapping diagrams](docs/mappings.html#encounter-class)
 - [x] FML conversion for `BodyStructure` in both directions, with one R6 resource stored as several R4 rows. See the [mapping diagrams](docs/mappings.html)
 - [x] `/R6/BodyStructure` CRUD on the same data as `/R4/BodyStructure`
-- [x] R4 `Observation` CRUD and `/R6/Observation/:id` reads, with references to a split `BodyStructure`
+- [x] `Observation` CRUD through `/R4` and `/R6` on the same data, with references to a split `BodyStructure`
 - [ ] R6 writes for other types
 - [ ] Other search parameters, history interactions, more resource types
 
@@ -65,7 +65,8 @@ R6 reads never write back to the database or create history versions. IDs and
 version metadata must survive mapping. Missing resource maps return `501`;
 preparation/execution errors return `500` with an `OperationOutcome`, including
 engine diagnostics where available. There is no pass-through fallback or partial
-success. R6 `POST`, `PUT`, and `DELETE` return `405`, except for `BodyStructure`.
+success. R6 `POST`, `PUT`, and `DELETE` return `405`, except for `BodyStructure`
+and `Observation`.
 
 The maps remain draft R6-ballot5 maps, not a production conformance guarantee.
 Preparation warnings are logged as a diagnostic count. The converted Encounter
@@ -171,6 +172,8 @@ mapping with a diagram, real server output, and the hard cases.
 | `vendor/fhirpath-lab/` | Pinned executor/validator source submodule |
 | `src/fhir/bodystructure.ts` | Rules that keep a BodyStructure's R4 rows consistent |
 | `src/http/grouped.ts` | CRUD through both versions for types stored as linked rows |
+| `src/fhir/observation.ts` | Rules for Observation writes: kept row references and extensions |
+| `src/http/observation.ts` | Create and update through both versions for Observation |
 | `fhir/r4/` | Local FHIR package with the server's own R4 conformance resources (the `class-r6` SearchParameter), loaded by the canonical manager |
 | `fml-maps/` | FML StructureMaps. `R4_R6` is generated, `R6_R4` holds its datatype maps reversed, and `BodyStructure` is hand-written in both |
 | `docs/mappings.html` | Diagrams of how resources map between versions. Open it in a browser |
@@ -230,6 +233,10 @@ R6 `BodyStructure.includedStructure` repeats, but R4 `location` and `morphology`
 - Extensions we don't recognise are carried across: one on the R6 resource is shared by every row, and one on a structure or written on an R4 row stays with that structure. URLs our mapping uses are reserved.
 - Content the server can't carry safely returns `422` rather than being lost. See `docs/mappings.html` for the list.
 
+### Observation through both versions
+
+One R6 Observation is one R4 row. Every write, from either version, must be valid in both, and anything that wouldn't survive the conversion returns `422`. Elements only R6 has (`statusReason`, `organizer`, `triggeredBy`, `context`, `supportingDevice`, `referenceRange.normalValue`, Attachment values) are kept in R4 extensions, with the same rule for an R4 PUT that leaves them out as BodyStructure. `contained`, `modifierExtension` and `implicitRules` return `422` through both versions.
+
 ### References to a BodyStructure
 
 R4 has no core element for these, so an R4 Observation holds them as the standard `http://hl7.org/fhir/StructureDefinition/bodySite` extension on `bodySite`:
@@ -244,8 +251,9 @@ R4 has no core element for these, so an R4 Observation holds them as the standar
 - R6 reads it as `bodyStructure`, always pointing at the whole resource (`BodyStructure/abc`). Rows of one group become one entry. R6 can't tell which structure was meant.
 - If a structure moves into the primary row, Observations referencing its old row are changed to reference the primary row in the same transaction, each with a new version.
 - The form is checked on R4 writes and returns `422`: it must be a `valueReference` to a BodyStructure, and can't be version-specific, contained, or an absolute URL on this server. Whether the target exists isn't checked.
-- Only Observation does this so far, and it is read-only through R6. See `docs/mappings.html` for the limits and for how to add another type.
+- An R6 write stores `bodyStructure` as the same extension, always to the whole resource. A row id or a `concept` returns `422`. If R4 already stored a row reference to that resource, an R6 update keeps it, and leaving the resource out removes it.
+- Only Observation does this so far. See `docs/mappings.html` for examples in both directions, the limits, and how to add another type.
 
 ### Adding a resource type
 
-To add a resource type, add it to `STORED_RESOURCE_TYPES` in `src/db/index.ts`. It can be read through `/R6` once it has an R4 → R6 map. To write it through `/R6`, it also needs an R6 → R4 map and an entry in `GROUPED` in `src/http/server.ts`. Also add it to the tree-shake list in `scripts/generate-types.ts` if you want its TypeScript types.
+To add a resource type, add it to `STORED_RESOURCE_TYPES` in `src/db/index.ts`. It can be read through `/R6` once it has an R4 → R6 map. To write it through `/R6`, it also needs an R6 → R4 map and handlers: `GROUPED` in `src/http/server.ts` for a type stored as linked rows, `CROSS_VERSION` for a type stored as one row. Also add it to the tree-shake list in `scripts/generate-types.ts` if you want its TypeScript types.

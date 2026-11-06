@@ -80,6 +80,14 @@
     {
       "key": "refBsWithoutFirst",
       "value": ""
+    },
+    {
+      "key": "r6ObservationId",
+      "value": ""
+    },
+    {
+      "key": "r6ObservationEdited",
+      "value": ""
     }
   ],
   "item": [
@@ -2435,7 +2443,7 @@
     },
     {
       "name": "8d. Observation references to a split BodyStructure",
-      "description": "In R4 the reference is the standard bodySite extension on Observation.bodySite, and can point at one row. In R6 it is Observation.bodyStructure and always points at the whole resource. Observation is read-only through R6.",
+      "description": "In R4 the reference is the standard bodySite extension on Observation.bodySite, and can point at one row. In R6 it is Observation.bodyStructure and always points at the whole resource.",
       "item": [
         {
           "name": "Create a BodyStructure with three structures through R6",
@@ -2754,16 +2762,26 @@
               }
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "8e. Observation CRUD through R6",
+      "description": "Runs after 8d, which creates the BodyStructure {{refBsId}} and the Observation {{observationId}}. Every write must be valid in both versions.",
+      "item": [
         {
-          "name": "R6 writes return 405",
+          "name": "Create through R6, referencing the whole BodyStructure",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"returns 405\", () => pm.response.to.have.status(405));"
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"r6ObservationId\", body.id);",
+                  "pm.test(\"the reference comes back\", () => pm.expect(body.bodyStructure[0].reference.reference).to.eql(\"BodyStructure/\" + pm.collectionVariables.get(\"refBsId\")));",
+                  "pm.test(\"the R6-only element comes back\", () => pm.expect(body.statusReason.text).to.eql(\"Sensor replaced\"));"
                 ]
               }
             }
@@ -2783,13 +2801,255 @@
             "url": "{{baseUrl}}/R6/Observation",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"x\"\n  }\n}",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"statusReason\": {\n    \"text\": \"Sensor replaced\"\n  },\n  \"bodySite\": {\n    \"text\": \"Upper arm\"\n  },\n  \"bodyStructure\": [\n    {\n      \"reference\": {\n        \"reference\": \"BodyStructure/{{refBsId}}\"\n      }\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
+          }
+        },
+        {
+          "name": "Read it through R4: stored as extensions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"the reference is a bodySite extension\", () => pm.expect(body.bodySite.extension[0]).to.eql({ url: \"http://hl7.org/fhir/StructureDefinition/bodySite\", valueReference: { reference: \"BodyStructure/\" + pm.collectionVariables.get(\"refBsId\") } }));",
+                  "pm.test(\"bodySite keeps its text\", () => pm.expect(body.bodySite.text).to.eql(\"Upper arm\"));",
+                  "pm.test(\"statusReason is an extension\", () => pm.expect(body.extension[0].url).to.eql(\"http://hl7.org/fhir/6.0/StructureDefinition/extension-Observation.statusReason\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation/{{r6ObservationId}}"
+          }
+        },
+        {
+          "name": "Read it through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"no extension is left over\", () => pm.expect(body.extension).to.eql(undefined));",
+                  "body.status = \"amended\";",
+                  "pm.collectionVariables.set(\"r6ObservationEdited\", JSON.stringify(body));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation/{{r6ObservationId}}"
+          }
+        },
+        {
+          "name": "Update through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"status changed\", () => pm.expect(pm.response.json().status).to.eql(\"amended\"));",
+                  "pm.test(\"the version moved\", () => pm.expect(pm.response.json().meta.versionId).to.eql(\"2\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation/{{r6ObservationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{r6ObservationEdited}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "A row id through R6 returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"bodyStructure\": [\n    {\n      \"reference\": {\n        \"reference\": \"BodyStructure/{{refBsId}}--2\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "bodyStructure.concept returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names the element\", () => pm.expect(pm.response.json().issue[0].diagnostics).to.include(\"Observation.bodyStructure\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Observation\",\n  \"status\": \"final\",\n  \"code\": {\n    \"text\": \"Skin temperature\"\n  },\n  \"bodyStructure\": [\n    {\n      \"concept\": {\n        \"text\": \"Left arm\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation/{{r6ObservationId}}"
+          }
+        },
+        {
+          "name": "Deleted in both versions: R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Observation/{{r6ObservationId}}"
+          }
+        },
+        {
+          "name": "Deleted in both versions: R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 410\", () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Observation/{{r6ObservationId}}"
           }
         }
       ]
