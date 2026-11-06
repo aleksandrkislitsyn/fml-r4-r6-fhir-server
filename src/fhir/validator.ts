@@ -4,7 +4,7 @@ import type { OperationOutcome } from "../fhir-types/hl7-fhir-r4-core/OperationO
 
 export type FhirVersion = "R4" | "R6";
 
-// R6 is still a draft, so its version stays pinned.
+// R6 validates /R6 writes and converted output. It is still a draft, so its version stays pinned.
 const PACKAGES: Partial<Record<FhirVersion, string>> = {
   R4: "hl7.fhir.r4.core@4.0.1",
   R6: "hl7.fhir.r6.core@6.0.0-ballot5",

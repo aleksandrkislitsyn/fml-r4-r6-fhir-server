@@ -34,6 +34,32 @@ export async function read(type: StoredResourceType, id: string): Promise<ReadRe
   return hist ? { status: "deleted", versionId: hist.version_id } : { status: "not-found" };
 }
 
+export interface ClassToken {
+  system?: string;
+  code?: string;
+}
+
+/** R4 uses the native Coding; R6 also searches codings materialized by the FML map. */
+export async function searchEncounterClass(token: ClassToken = {}, includeCrossVersion = false): Promise<StoredResource[]> {
+  const rows = await sql.unsafe(
+    `SELECT resource FROM encounter
+     WHERE (
+       ($1::text IS NULL OR COALESCE(resource #>> '{class,system}', '') = $1)
+       AND ($2::text IS NULL OR resource #>> '{class,code}' = $2)
+     ) OR ($3::boolean AND EXISTS (
+       SELECT 1
+       FROM jsonb_array_elements(COALESCE(resource->'extension', '[]'::jsonb)) AS e(value)
+       CROSS JOIN LATERAL jsonb_array_elements(COALESCE(e.value #> '{valueCodeableConcept,coding}', '[]'::jsonb)) AS c(value)
+       WHERE e.value->>'url' = 'xver/encounter-class'
+         AND ($1::text IS NULL OR COALESCE(c.value->>'system', '') = $1)
+         AND ($2::text IS NULL OR c.value->>'code' = $2)
+     ))
+     ORDER BY id`,
+    [token.system ?? null, token.code ?? null, includeCrossVersion],
+  );
+  return rows.map((row: { resource: StoredResource }) => row.resource);
+}
+
 /**
  * Create-or-update with a client-chosen id.
  * `ifMatch` is the expected current versionId (from an If-Match header), if any.

@@ -1,10 +1,11 @@
 import type { StoredResource } from "../db/repository.ts";
 import { hasErrors, outcome, type Validator } from "../fhir/validator.ts";
+import { stringifyFmlJson } from "@fhirpath-lab/fml-executor";
 
 const FHIR_JSON = "application/fhir+json; charset=utf-8";
 
 export function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
+  return new Response(stringifyFmlJson(body), {
     status,
     headers: { "content-type": FHIR_JSON, ...headers },
   });

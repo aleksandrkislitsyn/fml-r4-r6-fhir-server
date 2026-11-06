@@ -107,9 +107,10 @@ describe("R6 BodyStructure stored as R4", () => {
     expect((await s.send("GET", `/R6/BodyStructure/${id}`)).status).toBe(410);
   });
 
-  test("types without maps stay unavailable through R6", async () => {
-    const res = await s.send("GET", "/R6/Patient/x");
-    expect(res.status).toBe(404);
-    expect(JSON.stringify(await res.json())).toContain("not-supported");
+  test("other types are read-only through R6", async () => {
+    const res = await s.send("POST", "/R6/Patient", { resourceType: "Patient" });
+    expect(res.status).toBe(405);
+    expect(res.headers.get("allow")).toBe("GET");
+    expect((await s.send("GET", `/R6/Patient/${crypto.randomUUID()}`)).status).toBe(404);
   });
 });
