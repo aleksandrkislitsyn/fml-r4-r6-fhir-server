@@ -267,14 +267,15 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
 .pt-head, .lede { padding-right: 240px; }
 
 /* Capa: full azulejo background, ivory panel, big rooster */
-.pt-cover .cover-panel { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: 0;
+.pt-cover .cover-panel { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: 32px;
   min-height: calc(100vh - 170px); border: 0; padding: 36px;
   background: var(--kit-tiles) center / 360px 240px repeat; border-radius: 6px; box-shadow: inset 0 0 0 4px var(--r4); }
 .cover-body { background: var(--surface); border: 3px solid var(--r4); padding: 44px 48px; box-shadow: 0 10px 30px rgba(21,46,76,.25); }
-.cover-hero { margin-left: -24px; background: var(--surface); border: 3px solid var(--r4); box-shadow: 0 10px 30px rgba(21,46,76,.25); align-self: stretch; display: flex; }
+.cover-hero { background: var(--surface); border: 3px solid var(--r4); box-shadow: 0 10px 30px rgba(21,46,76,.25); align-self: stretch; display: flex; }
 .cover-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cover-crew { line-height: 1.6; }
-@media (max-width: 900px) { .pt-cover .cover-panel { grid-template-columns: 1fr; padding: 16px; } .cover-hero { margin: 16px 0 0; height: 260px; } .cover-body { padding: 24px; } }
+.cover-body .note a { color: inherit; }
+@media (max-width: 900px) { .pt-cover .cover-panel { grid-template-columns: 1fr; padding: 16px; gap: 0; } .cover-hero { margin: 16px 0 0; height: 260px; } .cover-body { padding: 24px; } }
 
 /* Índice: a vintage sardine-tin label */
 .tin { max-width: 980px; margin: 8px auto 0; background: var(--tin); padding: 22px; border-radius: 28px;
@@ -331,6 +332,7 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
       <p class="cover-sub">One single source of truth, two versions of FHIR, and a converter in between.<br><em>Uma só fonte da verdade, duas versões e um tradutor pelo meio.</em></p>
       <p class="cover-crew"><b>A tripulação</b><br>Brian Postlethwaite · Francisco Novillo Perez · Patrick Werner · Artur Kurvits · Aleksandr Kislitsyn</p>
       <p class="note">Press → to start. <em>Boa viagem!</em></p>
+      <p class="note">Galo de Barcelos: <a href="https://commons.wikimedia.org/wiki/File:Galo_de_Barcelos.svg">Di (they-them), Wikimedia Commons</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></p>
     </div>
     <div class="cover-hero"><img src="presentation/images/02_galo_de_barcelos.svg" alt="Galo de Barcelos, the rooster of Barcelos"></div>
   </div>
