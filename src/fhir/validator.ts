@@ -58,6 +58,8 @@ export async function loadValidator(version: FhirVersion): Promise<Validator> {
   };
   for (const url of Object.keys(byUrl)) flatten(url);
   const schemas = flat;
+  const backboneBase = schemas.BackboneElement?.elements ?? {};
+  for (const schema of Object.values(schemas)) addBackboneBase(schema, backboneBase);
 
   return {
     knowsType: (type) => schemas[type]?.kind === "resource",
@@ -83,6 +85,20 @@ export function outcome(
 
 export function hasErrors(oo: OperationOutcome): boolean {
   return (oo.issue ?? []).some((i) => i.severity === "error" || i.severity === "fatal");
+}
+
+/**
+ * Backbone elements hold their children inline, so they never get merged with the
+ * BackboneElement base. Without this, the legal `id`, `extension` and `modifierExtension`
+ * on them are reported as extra fields.
+ */
+function addBackboneBase(node: any, base: Record<string, unknown>): void {
+  for (const element of Object.values<any>(node.elements ?? {})) {
+    if (element.type === "BackboneElement" && element.elements) {
+      element.elements = { ...base, ...element.elements };
+    }
+    addBackboneBase(element, base);
+  }
 }
 
 const UNION_KEYS = new Set(["required", "excluded"]);

@@ -33,6 +33,14 @@ const send = (method: string, path: string, body?: unknown, headers: Record<stri
   });
 
 describe("R4 Patient CRUD", () => {
+  test("id and extension are legal on backbone elements", async () => {
+    const res = await send("POST", "/Patient", {
+      ...patient,
+      contact: [{ id: "c1", extension: [{ url: "http://example.org/x", valueBoolean: true }], name: { family: "Roe" } }],
+    });
+    expect(res.status).toBe(201);
+  });
+
   test("create → read → update → delete", async () => {
     const created = await send("POST", "/Patient", { ...patient, id: "ignored" });
     expect(created.status).toBe(201);
