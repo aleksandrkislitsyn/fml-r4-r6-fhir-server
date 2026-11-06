@@ -95,7 +95,8 @@ R6 `BodyStructure.includedStructure` repeats, but R4 `location` and `morphology`
 - A row keeps its id while its structure exists, and numbers are never reused. R6 shows it as `includedStructure.id`. The one exception: if the primary row's structure is removed, the next one moves into the primary row.
 - Rows carry a server-managed extension with their position. Secondary rows link to the primary row, and the primary row lists the others in order.
 - R6-only elements are kept in R4 extensions. An R4 PUT with no `extension` array keeps them. One with an array states the client's intent, and `X-Replace-Extensions: true` removes them when no array would remain.
-- Content with no place in the other version returns `422`.
+- Extensions we don't recognise are carried across: one on the R6 resource is shared by every row, and one on a structure or written on an R4 row stays with that structure. URLs our mapping uses are reserved.
+- Content the server can't carry safely returns `422` rather than being lost. See `docs/mappings.html` for the list.
 
 ### Adding a resource type
 

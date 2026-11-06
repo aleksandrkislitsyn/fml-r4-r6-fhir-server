@@ -56,6 +56,10 @@
     {
       "key": "extId",
       "value": ""
+    },
+    {
+      "key": "ownExtId",
+      "value": ""
     }
   ],
   "item": [
@@ -767,6 +771,82 @@
           }
         },
         {
+          "name": "R6 with modifierExtension (can't be understood safely)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names it\", () => pm.expect(pm.response.text()).to.include(\"modifierExtension\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"modifierExtension\": [\n    {\n      \"url\": \"http://example.org/m\",\n      \"valueBoolean\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Extension using a URL the mapping relies on",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"says reserved\", () => pm.expect(pm.response.text()).to.include(\"reserved\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/fhir/StructureDefinition/bodystructure-row-group\",\n      \"valueBoolean\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "R6 with contained resources (no R4 place)",
           "event": [
             {
@@ -841,44 +921,6 @@
               }
             },
             "description": "R6 size is integer64, but R4 size is unsignedInt."
-          }
-        },
-        {
-          "name": "R4 attachment language (no R6 place)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
-                  "pm.test(\"names language\", () => pm.expect(pm.response.text()).to.include(\"language\"));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/fhir+json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/fhir+json"
-              }
-            ],
-            "url": "{{baseUrl}}/R4/BodyStructure",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"location\": {\n    \"text\": \"Spleen\"\n  },\n  \"image\": [\n    {\n      \"url\": \"http://x/y\",\n      \"language\": \"en\"\n    }\n  ],\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
           }
         },
         {
@@ -2080,6 +2122,106 @@
               }
             ],
             "url": "{{baseUrl}}/R6/BodyStructure/{{extId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8b. Your own extensions and attachment language",
+      "description": "Extensions we don't recognise are carried across. One on the resource is on every row; one on a structure stays on its row.",
+      "item": [
+        {
+          "name": "Create with extensions and attachment language",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"ownExtId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ],\n      \"extension\": [\n        {\n          \"url\": \"http://example.org/ext/on-structure\",\n          \"valueBoolean\": true\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/ext/on-resource\",\n      \"valueString\": \"whole resource\"\n    }\n  ],\n  \"image\": [\n    {\n      \"url\": \"http://imaging.acme.com/overview.png\",\n      \"language\": \"en\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read through R6: everything is where it was sent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"resource extension is back\", () => pm.expect(r.extension[0].valueString).to.eql(\"whole resource\"));",
+                  "pm.test(\"structure extension is on structure 2 only\", () => { pm.expect(r.includedStructure[1].extension[0].valueBoolean).to.eql(true); pm.expect(r.includedStructure[0].extension).to.be.undefined; });",
+                  "pm.test(\"attachment language is back\", () => pm.expect(r.image[0].language).to.eql(\"en\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure/{{ownExtId}}"
+          }
+        },
+        {
+          "name": "Read row 2 through R4: both are there",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "const urls = pm.response.json().extension.map(e => e.url);",
+                  "pm.test(\"has its own extension\", () => pm.expect(urls).to.include(\"http://example.org/ext/on-structure\"));",
+                  "pm.test(\"has the wrapped resource extension\", () => pm.expect(urls.some(u => u.endsWith(\"extension-BodyStructure.extension\"))).to.be.true);",
+                  "pm.test(\"language is on the attachment\", () => pm.expect(pm.response.json().image[0].language).to.eql(\"en\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/BodyStructure/{{ownExtId}}--2"
           }
         }
       ]

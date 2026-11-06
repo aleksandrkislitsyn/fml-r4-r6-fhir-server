@@ -150,7 +150,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <span><svg viewBox="0 0 34 10"><path class="lm" d="M0 5H34"/></svg>merged into one element</span>
     <span><svg viewBox="0 0 34 10"><path class="le" d="M0 5H34"/></svg>kept in an extension</span>
   </div>
-  <p class="note">Maps: <code>fml-maps/R6_R4/maps/StructureMaps/BodyStructure_6to4.fml</code> and <code>fml-maps/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml</code>. <code>…</code> also covers <code>image</code>, <code>language</code> and <code>text</code>. Attachments are mapped field by field: <code>height</code>, <code>width</code>, <code>frames</code>, <code>duration</code> and <code>pages</code> become extensions, and <code>size</code> changes from an R6 string to an R4 number.</p>
+  <p class="note">Maps: <code>fml-maps/R6_R4/maps/StructureMaps/BodyStructure_6to4.fml</code> and <code>fml-maps/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml</code>. <code>…</code> also covers <code>image</code>, <code>language</code> and <code>text</code>. Attachments are mapped field by field: <code>height</code>, <code>width</code>, <code>frames</code>, <code>duration</code> and <code>pages</code> become extensions, and <code>size</code> changes from an R6 string to an R4 number. Extensions we don't recognise are carried across: one on the R6 resource is wrapped and placed on every row, and one on a structure, or written on an R4 row, stays with that structure.</p>
 </section>
 
 <section>
@@ -274,7 +274,15 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   <h2>Known limits</h2>
   <ul>
     <li>R4 rows can still read as separate structures, while R6 describes one structure covering several regions. The row link connects them in both directions, but an R4 client has to look for it, and its <code>example.org</code> URL isn't a published definition.</li>
-    <li>Content that has no place in the other version returns 422: <code>contained</code>, <code>implicitRules</code>, <code>modifierExtension</code>, extensions we don't recognise, R4 <code>Attachment.language</code>, and an R6 <code>Attachment.size</code> over R4's maximum of 2,147,483,647.</li>
+    <li>Content the server can't carry safely returns 422 rather than being lost:
+      <ul>
+        <li><code>contained</code> exists in both versions, but each embedded resource would need its own map.</li>
+        <li><code>implicitRules</code> and <code>modifierExtension</code> can change what a resource means, and the server can't interpret them.</li>
+        <li>An R6 <code>Attachment.size</code> over 2,147,483,647 doesn't fit R4's <code>unsignedInt</code>.</li>
+        <li>Extensions using a URL the mapping relies on are reserved.</li>
+        <li><code>extension</code> or <code>id</code> directly on landmark elements, and extensions on primitive values, aren't mapped yet.</li>
+      </ul>
+    </li>
     <li><code>X-Replace-Extensions</code> is this server's own header, so a client has to know about it. A client that sends an <code>extension</code> array but leaves ours out of it removes them.</li>
     <li>Decimal precision isn't kept: <code>2.0</code> comes back as <code>2</code>, because JSON is parsed as JavaScript numbers. This applies to the whole server.</li>
     <li>Search and history interactions aren't available for these resources.</li>
