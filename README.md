@@ -14,7 +14,7 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] FML conversion for `BodyStructure` in both directions, with one R6 resource stored as several R4 rows. See the [mapping diagrams](docs/mappings.html)
 - [x] `/R6/BodyStructure` CRUD on the same data as `/R4/BodyStructure`
 - [x] R4 `Observation` CRUD and `/R6/Observation/:id` reads, with references to a split `BodyStructure`
-- [ ] R6 writes for other types, including `Device`
+- [ ] R6 writes for other types
 - [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
