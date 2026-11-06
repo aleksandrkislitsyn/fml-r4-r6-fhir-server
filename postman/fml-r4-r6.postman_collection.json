@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FML R4-R6 FHIR server",
-    "description": "Tries out BodyStructure through /R4 and /R6 on the same stored R4 data.\n\n**Before you start:** `bun run db:up`, then `bun run dev`. The server listens on `http://localhost:8080`; change the `baseUrl` collection variable if yours differs.\n\n**How to run:** use Run collection to go top to bottom, or send requests by hand in order, because later requests use the id and rows saved by earlier ones. Run folder 2 again for a fresh resource; folder 7 deletes it.\n\nDiagrams of the mapping are in `docs/mappings.html`.",
+    "description": "Tries out BodyStructure through /R4 and /R6 on the same stored R4 data.\n\n**Before you start:** `git submodule update --init --recursive`, `bun install`, `bun run build:fml`, `bun run db:up`, then `bun run dev`. The server listens on `http://localhost:8080`; change the `baseUrl` collection variable if yours differs.\n\n**How to run:** use Run collection to go top to bottom, or send requests by hand in order, because later requests use the id and rows saved by earlier ones. Run folder 2 again for a fresh resource; folder 7 deletes it.\n\nDiagrams of the mapping are in `docs/mappings.html`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -60,6 +60,14 @@
     {
       "key": "ownExtId",
       "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "encounterId",
+      "value": ""
     }
   ],
   "item": [
@@ -102,8 +110,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"is FHIR 6.0.0\", () => pm.expect(pm.response.json().fhirVersion).to.eql(\"6.0.0\"));",
-                  "pm.test(\"serves only BodyStructure\", () => pm.expect(pm.response.json().rest[0].resource.map(r => r.type)).to.eql([\"BodyStructure\"]));"
+                  "const resources = pm.response.json().rest[0].resource;",
+                  "pm.test(\"is FHIR 6.0.0-ballot5\", () => pm.expect(pm.response.json().fhirVersion).to.eql(\"6.0.0-ballot5\"));",
+                  "pm.test(\"BodyStructure can be written\", () => pm.expect(resources.find(r => r.type === \"BodyStructure\").interaction.map(i => i.code)).to.include(\"create\"));",
+                  "pm.test(\"Patient is read-only\", () => pm.expect(resources.find(r => r.type === \"Patient\").interaction.map(i => i.code)).to.eql([\"read\"]));"
                 ]
               }
             }
@@ -847,6 +857,83 @@
           }
         },
         {
+          "name": "Other types are read-only through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 405\", () => pm.response.to.have.status(405));",
+                  "pm.test(\"allows only GET\", () => pm.expect(pm.response.headers.get(\"Allow\")).to.eql(\"GET\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Patient\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "R6-only extension type has no R4 form",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"names what would be lost\", () => pm.expect(pm.response.text()).to.include(\"extension\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/BodyStructure",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"BodyStructure\",\n  \"identifier\": [\n    {\n      \"system\": \"http://goodhealth.org/bodystructure/identifiers\",\n      \"value\": \"multi-1\"\n    }\n  ],\n  \"active\": true,\n  \"includedStructure\": [\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"14975008\",\n            \"display\": \"Forearm\"\n          }\n        ],\n        \"text\": \"Forearm\"\n      },\n      \"laterality\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"419161000\",\n            \"display\": \"Unilateral left\"\n          }\n        ],\n        \"text\": \"Left\"\n      },\n      \"qualifier\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://snomed.info/sct\",\n              \"code\": \"263929005\",\n              \"display\": \"Volar\"\n            }\n          ],\n          \"text\": \"Volar\"\n        }\n      ],\n      \"morphology\": [\n        {\n          \"text\": \"Basal cell carcinoma\"\n        },\n        {\n          \"text\": \"Nevus sebaceus\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"85050009\",\n            \"display\": \"Bone structure of humerus\"\n          }\n        ],\n        \"text\": \"Upper arm\"\n      },\n      \"morphology\": [\n        {\n          \"text\": \"Lesion\"\n        }\n      ]\n    },\n    {\n      \"structure\": {\n        \"coding\": [\n          {\n            \"system\": \"http://snomed.info/sct\",\n            \"code\": \"16982005\",\n            \"display\": \"Shoulder region structure\"\n          }\n        ],\n        \"text\": \"Shoulder\"\n      }\n    }\n  ],\n  \"description\": \"Lesion spreading across three regions of the left arm\",\n  \"patient\": {\n    \"reference\": \"Patient/example\"\n  },\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/e\",\n      \"valueInteger64\": \"9007199254740993\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Every write is converted and converted back. Anything that doesn't survive returns 422."
+          }
+        },
+        {
           "name": "R6 with contained resources (no R4 place)",
           "event": [
             {
@@ -958,31 +1045,6 @@
                 }
               }
             }
-          }
-        },
-        {
-          "name": "R6 Patient has no maps yet",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"returns 404\", () => pm.response.to.have.status(404));",
-                  "pm.test(\"says not supported\", () => pm.expect(pm.response.text()).to.include(\"not-supported\"));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/fhir+json"
-              }
-            ],
-            "url": "{{baseUrl}}/R6/Patient/any-id"
           }
         },
         {
@@ -2222,6 +2284,139 @@
               }
             ],
             "url": "{{baseUrl}}/R4/BodyStructure/{{ownExtId}}--2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8c. Patient and Encounter through R6",
+      "description": "Stored as R4 and read through the generated maps. These types are read-only through R6.",
+      "item": [
+        {
+          "name": "Create a Patient through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"patientId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Patient",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Patient\",\n  \"name\": [\n    {\n      \"family\": \"Doe\",\n      \"given\": [\n        \"Jane\"\n      ]\n    }\n  ],\n  \"gender\": \"female\",\n  \"extension\": [\n    {\n      \"url\": \"http://example.org/s\",\n      \"valueString\": \"text\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R6",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"has the name\", () => pm.expect(pm.response.json().name[0].family).to.eql(\"Doe\"));",
+                  "pm.test(\"has the extension\", () => pm.expect(pm.response.json().extension[0].valueString).to.eql(\"text\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Patient/{{patientId}}"
+          }
+        },
+        {
+          "name": "Create an Encounter through R4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"encounterId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R4/Encounter",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"status\": \"finished\",\n  \"class\": {\n    \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n    \"code\": \"AMB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read it through R6: class is now a list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"class is a repeating CodeableConcept\", () => pm.expect(pm.response.json().class[0].coding[0].code).to.eql(\"AMB\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/fhir+json"
+              }
+            ],
+            "url": "{{baseUrl}}/R6/Encounter/{{encounterId}}"
           }
         }
       ]
