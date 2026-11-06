@@ -45,8 +45,9 @@ export const ENCOUNTER_CLASS_EXTENSION = "http://hl7.org/fhir/6.0/StructureDefin
 
 /**
  * Without `includeCrossVersion`, only the native R4 Coding is searched (R4 `class`).
- * With it, the codings of the cross-version extension count too, which is what R6 `class`
- * and its R4 backport `class-r6` see.
+ * With it, the codings of the cross-version class extension count too, which is what R6
+ * `class` and its R4 backport `class-r6` see. The extension sits on the resource for further
+ * classes, and on the R4 `class` element for a first class with more than one coding.
  */
 export async function searchEncounterClass(token: ClassToken = {}, includeCrossVersion = false): Promise<StoredResource[]> {
   const rows = await sql.unsafe(
@@ -56,7 +57,9 @@ export async function searchEncounterClass(token: ClassToken = {}, includeCrossV
        AND ($2::text IS NULL OR resource #>> '{class,code}' = $2)
      ) OR ($3::boolean AND EXISTS (
        SELECT 1
-       FROM jsonb_array_elements(COALESCE(resource->'extension', '[]'::jsonb)) AS e(value)
+       FROM jsonb_array_elements(
+         COALESCE(resource->'extension', '[]'::jsonb) || COALESCE(resource #> '{class,extension}', '[]'::jsonb)
+       ) AS e(value)
        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(e.value #> '{valueCodeableConcept,coding}', '[]'::jsonb)) AS c(value)
        WHERE e.value->>'url' = $4
          AND ($1::text IS NULL OR COALESCE(c.value->>'system', '') = $1)

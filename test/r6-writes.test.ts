@@ -354,6 +354,26 @@ describe("R6 Encounter writes", () => {
     expect(stored.diagnosis[0].rank).toBe(1);
     await s.send("DELETE", `/R4/Encounter/${created.id}`);
   });
+  test("class search finds every coding of a first class kept on R4 class", async () => {
+    const system = `https://example.org/first-class/${crypto.randomUUID()}`;
+    const input = {
+      resourceType: "Encounter", status: "in-progress",
+      class: [{ coding: [{ system, code: "IMP" }, { system, code: "inpatient" }], text: "Inpatient" }],
+    };
+    const { id } = await json(await s.send("POST", "/R6/Encounter", input));
+    const found = async (path: string) =>
+      (await json(await s.send("GET", path))).entry.map((e: any) => e.resource.id).includes(id);
+    const query = (name: string, code: string) => `/Encounter?${new URLSearchParams({ [name]: `${system}|${code}` })}`;
+
+    // The second coding lives only in the class extension on R4 class.
+    expect((await json(await s.send("GET", `/R4/Encounter/${id}`))).class.code).toBe("IMP");
+    expect(await found(`/R4${query("class-r6", "inpatient")}`)).toBe(true);
+    expect(await found(`/R6${query("class", "inpatient")}`)).toBe(true);
+    // R4 class keeps its standard meaning: the native Coding only.
+    expect(await found(`/R4${query("class", "inpatient")}`)).toBe(false);
+    expect(await found(`/R4${query("class", "IMP")}`)).toBe(true);
+    await s.send("DELETE", `/R4/Encounter/${id}`);
+  });
 });
 
 test("R6 metadata advertises writes for every type", async () => {

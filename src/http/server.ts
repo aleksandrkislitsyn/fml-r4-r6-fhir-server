@@ -161,7 +161,7 @@ async function readSearchParameter(validator: Validator, id: string): Promise<Re
 
 function encounterSearchParams(version: FhirVersion) {
   const syntax = "Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.";
-  const crossVersion = `native class and codings of the ${repo.ENCOUNTER_CLASS_EXTENSION} extension`;
+  const crossVersion = `native class and codings of the ${repo.ENCOUNTER_CLASS_EXTENSION} extension, on the resource or on class`;
   const classParam = {
     name: "class",
     definition: "http://hl7.org/fhir/SearchParameter/Encounter-class",
@@ -174,7 +174,8 @@ function encounterSearchParams(version: FhirVersion) {
     definition: ENCOUNTER_CLASS_BACKPORT,
     type: "token",
     documentation: `Backport of R6 class; matches ${crossVersion}`
-      + ` (Encounter.class | Encounter.extension('${repo.ENCOUNTER_CLASS_EXTENSION}').value).`
+      + ` (Encounter.class | Encounter.class.extension('${repo.ENCOUNTER_CLASS_EXTENSION}').value`
+      + ` | Encounter.extension('${repo.ENCOUNTER_CLASS_EXTENSION}').value).`
       + ` Cannot be combined with class. ${syntax}`,
   }];
 }
