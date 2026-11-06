@@ -82,7 +82,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 <header style="display:grid;gap:12px">
   <h1>R4 and R6 resource maps</h1>
   <p class="lede">The server stores FHIR <span class="r4">R4</span> and also serves the same data as <span class="r6">R6</span>. Some resources don't have the same shape in both versions: one resource or one element on one side can be several on the other. This page shows how those cases are mapped.</p>
-  <p class="note">Everything below describes the working code. The BodyStructure tests named here are in <code>test/bodystructure-r6.test.ts</code> and <code>test/bodystructure-cross-version.test.ts</code>, the Encounter tests in <code>test/patient-r4.test.ts</code>. R6 is pinned to the draft <code>hl7.fhir.r6.core@6.0.0-ballot5</code>.</p>
+  <p class="note">Everything below describes the working code. The BodyStructure tests named here are in <code>test/bodystructure-r6.test.ts</code> and <code>test/bodystructure-cross-version.test.ts</code>, the Encounter search tests in <code>test/patient-r4.test.ts</code>, and the Patient and Encounter write tests in <code>test/r6-writes.test.ts</code>. R6 is pinned to the draft <code>hl7.fhir.r6.core@6.0.0-ballot5</code>.</p>
 </header>
 
 <section>
@@ -294,7 +294,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   <h2>Encounter.class: one value in R4, several in R6</h2>
   <p>R4 <code>Encounter.class</code> is one <code>Coding</code> and required (1..1). R6 <code>Encounter.class</code> is a list of <code>CodeableConcept</code>s (0..*). The first class stays in the R4 element. Every further class goes into its own extension with the URL <code>http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class</code>, the pattern BodyStructure uses as well. <span class="tag hl7">URL pattern stated by HL7</span></p>
   <div class="scroll"><svg viewBox="0 0 760 236" role="img" aria-label="An R4 Encounter with a native class and class extensions maps to one R6 Encounter whose class list starts with the native class, followed by one entry per extension">
-    <text class="head tr6" x="30" y="28">R6 (what the client reads)</text>
+    <text class="head tr6" x="30" y="28">R6 (what the client sees)</text>
     <rect class="b6" x="30" y="40" width="270" height="170" rx="4"/>
     <text x="46" y="64">Encounter/42a1…</text>
     <rect class="bn" x="46" y="78" width="238" height="34" rx="3"/><text x="58" y="100">class[0] AMB</text>
@@ -306,15 +306,15 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <rect class="bn" x="486" y="78" width="228" height="34" rx="3"/><text x="498" y="100">class AMB</text>
     <rect class="bn" x="486" y="118" width="228" height="34" rx="3"/><text x="498" y="140">extension …class VR</text>
     <rect class="bn" x="486" y="158" width="228" height="34" rx="3"/><text x="498" y="180">extension …class …</text>
-    <path class="l" marker-end="url(#a)" d="M484 95H288"/>
-    <path class="le" marker-end="url(#a)" d="M484 135H288"/>
-    <path class="le" marker-end="url(#a)" d="M484 175H288"/>
-    <text class="small" x="385" y="62" text-anchor="middle">FML 4→6 on R6 read</text>
-    <text class="small" x="385" y="228" text-anchor="middle">R6 writes return 405</text>
+    <path class="l" marker-start="url(#a)" marker-end="url(#a)" d="M484 95H288"/>
+    <path class="le" marker-start="url(#a)" marker-end="url(#a)" d="M484 135H288"/>
+    <path class="le" marker-start="url(#a)" marker-end="url(#a)" d="M484 175H288"/>
+    <text class="small" x="385" y="62" text-anchor="middle">read 4→6 · write 6→4</text>
+    <text class="small" x="385" y="228" text-anchor="middle">on write, class[0] holds one Coding</text>
   </svg></div>
   <div class="legend">
     <span><svg viewBox="0 0 34 10"><path class="l" d="M0 5H34"/></svg>copied</span>
-    <span><svg viewBox="0 0 34 10"><path class="le" d="M0 5H34"/></svg>read from an extension</span>
+    <span><svg viewBox="0 0 34 10"><path class="le" d="M0 5H34"/></svg>kept in an extension</span>
   </div>
   <p>Real server output, with <code>id</code> and <code>meta</code> left out. In R6 the extension is gone and its value is the second class.</p>
   <div class="json">
@@ -384,8 +384,76 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <li>HL7 doesn't say whether the extension holds every class or only the ones beyond the native element. Here it holds only the additional ones, so an extension that repeats the native class shows up twice in R6.</li>
     <li>The SearchParameter's <code>expression</code> documents the search; the server doesn't evaluate it. The SQL in <code>src/db/repository.ts</code> implements the same rule.</li>
     <li>One token per request, as for <code>class</code>: comma lists, repeated parameters and modifiers return 400, and there is no pagination.</li>
-    <li>R6 Encounter writes return 405, so there is no R6 → R4 map for <code>class</code> yet.</li>
+    <li>An R6 write whose first class has several codings or a <code>text</code> returns 422, because R4 <code>class</code> is one Coding. Further classes can hold anything a CodeableConcept can.</li>
     <li>The <code>6.0</code> part of the extension filter is a local change to the generated maps and still has to go upstream to the map generator.</li>
+  </ul>
+</section>
+
+<section id="r6-writes">
+  <h2>Patient and Encounter: writes through R6</h2>
+  <p>Patient and Encounter are stored as one R4 resource each, and <code>/R6</code> can create, update and delete them. A write runs the <code>R6_R4</code> map. It is stored only if the body is valid R6, the result is valid R4, and the result maps back through <code>R4_R6</code> to the same content. An R6 client therefore never loses data without being told. <span class="tag own">Our design, the same rule as BodyStructure</span></p>
+  <div class="scroll"><svg viewBox="0 0 760 120" role="img" aria-label="An R6 write is validated as R6, mapped to R4, mapped back and compared, validated as R4, and only then written">
+    <text class="head tr6" x="16" y="24">Write through /R6</text>
+    <g>
+      <rect class="b6" x="16" y="36" width="120" height="50" rx="3"/><text x="28" y="57">validate</text><text x="28" y="74">R6</text>
+      <rect class="bm" x="156" y="36" width="120" height="50" rx="3"/><text x="168" y="57">FML 6→4</text><text class="small" x="168" y="74">R6_R4 map</text>
+      <rect class="bm" x="296" y="36" width="140" height="50" rx="3"/><text x="308" y="57">FML 4→6</text><text class="small" x="308" y="74">same content?</text>
+      <rect class="b4" x="456" y="36" width="120" height="50" rx="3"/><text x="468" y="57">validate</text><text x="468" y="74">R4</text>
+      <rect class="bn" x="596" y="36" width="146" height="50" rx="3"/><text x="608" y="57">write</text><text class="small" x="608" y="74">one R4 resource</text>
+      <path class="l" marker-end="url(#a)" d="M136 61H154M276 61H294M436 61H454M576 61H594"/>
+      <text class="small tbad" x="76" y="106" text-anchor="middle">invalid: 422</text>
+      <text class="small tbad" x="216" y="106" text-anchor="middle">contained …: 422</text>
+      <text class="small tbad" x="366" y="106" text-anchor="middle">lost: 422 + path</text>
+      <text class="small tbad" x="516" y="106" text-anchor="middle">invalid: 422</text>
+      <text class="small tbad" x="669" y="106" text-anchor="middle">PUT, R4-only content: 409</text>
+    </g>
+  </svg></div>
+  <p class="note">Code: <code>src/http/r6writes.ts</code>, with the comparison in <code>src/fhir/roundtrip.ts</code>. Maps: <code>Patient_6to4.fml</code>, <code>Encounter_6to4.fml</code>, <code>Resource_6to4.fml</code> and <code>DomainResource_6to4.fml</code> in <code>fml-maps/R6_R4/maps/StructureMaps</code>, written by hand as the reverse of the generated R4 → R6 maps. The server sets <code>id</code> and <code>meta</code>; only <code>meta.tag</code> and <code>meta.security</code> are kept from the body. A delete through either version removes the one stored resource.</p>
+  <div class="tw"><table>
+    <thead><tr><th class="r6">R6 element</th><th class="r4">R4 element</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><code>Encounter.class[0]</code></td><td><code>class</code></td><td>One Coding, so <code>class[0]</code> may hold one coding and no text</td></tr>
+      <tr><td><code>Encounter.class[1…]</code></td><td>class extension</td><td>One extension per class, see <a href="#encounter-class">above</a></td></tr>
+      <tr><td><code>serviceType[0].concept</code></td><td><code>serviceType</code></td><td>R4 holds one CodeableConcept</td></tr>
+      <tr><td><code>diagnosis.condition[0].reference</code>, <code>diagnosis.use[0]</code></td><td><code>diagnosis.condition</code>, <code>diagnosis.use</code></td><td>R4 holds one of each per diagnosis</td></tr>
+      <tr><td><code>actualPeriod</code>, <code>admission</code>, <code>participant.actor</code>, <code>location.form</code></td><td><code>period</code>, <code>hospitalization</code>, <code>participant.individual</code>, <code>location.physicalType</code></td><td>Renamed</td></tr>
+      <tr><td><code>Patient.photo</code> <code>height</code>, <code>width</code>, …</td><td>Attachment extensions</td><td>As for BodyStructure images</td></tr>
+      <tr><td>everything else both versions have</td><td>the same element</td><td>Copied</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Encounter.status: different codes in R4 and R6</h2>
+  <p>R6 renamed some statuses and moved <code>arrived</code> and <code>triaged</code> out of <code>status</code> into <code>subjectStatus</code>. The codes follow HL7's ConceptMaps <code>R4-EncounterStatus-R5</code> and <code>R5-EncounterStatus-R4</code>, because R5 and R6 share them. Both directions use them, so reads changed too: <code>finished</code>, <code>onleave</code>, <code>arrived</code> and <code>triaged</code> used to be copied into R6 unchanged, as invalid codes. <span class="tag hl7">Codes from HL7's ConceptMaps</span> <span class="tag own">subjectStatus for arrived and triaged is our design</span></p>
+  <div class="tw"><table>
+    <thead><tr><th class="r6">R6</th><th class="r4">Stored R4</th><th>Read back as R6</th></tr></thead>
+    <tbody>
+      <tr><td><code>planned</code>, <code>in-progress</code>, <code>cancelled</code>, <code>entered-in-error</code>, <code>unknown</code></td><td>the same code</td><td>the same</td></tr>
+      <tr class="changed"><td><code>on-hold</code></td><td><code>onleave</code></td><td><code>on-hold</code></td></tr>
+      <tr class="changed"><td><code>completed</code></td><td><code>finished</code></td><td><code>completed</code></td></tr>
+      <tr class="changed"><td><code>in-progress</code> with <code>subjectStatus</code> <code>arrived</code> or <code>triaged</code></td><td><code>arrived</code> or <code>triaged</code></td><td>the same</td></tr>
+      <tr><td><code>discharged</code>, <code>discontinued</code></td><td colspan="2">422: no R4 code of their own. R4 <code>finished</code> reads back as <code>completed</code>, so <code>discharged</code> would change.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><code>subjectStatus</code> uses <code>http://terminology.hl7.org/CodeSystem/encounter-subject-status</code>. Other subject statuses, such as <code>departed</code>, have no R4 place and return 422.</p>
+</section>
+
+<section>
+  <h2>Patient and Encounter: hard cases and limits</h2>
+  <div class="cases">
+    <div class="case"><h3>R6-only content</h3><p><code>Patient.contact.role</code> or <code>Encounter.businessStatus</code> has no R4 element. The write returns 422 naming the path, and nothing is stored.</p><span class="t">"R6-only content is rejected …"</span></div>
+    <div class="case"><h3>Valid in R6, not in R4</h3><p>An R6 Encounter without <code>class</code> is valid, but R4 requires one. 422, and the first issue says it is about the stored R4 form.</p><span class="t">"valid R6 without class …"</span></div>
+    <div class="case"><h3>Content only R4 shows</h3><p>An R4 Encounter with <code>reasonCode</code> reads in R6 without it. An R6 PUT would remove it, so it returns 409 and the stored resource stays as it is.</p><span class="t">"an R6 update can't remove …"</span></div>
+    <div class="case"><h3>Extensions the maps use</h3><p>An R6 client that sends the class extension itself would turn it into an extra class. The round trip shows the difference, and the write returns 422.</p><span class="t">"content the read map can't show …"</span></div>
+    <div class="case"><h3>Stale ETag</h3><p>An R6 PUT with an old <code>If-Match</code> gets 412, as through R4. Both versions share the version id.</p><span class="t">"create, read through both versions …"</span></div>
+    <div class="case"><h3>Not mapped either way</h3><p><code>reason</code>, <code>dietPreference</code>, <code>specialArrangement</code> and <code>specialCourtesy</code> aren't in the R4 → R6 map, so R6 writes with them return 422.</p><span class="t">"content the read map can't show …"</span></div>
+  </div>
+  <ul>
+    <li>R4 writes aren't checked against R6, unlike BodyStructure. R4 clients keep everything R4 allows, such as <code>statusHistory</code> or <code>diagnosis.rank</code>; R6 shows those resources without it and refuses to update them (409).</li>
+    <li>Only the first <code>serviceType</code>, <code>diagnosis.condition</code> and <code>diagnosis.use</code> fit R4. More return 422.</li>
+    <li><code>meta.profile</code> and <code>meta.source</code> from an R6 body aren't kept: profiles are version-specific, and the server owns the rest of <code>meta</code>.</li>
+    <li>Like the rest of the server, decimals lose trailing zeros.</li>
   </ul>
 </section>
 
@@ -865,6 +933,8 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
       <tr><td>Add a resource to a Bundle</td><td><code>create('BodyStructure') as out, b.entry as e, e.resource = out</code></td><td><code>create()</code> with a <code>uses</code> alias</td></tr>
       <tr><td>Reuse rules in two places</td><td>One group per contextual type</td><td>One group for a resource and an Extension</td></tr>
       <tr><td>Convert a type differently in one place</td><td><code>group X(source src : ReferenceR4, target tgt : ReferenceR6)</code>, called by name</td><td><code>&lt;&lt;type+&gt;&gt;</code> or <code>&lt;&lt;types&gt;&gt;</code>, which apply to every value of that type. Untyped parameters only work inside the file that calls the group</td></tr>
+      <tr><td>Translate codes</td><td><code>conceptmap "M" { … s:"on-hold" - t:"onleave" }</code> before the <code>uses</code> lines, then <code>translate(v, '#M', 'code')</code></td><td>Unquoted codes with hyphens, <code>==</code>, or a <code>conceptmap</code> after <code>uses</code>: the parser rejects all three</td></tr>
+      <tr><td>Set <code>Resource.id</code> from R6 to R4</td><td>Set it in code after the map</td><td><code>src.id -&gt; tgt.id</code> fails: there is no rule for the R6 <code>id</code> type</td></tr>
     </tbody>
   </table></div>
   <p class="note">Open type groups must be unique per source type. Two <code>&lt;&lt;type+&gt;&gt;</code> groups for <code>string</code> make every <code>valueString</code> extension fail with "Ambiguous default mapping". Use <code>&lt;&lt;types&gt;&gt;</code> for a conversion to a specific other type.</p>

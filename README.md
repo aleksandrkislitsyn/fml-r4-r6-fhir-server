@@ -1,6 +1,6 @@
 # fml-r4-r6-fhir-server
 
-A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6` executes FHIR Mapping Language (FML) maps over the stored R4 content. It is read-only except for `BodyStructure` and `Observation`, which support full CRUD.
+A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6` executes FHIR Mapping Language (FML) maps over the stored R4 content, in both directions: reads map R4 to R6, and writes map R6 to R4. `Patient`, `Encounter`, `Observation` and `BodyStructure` support full CRUD through both versions.
 
 ## Status
 
@@ -15,7 +15,8 @@ A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR 
 - [x] FML conversion for `BodyStructure` in both directions, with one R6 resource stored as several R4 rows. See the [mapping diagrams](docs/mappings.html)
 - [x] `/R6/BodyStructure` CRUD on the same data as `/R4/BodyStructure`
 - [x] `Observation` CRUD through `/R4` and `/R6` on the same data, with references to a split `BodyStructure`
-- [ ] R6 writes for other types
+- [x] `/R6/Patient` and `/R6/Encounter` CRUD, stored only if the write converts back unchanged. See [R6 writes](#r6-writes-for-patient-and-encounter)
+- [ ] R6 writes for other types, including `Device`
 - [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
@@ -65,8 +66,10 @@ R6 reads never write back to the database or create history versions. IDs and
 version metadata must survive mapping. Missing resource maps return `501`;
 preparation/execution errors return `500` with an `OperationOutcome`, including
 engine diagnostics where available. There is no pass-through fallback or partial
-success. R6 `POST`, `PUT`, and `DELETE` return `405`, except for `BodyStructure`
-and `Observation`.
+success. R6 `POST`, `PUT`, and `DELETE` are described under
+[R6 writes](#r6-writes-for-patient-and-encounter) for `Patient` and `Encounter`,
+and in [`docs/mappings.html`](docs/mappings.html) for `BodyStructure` and
+`Observation`.
 
 The maps remain draft R6-ballot5 maps, not a production conformance guarantee.
 Preparation warnings are logged as a diagnostic count. The converted Encounter
@@ -111,7 +114,7 @@ Search results use the same injected FML converter as individual R6 reads,
 including cancellation and diagnostic handling. The response contains R6
 Encounters with `class` as an array of CodeableConcepts. The consumed
 class extension is omitted from the R6 representation, while
-the stored R4 resource remains unchanged. R6 writes still return `405`.
+the stored R4 resource remains unchanged.
 Token syntax and search limitations are the same as R4.
 
 The generic extension copy in the R4 → R6 maps skips cross-version extensions
@@ -157,6 +160,52 @@ combined in one request (`400`). The other limitations are the same as `class`.
 [`docs/mappings.html`](docs/mappings.html#encounter-class) explains the
 mapping with a diagram, real server output, and the hard cases.
 
+### R6 writes for Patient and Encounter
+
+```sh
+curl -X POST localhost:8080/R6/Encounter -H 'content-type: application/fhir+json' \
+  -d '{"resourceType":"Encounter","status":"completed","class":[
+        {"coding":[{"system":"http://terminology.hl7.org/CodeSystem/v3-ActCode","code":"AMB"}]},
+        {"coding":[{"system":"http://terminology.hl7.org/CodeSystem/v3-ActCode","code":"VR"}]}]}'
+```
+
+`POST`, `PUT` (with `If-Match` and create-on-update) and `DELETE` work through
+`/R6` on the same stored R4 resource that `/R4` serves. A write runs the
+`R6_R4` map and is stored only if:
+
+- the body is valid R6 and the result is valid R4,
+- and the result maps back through `R4_R6` to the same R6 content.
+
+Anything else returns `422` with an `OperationOutcome`. If content would be
+lost, it names the first path, such as `Patient.contact[0].role`. Nothing is
+dropped silently. `contained`, `implicitRules` and `modifierExtension` are
+rejected up front, as for `BodyStructure`. The server sets `id` and `meta`; only
+`meta.tag` and `meta.security` are kept from the body.
+
+An R6 `PUT` replaces the whole stored R4 resource. If that resource holds R4
+content that R6 can't show, such as `Encounter.reasonCode`, the update returns
+`409` instead of removing it. Change such resources through `/R4`.
+
+What maps:
+
+- **Patient**: every element R4 has. The R6-only `contact.role`,
+  `contact.additionalName` and `contact.additionalAddress` return `422`.
+  R6-only `Attachment` fields in `photo` are kept in extensions, as for BodyStructure.
+- **Encounter**: the elements the R4 → R6 map reads, reversed. The first
+  `class` becomes the R4 `class` (one Coding), each further class becomes the
+  class extension. `serviceType` and `diagnosis.condition` keep their first
+  entry, and `actualPeriod`, `admission`, `participant.actor` and
+  `location.form` are renamed back.
+- **Encounter status** follows HL7's R4 ↔ R5 ConceptMaps (R5 and R6 share the
+  codes): `on-hold` ↔ `onleave`, `completed` ↔ `finished`, the rest unchanged.
+  R4 `arrived` and `triaged` read as `in-progress` with that `subjectStatus`,
+  and are written back the same way. `discharged` and `discontinued` have no
+  R4 code and return `422`. Reads changed with this: `finished`, `onleave`,
+  `arrived` and `triaged` used to be copied as invalid R6 codes.
+- Not mapped, so `422`: `reason`, `dietPreference`, `specialArrangement`,
+  `specialCourtesy` (the R4 → R6 map doesn't read their R4 elements either) and
+  R6-only elements such as `businessStatus`, `careTeam` or `virtualService`.
+
 ## Layout
 
 | Path | What |
@@ -166,7 +215,9 @@ mapping with a diagram, real server output, and the hard cases.
 | `src/db/index.ts` | Postgres connection (`Bun.SQL`), the list of stored resource types, migrations |
 | `src/db/repository.ts` | Version-aware create, read, update and delete over `<type>` and `<type>_history` tables |
 | `src/fhir/validator.ts` | Loads the core package and builds FHIRSchemas used for validation |
-| `src/fhir/convert.ts` | Injectable R4 → R6 converter with cached preparation and execution |
+| `src/fhir/convert.ts` | Injectable converter for both directions, with cached preparation and execution |
+| `src/fhir/roundtrip.ts` | Finds content that a conversion to the other version and back would lose |
+| `src/http/r6writes.ts` | R6 create and update for types stored as one R4 resource (Patient, Encounter) |
 | `src/fhir/maps.ts` | Configured filesystem map catalog and source/target type selection |
 | `scripts/build-fml.ts` | Builds the pinned engine without installing the Lab application |
 | `vendor/fhirpath-lab/` | Pinned executor/validator source submodule |
@@ -175,7 +226,7 @@ mapping with a diagram, real server output, and the hard cases.
 | `src/fhir/observation.ts` | Rules for Observation writes: kept row references and extensions |
 | `src/http/observation.ts` | Create and update through both versions for Observation |
 | `fhir/r4/` | Local FHIR package with the server's own R4 conformance resources (the `class-r6` SearchParameter), loaded by the canonical manager |
-| `fml-maps/` | FML StructureMaps. `R4_R6` is generated, `R6_R4` holds its datatype maps reversed, and `BodyStructure` is hand-written in both |
+| `fml-maps/` | FML StructureMaps. `R4_R6` is generated, `R6_R4` holds its datatype maps reversed, `BodyStructure` is hand-written in both, and `Patient`, `Encounter`, `Resource` and `DomainResource` in `R6_R4` are hand-written reverses of the generated maps |
 | `docs/mappings.html` | Diagrams of how resources map between versions. Open it in a browser |
 | `postman/fml-r4-r6.postman_collection.json` | Runnable examples with assertions. Import it into Postman, or run `newman run` on it with the server up |
 | `src/fhir-types/` | Types generated by `@atomic-ehr/codegen` (`bun run generate-types`) |
