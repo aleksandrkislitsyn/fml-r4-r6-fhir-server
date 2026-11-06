@@ -104,6 +104,19 @@ describe("R4 Patient CRUD", () => {
     expect((await send("PUT", "/Patient/a", { ...patient, id: "b" })).status).toBe(400);
   });
 
+  test("R6 reads carry string and CodeableConcept extensions", async () => {
+    const extension = [
+      { url: "http://example.org/s", valueString: "text" },
+      { url: "http://example.org/c", valueCodeableConcept: { text: "concept" } },
+    ];
+    const created = await send("POST", "/Patient", { ...patient, extension });
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as Patient;
+    const read = await fetch(`${server.url}R6/Patient/${id}`);
+    expect(read.status).toBe(200);
+    expect(((await read.json()) as any).extension).toEqual(extension);
+  });
+
   test("R6 Patient reads return 404 for unknown ids", async () => {
     const res = await fetch(`${server.url}R6/Patient/x`);
     expect(res.status).toBe(404);

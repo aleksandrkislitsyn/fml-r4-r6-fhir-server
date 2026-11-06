@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { migrate } from "../src/db/index.ts";
 import { readGroup, type StoredResource } from "../src/db/repository.ts";
-import { createFmlConverter, loadConverter } from "../src/fhir/convert.ts";
+import { createFmlConverter } from "../src/fhir/convert.ts";
 import { loadValidator, type Validator } from "../src/fhir/validator.ts";
 import { createHandler } from "../src/http/server.ts";
 
@@ -19,7 +19,7 @@ export async function startServer(): Promise<TestServer> {
   const validators = { R4, R6 };
   const server = Bun.serve({
     port: 0,
-    fetch: createHandler({ validators, converter: createFmlConverter(), groupConverter: await loadConverter(validators) }),
+    fetch: createHandler({ validators, converter: createFmlConverter() }),
   });
   return {
     validators,

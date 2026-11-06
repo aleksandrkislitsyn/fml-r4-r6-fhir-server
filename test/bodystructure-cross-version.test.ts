@@ -548,6 +548,67 @@ describe("extensions we don't recognise", () => {
     }
   });
 
+  for (const [name, extension] of Object.entries({
+    string: { url: "http://example.org/e", valueString: "text" },
+    boolean: { url: "http://example.org/e", valueBoolean: false },
+    integer: { url: "http://example.org/e", valueInteger: 7 },
+    code: { url: "http://example.org/e", valueCode: "abc" },
+    uri: { url: "http://example.org/e", valueUri: "http://example.org/u" },
+    dateTime: { url: "http://example.org/e", valueDateTime: "2026-01-02T03:04:05Z" },
+    decimal: { url: "http://example.org/e", valueDecimal: 1.5 },
+    CodeableConcept: { url: "http://example.org/e", valueCodeableConcept: { coding: [{ system: "http://s", code: "c" }], text: "t" } },
+    Coding: { url: "http://example.org/e", valueCoding: { system: "http://s", code: "c" } },
+    Identifier: { url: "http://example.org/e", valueIdentifier: { system: "http://s", value: "v" } },
+    Period: { url: "http://example.org/e", valuePeriod: { start: "2026-01-01", end: "2026-02-01" } },
+    Quantity: { url: "http://example.org/e", valueQuantity: { value: 2, unit: "cm", system: "http://unitsofmeasure.org", code: "cm" } },
+    Range: { url: "http://example.org/e", valueRange: { low: { value: 1 }, high: { value: 2 } } },
+    Ratio: { url: "http://example.org/e", valueRatio: { numerator: { value: 1 }, denominator: { value: 2 } } },
+    Reference: { url: "http://example.org/e", valueReference: { reference: "Patient/1", display: "P" } },
+    Attachment: { url: "http://example.org/e", valueAttachment: { url: "http://x/y", title: "T" } },
+    Address: { url: "http://example.org/e", valueAddress: { city: "Tallinn", country: "EE" } },
+    HumanName: { url: "http://example.org/e", valueHumanName: { family: "Doe", given: ["Jane"] } },
+    ContactPoint: { url: "http://example.org/e", valueContactPoint: { system: "email", value: "a@example.org" } },
+    nested: { url: "http://example.org/e", extension: [{ url: "a", valueString: "x" }, { url: "b", extension: [{ url: "c", valueBoolean: true }] }] },
+  })) {
+    test(`a ${name} extension round trips from R6 and from R4`, async () => {
+      const input = await fixture("multi");
+      input.extension = [extension];
+      input.includedStructure[0].extension = [extension];
+      const res = await s.send("POST", "/R6/BodyStructure", input);
+      expect(res.status).toBe(201);
+      const { id }: any = await res.json();
+      const r6 = await getR6(id);
+      expect(canonical(r6.extension)).toEqual(canonical([extension]));
+      expect(canonical(r6.includedStructure[0].extension)).toEqual(canonical([extension]));
+
+      const r4 = { resourceType: "BodyStructure", location: { text: "A" }, extension: [extension], patient: { reference: "Patient/1" } };
+      const created = await s.send("POST", "/R4/BodyStructure", r4);
+      expect(created.status).toBe(201);
+      const { id: r4Id }: any = await created.json();
+      expect(canonical((await getR6(r4Id)).includedStructure[0].extension)).toEqual(canonical([extension]));
+    });
+  }
+
+  test("an R6-only extension type has no R4 form: 422 naming it, nothing stored", async () => {
+    const input = await fixture("multi");
+    const id = `int64-${crypto.randomUUID().slice(0, 8)}`;
+    const body = { ...input, id, extension: [{ url: "http://example.org/e", valueInteger64: "9007199254740993" }] };
+    const res = await s.send("PUT", `/R6/BodyStructure/${id}`, body);
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toContain("extension");
+    expect(await s.rows(id)).toEqual([]);
+  });
+
+  test("an R6-only field inside a datatype is rejected rather than dropped", async () => {
+    const input = await fixture("multi");
+    const id = `timing-${crypto.randomUUID().slice(0, 8)}`;
+    const timing = { repeat: { startOffset: { value: 1, unit: "h", system: "http://unitsofmeasure.org", code: "h" } } };
+    const res = await s.send("PUT", `/R6/BodyStructure/${id}`, { ...input, id, extension: [{ url: "http://example.org/e", valueTiming: timing }] });
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toContain("startOffset");
+    expect(await s.rows(id)).toEqual([]);
+  });
+
   test("a client can't use the URLs our mapping relies on", async () => {
     const input = await fixture("multi");
     input.extension = [{ url: ROW_GROUP_URL, valueBoolean: true }];
