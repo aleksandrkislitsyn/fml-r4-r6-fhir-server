@@ -1,13 +1,16 @@
 import { migrate } from "./db/index.ts";
 import { loadValidator } from "./fhir/validator.ts";
 import { createHandler } from "./http/server.ts";
+import { createFmlConverter } from "./fhir/convert.ts";
 
 await migrate();
 const r4 = await loadValidator("R4");
+const converter = createFmlConverter();
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 8080),
-  fetch: createHandler({ validators: { R4: r4 } }),
+  idleTimeout: 60,
+  fetch: createHandler({ validators: { R4: r4 }, converter }),
 });
 
 console.log(`FHIR server listening on ${server.url}  (R4: ${server.url}R4, R6: ${server.url}R6)`);
