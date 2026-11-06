@@ -107,7 +107,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <text class="small" x="390" y="62" text-anchor="middle">split on write</text>
     <text class="small" x="390" y="218" text-anchor="middle">merged on read</text>
   </svg></div>
-  <p>Each row is a normal, valid R4 resource, and R4 clients can read and change it directly. Rows show they belong together: a server-managed extension holds each row's position and, on secondary rows, a reference to the primary row. A group of one has no extension.</p>
+  <p>Each row is a normal, valid R4 resource, and R4 clients can read and change it directly. Rows show they belong together: a server-managed extension holds each row's position, secondary rows reference the primary row, and the primary row lists the others in order. An R4 client can find the whole group from any row. A group of one has no extension.</p>
   <p>A row keeps its id while its structure exists, and numbers are never reused. R6 shows the row as <code>includedStructure.id</code>: <code>"1"</code> for the primary, <code>"3"</code> for <code>abc--3</code>. Row ids like <code>abc--2</code> exist only in R4, so <code>GET /R6/BodyStructure/abc--2</code> returns 404.</p>
 </section>
 
@@ -187,8 +187,13 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
       { "text": "Nevus sebaceus" }</mark>
   }, {
     "url": "…/bodystructure-row-group",
-    "extension": [{ "url": "position",
-                    "valuePositiveInt": 1 }]
+    "extension": [
+      { "url": "position", "valuePositiveInt": 1 },
+      { "url": "member", "valueReference":
+        { "reference": "BodyStructure/abc--2" } },
+      { "url": "member", "valueReference":
+        { "reference": "BodyStructure/abc--3" } }
+    ]
   }],
   "locationQualifier": [
     { "text": "Volar" },
@@ -268,7 +273,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 <section>
   <h2>Known limits</h2>
   <ul>
-    <li>R4 rows can still read as separate structures, while R6 describes one structure covering several regions. The row link shows they belong together, but an R4 client has to look for it.</li>
+    <li>R4 rows can still read as separate structures, while R6 describes one structure covering several regions. The row link connects them in both directions, but an R4 client has to look for it, and its <code>example.org</code> URL isn't a published definition.</li>
     <li>Content that has no place in the other version returns 422: <code>contained</code>, <code>implicitRules</code>, <code>modifierExtension</code>, extensions we don't recognise, R4 <code>Attachment.language</code>, and an R6 <code>Attachment.size</code> over R4's maximum of 2,147,483,647.</li>
     <li><code>X-Replace-Extensions</code> is this server's own header, so a client has to know about it. A client that sends an <code>extension</code> array but leaves ours out of it removes them.</li>
     <li>Decimal precision isn't kept: <code>2.0</code> comes back as <code>2</code>, because JSON is parsed as JavaScript numbers. This applies to the whole server.</li>

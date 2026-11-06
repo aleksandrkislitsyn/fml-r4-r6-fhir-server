@@ -180,19 +180,25 @@ export function orderRows<T extends StoredResource>(rows: T[]): T[] {
 
 /**
  * Writes the row-group extension on rows given in order, replacing anything a client sent.
- * A group of one has none, so a plain R4 resource stays plain.
+ * Secondary rows point to the primary, and the primary lists the others in order, so an R4
+ * client can find the whole group from any row. A group of one has none, so a plain R4
+ * resource stays plain.
  */
 export function withRowLinks(rows: StoredResource[], base: string): StoredResource[] {
+  const members = rows
+    .filter((row) => row.id !== base)
+    .map((row) => ({ url: "member", valueReference: { reference: `BodyStructure/${row.id}` } }));
   return rows.map((row, index) => {
     const { extension, ...rest } = row as any;
     const own = (extension ?? []).filter((e: any) => e.url !== ROW_GROUP_URL);
     if (rows.length > 1) {
+      const position = { url: "position", valuePositiveInt: index + 1 };
       own.push({
         url: ROW_GROUP_URL,
-        extension: [
-          ...(row.id === base ? [] : [{ url: "primary", valueReference: { reference: `BodyStructure/${base}` } }]),
-          { url: "position", valuePositiveInt: index + 1 },
-        ],
+        extension:
+          row.id === base
+            ? [position, ...members]
+            : [{ url: "primary", valueReference: { reference: `BodyStructure/${base}` } }, position],
       });
     }
     return own.length > 0 ? { ...rest, extension: own } : rest;

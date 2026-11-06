@@ -278,6 +278,53 @@ describe("rows show they belong together", () => {
     expect(link(await getR4(id))).toBeUndefined();
   });
 
+  const members = (row: any) =>
+    (link(row)?.extension ?? []).filter((e: any) => e.url === "member").map((e: any) => e.valueReference.reference);
+
+  test("the primary row lists the other rows, and stays correct as the group changes", async () => {
+    const { id } = await createR6();
+    const ref = (n: number) => `BodyStructure/${id}--${n}`;
+    expect(members(await getR4(id))).toEqual([ref(2), ref(3)]);
+    expect(members(await getR4(`${id}--2`))).toEqual([]);
+
+    // Removing a row through R4
+    await s.send("DELETE", `/R4/BodyStructure/${id}--2`);
+    expect(members(await getR4(id))).toEqual([ref(3)]);
+
+    // Adding one through R6 uses the new number
+    const r6 = await getR6(id);
+    r6.includedStructure.push({ structure: { text: "Neck" } });
+    await s.send("PUT", `/R6/BodyStructure/${id}`, r6);
+    expect(members(await getR4(id))).toEqual([ref(3), ref(4)]);
+
+    // Reordering changes the order of the list
+    const reordered = await getR6(id);
+    reordered.includedStructure.reverse();
+    await s.send("PUT", `/R6/BodyStructure/${id}`, reordered);
+    expect(members(await getR4(id))).toEqual([ref(4), ref(3)]);
+
+    // Moving the next structure into the primary row takes it off the list
+    const fewer = await getR6(id);
+    fewer.includedStructure = fewer.includedStructure.filter((i: any) => i.id !== "1");
+    await s.send("PUT", `/R6/BodyStructure/${id}`, fewer);
+    expect(members(await getR4(id))).toEqual([ref(3)]);
+    for (const member of members(await getR4(id))) {
+      expect((await s.send("GET", `/R4/${member}`)).status).toBe(200);
+    }
+
+    // A group of one lists nothing
+    await s.send("DELETE", `/R4/BodyStructure/${id}--3`);
+    expect(link(await getR4(id))).toBeUndefined();
+  });
+
+  test("a client can't change the member list on the primary row", async () => {
+    const { id } = await createR6();
+    const row = await getR4(id);
+    link(row).extension.push({ url: "member", valueReference: { reference: "BodyStructure/other" } });
+    const saved = await putR4(row);
+    expect(members(saved)).toEqual([`BodyStructure/${id}--2`, `BodyStructure/${id}--3`]);
+  });
+
   test("22. a client can't change the link", async () => {
     const { id } = await createR6();
     const row = await getR4(`${id}--2`);

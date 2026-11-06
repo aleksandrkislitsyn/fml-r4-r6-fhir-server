@@ -204,7 +204,8 @@
                   "pm.test(\"holds the first structure\", () => pm.expect(row.location.text).to.eql(\"Forearm\"));",
                   "pm.test(\"first morphology is on the element\", () => pm.expect(row.morphology.text).to.eql(\"Basal cell carcinoma\"));",
                   "pm.test(\"second morphology is in an extension\", () => pm.expect(row.extension[0].valueCodeableConcept.text).to.eql(\"Nevus sebaceus\"));",
-                  "pm.test(\"laterality and qualifier share locationQualifier\", () => pm.expect(row.locationQualifier.map(q => q.text)).to.eql([\"Volar\", \"Left\"]));"
+                  "pm.test(\"laterality and qualifier share locationQualifier\", () => pm.expect(row.locationQualifier.map(q => q.text)).to.eql([\"Volar\", \"Left\"]));",
+                  "pm.test(\"lists the other rows\", () => { const link = row.extension.find(e => e.url.endsWith(\"bodystructure-row-group\")); const id = pm.collectionVariables.get(\"bsId\"); pm.expect(link.extension.filter(e => e.url === \"member\").map(e => e.valueReference.reference)).to.eql([\"BodyStructure/\" + id + \"--2\", \"BodyStructure/\" + id + \"--3\"]); });"
                 ]
               }
             }
@@ -1821,7 +1822,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"returns 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"now Neck\", () => pm.expect(pm.response.json().location.text).to.eql(\"Neck\"));"
+                  "pm.test(\"now Neck\", () => pm.expect(pm.response.json().location.text).to.eql(\"Neck\"));",
+                  "pm.test(\"lists the one remaining row\", () => { const link = pm.response.json().extension.find(e => e.url.endsWith(\"bodystructure-row-group\")); const id = pm.collectionVariables.get(\"stableId\"); pm.expect(link.extension.filter(e => e.url === \"member\").map(e => e.valueReference.reference)).to.eql([\"BodyStructure/\" + id + \"--3\"]); });"
                 ]
               }
             }
