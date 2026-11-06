@@ -1,5 +1,4 @@
 {
-  "exclude": ["node_modules", ".fml-engine"],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
@@ -12,6 +11,10 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
+    "paths": {
+      "@fhirpath-lab/fml-executor": ["./vendor/fhirpath-lab/fml-vscode-extension/fml-executor/dist/index"],
+      "@fhirpath-lab/validator": ["./vendor/fhirpath-lab/fml-vscode-extension/fml-validator/dist/index"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
@@ -27,5 +30,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }

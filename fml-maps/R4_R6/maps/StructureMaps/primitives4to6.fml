@@ -237,8 +237,11 @@ group uri2url(source src : uriR4, target tgt : urlR6) extends Element <<types>> 
 //   src.value as v -> tgt.value = v "xhtmlValue";
 // }
 
-// Reference and CodeableConcept -> CodeableReference default groups are defined
-// in Reference_4to6.fml and CodeableConcept_4to6.fml; do not register duplicates.
+// Reference -> CodeableReference lives here in the embedded-engine integration.
+// CodeableConcept -> CodeableReference is defined in CodeableConcept_4to6.fml.
+group reference2CodeableReferece(source src : ReferenceR4, target tgt : CodeableReferenceR6) extends Element <<types>> {
+  src -> tgt.reference as r then Reference(src, r) "createReference";
+}
 
 group coding2CodeableReference(source src : CodingR4, target tgt : CodeableReferenceR6) extends Element <<types>> {
   src -> tgt.concept as tgtTref then {

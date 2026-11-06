@@ -4,22 +4,30 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup:fml": "bun scripts/setup-fml.ts",
-    "dev": "bun run setup:fml && bun --watch src/index.ts",
-    "start": "bun run setup:fml && bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
     "db:up": "docker compose up -d --wait",
     "db:migrate": "bun src/db/index.ts",
+    "build:fml": "bun scripts/build-fml.ts",
     "generate-types": "bun run scripts/generate-types.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun run setup:fml && bun test"
+    "test": "bun test"
   },
   "dependencies": {
     "@atomic-ehr/fhir-canonical-manager": "^0.0.29",
-    "@atomic-ehr/fhirschema": "^0.0.14"
+    "@atomic-ehr/fhirschema": "^0.0.14",
+    "antlr4": "^4.13.2",
+    "entities": "^6.0.1",
+    "fhirpath": "^5.0.0",
+    "lossless-json": "^4.3.0",
+    "luxon": "^3.4.3"
   },
   "devDependencies": {
     "@atomic-ehr/codegen": "^0.0.24",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/fhir": "^0.0.41",
+    "@types/luxon": "^3.4.2",
+    "esbuild": "^0.25.12"
   },
   "peerDependencies": {
     "typescript": "^5"

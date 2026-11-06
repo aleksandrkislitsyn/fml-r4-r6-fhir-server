@@ -1,45 +1,95 @@
 import type { StoredResource } from "../db/repository.ts";
 import type { FhirVersion } from "./validator.ts";
-import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import {
+  createSingleInputRequest, FmlExecutor,
+  type FmlDiagnostic, type PreparedFmlProgram,
+} from "@fhirpath-lab/fml-executor";
+import { configuredMapDirectories, loadMapCatalog } from "./maps.ts";
 
-async function prepareEncounterMap() {
-  const enginePath = resolve(import.meta.dir, "../../.fml-engine/engine.mjs");
-  if (!await Bun.file(enginePath).exists()) throw new Error("Run bun run setup:fml before using R6");
-  const { FmlExecutor, createSingleInputRequest } = await import(pathToFileURL(enginePath).href);
-  const directory = resolve(import.meta.dir, "../../fml-maps/R4_R6/maps/StructureMaps");
-  const files = await Array.fromAsync(new Bun.Glob("*.fml").scan({ cwd: directory }));
-  const maps = await Promise.all(files.sort().map(async (file) => ({
-    sourceText: await Bun.file(`${directory}/${file}`).text(), sourceName: file,
-  })));
-  const executor = new FmlExecutor({ maps });
-  const prepared = await executor.prepare(maps.find((map) => map.sourceName === "Encounter_4to6.fml"));
-  if (prepared.status !== "success") throw new Error(`Encounter FML preparation failed: ${JSON.stringify(prepared.diagnostics)}`);
-  return { executor, program: prepared.value, createSingleInputRequest };
+export interface ResourceConverter {
+  toR6(resource: StoredResource, signal?: AbortSignal): Promise<StoredResource>;
 }
 
-let encounterMap: ReturnType<typeof prepareEncounterMap> | undefined;
+export class ConversionError extends Error {
+  constructor(
+    message: string,
+    readonly diagnostics: readonly FmlDiagnostic[] = [],
+    readonly status = 500,
+    readonly code = "exception",
+  ) {
+    super(message);
+  }
+}
 
-/**
- * Conversion between a wire FHIR version and the storage version (R4).
- *
- * The database holds R4 only. `/R4` requests pass straight through.
- * `/R6` requests are converted with FML:
- *   - `toStorage("R6", …)`   runs an R6 → R4 map (6to4; not available yet)
- *   - `fromStorage("R6", …)` runs an R4 → R6 map (fml-maps/R4_R6/…/*_4to6.fml)
- */
+function isResource(value: unknown): value is StoredResource {
+  return typeof value === "object" && value !== null && "resourceType" in value && typeof value.resourceType === "string";
+}
+
+export function createFmlConverter(directories = configuredMapDirectories()): ResourceConverter {
+  let runtime: Promise<{ catalog: Awaited<ReturnType<typeof loadMapCatalog>>; executor: FmlExecutor }> | undefined;
+  const programs = new Map<string, Promise<{ program: PreparedFmlProgram; entryGroup: string; executor: FmlExecutor }>>();
+
+  const prepare = async (type: string) => {
+    runtime ??= loadMapCatalog(directories).then((catalog) => ({
+      catalog, executor: new FmlExecutor({ maps: catalog.sources }),
+    }));
+    const { catalog, executor } = await runtime;
+    const map = catalog.resourceMaps.get(type);
+    if (!map) throw new ConversionError(`No R4 -> R6 map is configured for ${type}`, [], 501, "not-supported");
+    const result = await executor.prepare(map.source);
+    if (result.status !== "success") throw new ConversionError(`Unable to prepare R4 -> R6 map for ${type}`, result.diagnostics);
+    if (result.diagnostics.length) {
+      console.warn(`FML ${map.source.sourceName}: prepared with ${result.diagnostics.length} diagnostics`);
+    }
+    return { program: result.value, entryGroup: map.entryGroup, executor };
+  };
+
+  return {
+    async toR6(resource, signal) {
+      signal?.throwIfAborted();
+      let prepared = programs.get(resource.resourceType);
+      if (!prepared) {
+        prepared = prepare(resource.resourceType);
+        programs.set(resource.resourceType, prepared);
+      }
+      let executable: Awaited<typeof prepared>;
+      try {
+        executable = await prepared;
+      } catch (error) {
+        programs.delete(resource.resourceType);
+        throw error;
+      }
+      signal?.throwIfAborted();
+      const { program, entryGroup, executor } = executable;
+      const request = createSingleInputRequest(program, resource, entryGroup);
+      const result = await executor.execute(request, { signal });
+      if (result.status !== "success") {
+        throw new ConversionError(`R4 -> R6 execution failed for ${resource.resourceType}`, result.diagnostics);
+      }
+      const target = result.value.targets[0]?.value;
+      if (!isResource(target) || target.resourceType !== resource.resourceType
+        || target.id !== resource.id || target.meta?.versionId !== resource.meta?.versionId
+        || target.meta?.lastUpdated !== resource.meta?.lastUpdated) {
+        throw new ConversionError(`R4 -> R6 map for ${resource.resourceType} did not preserve resource identity and version metadata`);
+      }
+      return target;
+    },
+  };
+}
+
+/** Storage remains R4; R6 writes require reverse maps and are not supported. */
 export function toStorage(version: FhirVersion, resource: StoredResource): StoredResource {
   if (version === "R4") return resource;
-  throw new Error("R6 -> R4 conversion is not implemented yet"); // TODO: FML 6to4
+  throw new ConversionError("R6 writes are not supported", [], 405, "not-supported");
 }
 
-export async function fromStorage(version: FhirVersion, resource: StoredResource): Promise<StoredResource> {
+export async function fromStorage(
+  version: FhirVersion,
+  resource: StoredResource,
+  converter?: ResourceConverter,
+  signal?: AbortSignal,
+): Promise<StoredResource> {
   if (version === "R4") return resource;
-  if (resource.resourceType !== "Encounter") throw new Error("R6 conversion is only enabled for Encounter");
-  const { executor, program, createSingleInputRequest } = await (encounterMap ??= prepareEncounterMap());
-  const result = await executor.execute(createSingleInputRequest(program, resource));
-  if (result.status !== "success") throw new Error(`Encounter FML execution failed: ${JSON.stringify(result.diagnostics)}`);
-  const output = result.value.targets[0]?.value as StoredResource | undefined;
-  if (output?.resourceType !== "Encounter") throw new Error("Encounter FML returned no Encounter target");
-  return output;
+  if (!converter) throw new ConversionError("R6 conversion is not configured", [], 501, "not-supported");
+  return converter.toR6(resource, signal);
 }

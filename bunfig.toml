@@ -1,0 +1,3 @@
+[test]
+# The vendored Lab has its own UI/engine suites and independent dependencies.
+root = "./test"

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { migrate, sql } from "../src/db/index.ts";
 import { loadValidator } from "../src/fhir/validator.ts";
 import { createHandler } from "../src/http/server.ts";
+import { createFmlConverter } from "../src/fhir/convert.ts";
 import type { Patient } from "../src/fhir-types/hl7-fhir-r4-core/Patient.ts";
 
 let server: ReturnType<typeof Bun.serve>;
@@ -10,7 +11,7 @@ let base: string;
 beforeAll(async () => {
   await migrate();
   const r4 = await loadValidator("R4");
-  server = Bun.serve({ port: 0, fetch: createHandler({ validators: { R4: r4 } }) });
+  server = Bun.serve({ port: 0, fetch: createHandler({ validators: { R4: r4 }, converter: createFmlConverter() }) });
   base = `${server.url}R4`;
 }, 120_000);
 
@@ -47,6 +48,13 @@ describe("R4 Patient CRUD", () => {
     const read = await send("GET", `/Patient/${c.id}`);
     expect(read.status).toBe(200);
     expect(((await read.json()) as Patient).name?.[0]?.family).toBe("Doe");
+
+    const r6Read = await fetch(`${server.url}R6/Patient/${c.id}`);
+    expect(r6Read.status).toBe(200);
+    const r6Patient = (await r6Read.json()) as Patient;
+    expect(r6Patient.id).toBe(c.id);
+    expect(r6Patient.meta).toEqual(c.meta);
+    expect(r6Patient.name).toEqual(patient.name);
 
     const updated = await send("PUT", `/Patient/${c.id}`, { ...c, gender: "other" }, { "if-match": 'W/"1"' });
     expect(updated.status).toBe(200);
@@ -89,9 +97,9 @@ describe("R4 Patient CRUD", () => {
     expect((await send("PUT", "/Patient/a", { ...patient, id: "b" })).status).toBe(400);
   });
 
-  test("R6 Patient is not implemented yet", async () => {
+  test("R6 Patient reads return 404 for unknown ids", async () => {
     const res = await fetch(`${server.url}R6/Patient/x`);
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(404);
   });
 
   test("metadata", async () => {
@@ -299,11 +307,12 @@ describe("R6 Encounter read facade", () => {
     expect(response.status).toBe(200);
     const metadata = (await response.json()) as any;
     expect(metadata.fhirVersion).toBe("6.0.0-ballot5");
-    expect(metadata.rest[0].resource).toHaveLength(1);
-    expect(metadata.rest[0].resource[0].interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(501);
-    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(501);
-    expect((await getR6("/Patient/anything")).status).toBe(501);
+    const encounter = metadata.rest[0].resource.find((r: any) => r.type === "Encounter");
+    expect(encounter.interaction).toEqual([{ code: "read" }, { code: "search-type" }]);
+    expect(metadata.rest[0].resource.find((r: any) => r.type === "Patient").interaction).toEqual([{ code: "read" }]);
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter`, { method: "POST" })).status).toBe(405);
+    expect((await fetch(`${base.replace(/R4$/, "R6")}/Encounter/anything`, { method: "DELETE" })).status).toBe(405);
+    expect((await getR6("/Patient/anything")).status).toBe(404);
     expect((await getR6("/Encounter?class:text=virtual")).status).toBe(400);
   });
 });

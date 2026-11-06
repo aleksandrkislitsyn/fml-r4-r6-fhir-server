@@ -1,13 +1,14 @@
 import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
-import { fromStorage, toStorage } from "../fhir/convert.ts";
+import { ConversionError, fromStorage, toStorage, type ResourceConverter } from "../fhir/convert.ts";
 import { hasErrors, outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
+import { stringifyFmlJson } from "@fhirpath-lab/fml-executor";
 
 const FHIR_JSON = "application/fhir+json; charset=utf-8";
 const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/;
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
+  return new Response(stringifyFmlJson(body), {
     status,
     headers: { "content-type": FHIR_JSON, ...headers },
   });
@@ -42,9 +43,10 @@ async function readBody(req: Request): Promise<any | Response> {
 
 export interface ServerDeps {
   validators: Partial<Record<FhirVersion, Validator>>;
+  converter?: ResourceConverter;
 }
 
-export function createHandler({ validators }: ServerDeps) {
+export function createHandler({ validators, converter }: ServerDeps) {
   return async function handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const [versionSeg, type, id, ...rest] = url.pathname.split("/").filter(Boolean);
@@ -55,11 +57,7 @@ export function createHandler({ validators }: ServerDeps) {
     const version: FhirVersion = versionSeg;
     const base = `${url.origin}/${version}`;
     const validator = validators[version];
-    const r6Read = version === "R6" && req.method === "GET" && (type === "Encounter" || type === "metadata");
-    if (version === "R6" && !r6Read) {
-      return error(501, "R6 only supports Encounter read and search", "not-supported");
-    }
-    if (!validator && !r6Read) {
+    if (version === "R4" ? !validator : !converter) {
       return error(501, `FHIR ${version} is not implemented yet`, "not-supported");
     }
 
@@ -70,20 +68,23 @@ export function createHandler({ validators }: ServerDeps) {
       return error(404, `Resource type ${type} is not supported`, "not-supported");
     }
     if (id !== undefined && !ID_RE.test(id)) return error(400, `Invalid id: ${id}`);
+    if (version === "R6" && req.method !== "GET") {
+      return json(outcome("R6 is read-only; use /R4 for writes", "not-supported"), 405, { allow: "GET" });
+    }
 
     try {
       if (id === undefined) {
         if (req.method === "POST" && validator) return await createResource(req, type, version, base, validator);
         if (req.method === "GET" && type === "Encounter") {
-          return await searchEncounters(url, base, version);
+          return await searchEncounters(url, base, version, converter, req.signal);
         }
         return error(405, `${req.method} not allowed on /${type}`, "not-supported");
       }
       switch (req.method) {
         case "GET":
-          return await readResource(type, id, version, base);
+          return await readResource(type, id, version, base, converter, req.signal);
         case "PUT":
-          if (!validator) return error(501, "No input validator configured", "not-supported");
+          if (!validator) return error(501, `FHIR ${version} writes are not configured`, "not-supported");
           return await updateResource(req, type, id, version, base, validator);
         case "DELETE":
           await repo.remove(type, id);
@@ -94,12 +95,31 @@ export function createHandler({ validators }: ServerDeps) {
     } catch (e) {
       if (e instanceof repo.VersionConflict) return error(412, e.message, "conflict");
       console.error(e);
+      if (e instanceof ConversionError) {
+        return json({
+          resourceType: "OperationOutcome",
+          issue: [
+            { severity: "error", code: e.code, diagnostics: e.message },
+            ...e.diagnostics.map((diagnostic) => ({
+              severity: diagnostic.severity,
+              code: e.code,
+              diagnostics: `${diagnostic.sourceName ?? "(map)"}:${diagnostic.line}:${diagnostic.column}: ${diagnostic.message}`,
+            })),
+          ],
+        }, e.status);
+      }
       return error(500, "Internal server error", "exception");
     }
   };
 }
 
-async function searchEncounters(url: URL, base: string, version: FhirVersion): Promise<Response> {
+async function searchEncounters(
+  url: URL,
+  base: string,
+  version: FhirVersion,
+  converter?: ResourceConverter,
+  signal?: AbortSignal,
+): Promise<Response> {
   for (const key of url.searchParams.keys()) {
     if (key !== "class") return error(400, `Unsupported search parameter: ${key}`, "not-supported");
   }
@@ -122,7 +142,7 @@ async function searchEncounters(url: URL, base: string, version: FhirVersion): P
     }
   }
   const stored = await repo.searchEncounterClass(token, version === "R6");
-  const resources = await Promise.all(stored.map((resource) => fromStorage(version, resource)));
+  const resources = await Promise.all(stored.map((resource) => fromStorage(version, resource, converter, signal)));
   return json({
     resourceType: "Bundle",
     type: "searchset",
@@ -166,12 +186,14 @@ async function readResource(
   id: string,
   version: FhirVersion,
   base: string,
+  converter?: ResourceConverter,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const result = await repo.read(type, id);
   if (result.status === "not-found") return error(404, `${type}/${id} not found`, "not-found");
   if (result.status === "deleted") return error(410, `${type}/${id} was deleted`, "deleted");
-  const out = await fromStorage(version, result.resource);
-  const { location: _l, ...headers } = resourceHeaders(base, out);
+  const out = await fromStorage(version, result.resource, converter, signal);
+  const { location: _l, ...headers } = resourceHeaders(base, result.resource);
   return json(out, 200, headers);
 }
 
@@ -206,11 +228,13 @@ function capabilityStatement(version: FhirVersion) {
     rest: [
       {
         mode: "server",
-        resource: STORED_RESOURCE_TYPES.filter((type) => version === "R4" || type === "Encounter").map((type) => ({
+        resource: STORED_RESOURCE_TYPES.map((type) => ({
           type,
           versioning: "versioned",
           updateCreate: version === "R4",
-          interaction: version === "R6" ? [{ code: "read" }, { code: "search-type" }] : [
+          interaction: version === "R6" ? [
+            { code: "read" }, ...(type === "Encounter" ? [{ code: "search-type" }] : []),
+          ] : [
             { code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" },
             ...(type === "Encounter" && version === "R4" ? [{ code: "search-type" }] : []),
           ],

@@ -1,38 +1,74 @@
 # fml-r4-r6-fhir-server
 
-A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6/Encounter` offers read and class search, converting stored R4 resources with FHIR Mapping Language (FML).
+A sample FHIR server on Bun and PostgreSQL 18. Every resource is stored as FHIR **R4**. `/R4` reads and writes the stored data directly. `/R6` is a read-only facade that executes FHIR Mapping Language (FML) maps over the stored R4 content.
 
 ## Status
 
 - [x] R4 `Patient` CRUD: create, read, update (including create-on-update), delete, versioning, `If-Match`
 - [x] Validation of R4 resources with `@atomic-ehr/fhirschema`; core packages are loaded by `@atomic-ehr/fhir-canonical-manager`
 - [x] One table per resource type, plus a history table
-- [x] R4 → R6 Encounter conversion using TypeScript FML executor and the maps in `fml-maps/R4_R6`
-- [x] `/R6/Encounter` read and class search, plus `/R6/metadata`
-- [ ] R6 writes and other R6 resource types (return `501`)
+- [x] R4 → R6 FML execution using the TypeScript FHIRPath Lab executor
+- [x] `/R6/Patient/:id` reads and `/R6/metadata`
+- [ ] R6 writes (reverse maps and R6 input validation are still needed)
 - [x] R4 Encounter CRUD and native `class` token search
+- [x] R6 Encounter class search over native R4 class and cross-version extensions
 - [ ] Other search parameters, history interactions, more resource types
 
 ## Quick start
 
 ```sh
+git submodule update --init --recursive
 bun install
+bun run build:fml    # build the pinned executor and validator; no Lab UI install
 cp .env.example .env
 bun run db:up        # Postgres 18 on localhost:5437
 bun run dev          # http://localhost:8080
-bun run test         # prepares FML and runs integration tests (needs the DB running)
+bun test             # integration tests (needs the DB running)
 ```
 
-The first start downloads `hl7.fhir.r4.core` into `.fhir/` and builds the FML
-executor in `.fml-engine/`. This requires internet access and `tar`. Subsequent
-starts reuse the local engine. `bun run setup:fml` can prepare it separately.
-The tests also download `hl7.fhir.r6.core@6.0.0-ballot5` to validate the converted fixture.
+The first start downloads `hl7.fhir.r4.core` into `.fhir/`, which takes a few seconds.
 
 ```sh
 curl -X POST localhost:8080/R4/Patient -H 'content-type: application/fhir+json' \
   -d '{"resourceType":"Patient","name":[{"family":"Doe","given":["Jane"]}],"gender":"female"}'
 curl localhost:8080/R4/Patient/<id>
+curl localhost:8080/R6/Patient/<id>
 ```
+
+## FML execution
+
+The [FHIRPath Lab](https://github.com/brianpos/fhirpath-lab/tree/cautious-doodle/fml-vscode-extension/fml-executor)
+source is pinned as the `vendor/fhirpath-lab` Git submodule. The build script
+generates the validator/executor JavaScript and declarations inside the submodule;
+the server resolves their public API names through `tsconfig.json`. Only the
+engine's build/runtime dependencies are installed, not the Lab application.
+Re-run `bun run build:fml` after updating the submodule.
+
+The default map folder is `fml-maps/R4_R6/maps/StructureMaps`. To use maps
+elsewhere on disk, set `FML_MAP_DIRS` to one or more folders. Separate folders
+with `;` on Windows or `:` on Unix; relative paths resolve from the working
+directory. Folders are scanned recursively.
+
+The map catalog loads on the first R6 resource read, not at startup or for R4
+requests. It selects the map and entry group from their declared source/target
+types and releases, rather than filenames. All catalog maps are supplied to the
+executor so wildcard imports can resolve fully. The first preparation can take
+several seconds. Source text and prepared programs are cached in memory;
+concurrent requests share preparation but execute with independent targets.
+Restart the server after changing maps.
+
+R6 reads never write back to the database or create history versions. IDs and
+version metadata must survive mapping. Missing resource maps return `501`;
+preparation/execution errors return `500` with an `OperationOutcome`, including
+engine diagnostics where available. There is no pass-through fallback or partial
+success. R6 `POST`, `PUT`, and `DELETE` return `405`.
+
+The maps remain draft R6-ballot5 maps, not a production conformance guarantee.
+Preparation warnings are logged as a diagnostic count. The converted Encounter
+fixture is validated against R6 ballot5 in the integration tests; runtime output
+validation, history interactions, terminology services, and external reference
+resolution are not implemented. Patient and Encounter have storage and HTTP support.
+`bun test` runs the server's `test/` suite; the vendored Lab has its own tests.
 
 ### Encounter class search (R4)
 
@@ -58,38 +94,29 @@ curl -G localhost:8080/R6/Encounter \
 
 R6 searches the native R4 `class` and every Coding in
 `extension.where(url = 'xver/encounter-class').valueCodeableConcept.coding`.
-System and code must match the same Coding. A resource is returned once even
-if both locations match. Matching rows are converted through the FML executor;
-the response is a searchset Bundle containing R6 Encounters with `class` as an
-array of CodeableConcepts. The consumed `xver/encounter-class` extension is removed
-from the R6 representation. The stored R4 resource is unchanged.
+System and code must match the same Coding. Each Encounter is returned once,
+even when both the native field and extensions match.
 
-`GET /R6/Encounter/<id>` uses the same conversion. R6 writes and other resource
-types remain disabled. Token syntax and search limitations are the same as R4.
-
-The engine is built from the pinned upstream revision recorded in
-`scripts/setup-fml.ts` of [Brian's FHIRPath Lab](https://github.com/brianpos/fhirpath-lab).
-The setup installs only runtime dependencies with lifecycle scripts disabled,
-then bundles the internal executor and validator directly from their TypeScript
-sources. No engine binaries or upstream checkout are committed. Preparation is
-cached per server process; restart after editing FML maps.
-
-These are draft cross-version maps, not a general conformance guarantee. This
-POC exercises class reconstruction, identifiers, metadata, and period renaming;
-unsupported or invalid transformations fail with an OperationOutcome rather than
-returning the original R4 JSON as R6.
+Search results use the same injected FML converter as individual R6 reads,
+including cancellation and diagnostic handling. The response contains R6
+Encounters with `class` as an array of CodeableConcepts. The consumed
+`xver/encounter-class` extension is omitted from the R6 representation, while
+the stored R4 resource remains unchanged. R6 writes still return `405`.
+Token syntax and search limitations are the same as R4.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `src/index.ts` | Entry point: migrate, load validators, start `Bun.serve` |
+| `src/index.ts` | Entry point: migrate, load the R4 validator, inject the converter, start `Bun.serve` |
 | `src/http/server.ts` | Routing for `/R4` and `/R6` and the FHIR REST interactions |
 | `src/db/index.ts` | Postgres connection (`Bun.SQL`), the list of stored resource types, migrations |
 | `src/db/repository.ts` | Version-aware create, read, update and delete over `<type>` and `<type>_history` tables |
 | `src/fhir/validator.ts` | Loads the core package and builds FHIRSchemas used for validation |
-| `src/fhir/convert.ts` | Converts `/R6` requests to and from the stored R4, where FML plugs in |
-| `scripts/setup-fml.ts` | Reproducible local build of the pinned internal FML executor |
+| `src/fhir/convert.ts` | Injectable R4 → R6 converter with cached preparation and execution |
+| `src/fhir/maps.ts` | Configured filesystem map catalog and source/target type selection |
+| `scripts/build-fml.ts` | Builds the pinned engine without installing the Lab application |
+| `vendor/fhirpath-lab/` | Pinned executor/validator source submodule |
 | `fml-maps/` | FML StructureMaps for R4 → R6 (draft, generated) |
 | `src/fhir-types/` | Types generated by `@atomic-ehr/codegen` (`bun run generate-types`) |
 
@@ -99,6 +126,9 @@ Each resource type gets two tables, for example `patient` and `patient_history`:
 
 - `patient(id, version_id, last_updated, resource jsonb)` holds the current version
 - `patient_history(id, version_id, last_updated, resource jsonb)` holds every version; a delete is a row with `resource = NULL`
+
+Both tables contain R4 JSON. Mapping is performed only when an R6 representation
+is requested.
 
 ### Looking at the database
 
