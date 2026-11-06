@@ -328,7 +328,9 @@ describe("class-r6 SearchParameter definition", () => {
       base: ["Encounter"],
       type: "token",
     });
-    expect(sp.expression).toBe(`Encounter.class | Encounter.extension('${CLASS_EXTENSION}').value`);
+    expect(sp.expression).toBe(
+      `Encounter.class | Encounter.class.extension('${CLASS_EXTENSION}').value | Encounter.extension('${CLASS_EXTENSION}').value`,
+    );
     expect(hasErrors(r4.validate(sp))).toBe(false);
     const known = await r4.definitions.getSearchParametersForResource("Encounter");
     expect(known.map((p: any) => p.code)).toContain("class-r6");

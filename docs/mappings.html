@@ -353,7 +353,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 
 <section>
   <h2>Encounter.class search: the R6 meaning on R4</h2>
-  <p>An R4 client that searches <code>class</code> gets the R4 meaning: the one native Coding. To give R4 clients the R6 meaning as well, the server adds a second parameter, <code>class-r6</code>. It matches the native class and every class extension, the same Encounters <code>/R6</code> finds, but returns the stored R4 resources.</p>
+  <p>An R4 client that searches <code>class</code> gets the R4 meaning: the one native Coding. To give R4 clients the R6 meaning as well, the server adds a second parameter, <code>class-r6</code>. It matches the native class and every class extension, on the resource and on R4 <code>class</code>, the same Encounters <code>/R6</code> finds, but returns the stored R4 resources.</p>
   <div class="tw"><table>
     <thead><tr><th>Request</th><th>Matches</th><th>Returns</th><th>Finds the example for <code>…|VR</code></th></tr></thead>
     <tbody>
@@ -364,6 +364,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   </table></div>
   <p>As FHIRPath, <code>class-r6</code> evaluates:</p>
 <pre>Encounter.class
+  | Encounter.class.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
   | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value</pre>
   <p><strong>Why a second name.</strong> R4 forbids changing <code>class</code>: "Parameter names cannot overlap with standard parameter names, and standard parameters cannot be redefined" (<code>CapabilityStatement.rest.resource.searchParam.name</code>). A client that knows only R4 therefore gets exactly the R4 behaviour, and the backport is opt-in.</p>
   <p><strong>Why this definition URL.</strong> The CapabilityStatement lists <code>class-r6</code> with the definition <code>http://example.org/fhir/SearchParameter/Encounter-class-r6</code>. <span class="tag own">Our design, not defined by HL7</span> It is an R4 SearchParameter in <code>fhir/r4/SearchParameter-Encounter-class-r6.json</code>, loaded by the canonical manager next to the R4 core package and served at <code>/R4/SearchParameter/Encounter-class-r6</code>. Its <code>expression</code> is the one above. <code>example.org</code> is a placeholder; HL7 publishes no such parameter, so it isn't under <code>hl7.org</code>.</p>
