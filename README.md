@@ -89,7 +89,13 @@ To connect from a GUI client (DBeaver, TablePlus, DataGrip, Postico) or a local 
 
 ### One R6 resource as several R4 rows
 
-R6 `BodyStructure.includedStructure` repeats, but R4 `location` and `morphology` hold one value, so each structure is its own R4 row: `<id>`, `<id>--2`, `<id>--3`. `--` is reserved in ids. A write to any row rewrites the whole group in one transaction, and every write must be valid in both R4 and R6 before it commits. Content with no R4 place yet returns `422`.
+R6 `BodyStructure.includedStructure` repeats, but R4 `location` and `morphology` hold one value, so each structure is its own R4 row: `<id>`, `<id>--2`, `<id>--3`. `--` is reserved in ids.
+
+- A write to any row rewrites the whole group in one transaction, and every write must be valid in both R4 and R6 before it commits.
+- A row keeps its id while its structure exists, and numbers are never reused. R6 shows it as `includedStructure.id`. The one exception: if the primary row's structure is removed, the next one moves into the primary row.
+- Rows carry a server-managed extension with their position and a link to the primary row.
+- R6-only elements are kept in R4 extensions. An R4 PUT with no `extension` array keeps them. One with an array states the client's intent, and `X-Replace-Extensions: true` removes them when no array would remain.
+- Content with no place in the other version returns `422`.
 
 ### Adding a resource type
 

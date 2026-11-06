@@ -3,10 +3,11 @@
 Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All resources are stored as FHIR **R4**, one table per resource type plus `<type>_history`. `/R4` uses the stored data directly. `/R6` requests go through `src/fhir/convert.ts`, which runs FML (R4 → R6 on read, R6 → R4 on write). Only `BodyStructure` has this so far; other types stay R4-only through `SUPPORTED` in `src/http/server.ts`. See README.md for the layout and `docs/mappings.html` for diagrams.
 
 - DB: `bun run db:up` (docker compose, port 5437). Tests are integration tests and need the DB.
-- One R6 resource can be several R4 rows (`<id>`, `<id>--2`, ...). A write from either version rewrites the group in one transaction and must be valid in both versions (`src/http/grouped.ts`, `src/fhir/bodystructure.ts`). Tests in `test/bodystructure-cross-version.test.ts` are the acceptance criteria.
+- One R6 resource can be several R4 rows (`<id>`, `<id>--2`, ...). A write from either version rewrites the group in one transaction and must be valid in both versions (`src/http/grouped.ts`, `src/fhir/bodystructure.ts`). Row ids are stable and numbers are never reused (`assignRowIds`). Tests in `test/bodystructure-cross-version.test.ts` are the acceptance criteria.
 - FML runs on `fhir-structuremap-js`, which has no type information. Maps must use the style listed at the top of `src/fhir/fml.ts`; the generated maps in `fml-maps/R4_R6` don't yet, so they can't run unchanged.
 - Don't call `sql.close()` in tests: Bun shares the pool across test files.
-- Keep `docs/mappings.html` in line with the maps when mappings change.
+- Check R6 element names against the pinned `6.0.0-snapshot1` package in `.fhir/r6`, not build.fhir.org: the rolling build has elements the pinned package doesn't (e.g. `BodyStructure.predecessor`).
+- Keep `docs/mappings.html` and `postman/` in line with the maps when mappings change.
 - Validation: `@atomic-ehr/fhirschema`. Its `validate()` expects schemas already merged with their base chain. `src/fhir/validator.ts` flattens them (`mergeSchema`).
 - Postgres: pass objects (not `JSON.stringify` strings) as jsonb parameters to `Bun.SQL`, or they get double-encoded as jsonb strings.
 - Generated types in `src/fhir-types/` are produced by `bun run generate-types`; don't edit them by hand.

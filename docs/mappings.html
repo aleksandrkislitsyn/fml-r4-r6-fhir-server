@@ -107,7 +107,8 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
     <text class="small" x="390" y="62" text-anchor="middle">split on write</text>
     <text class="small" x="390" y="218" text-anchor="middle">merged on read</text>
   </svg></div>
-  <p>The id suffix sets the order of <code>includedStructure</code>. Each row is a normal, valid R4 resource, and R4 clients can read and change it directly. Row ids like <code>abc--2</code> exist only in R4, so <code>GET /R6/BodyStructure/abc--2</code> returns 404.</p>
+  <p>Each row is a normal, valid R4 resource, and R4 clients can read and change it directly. Rows show they belong together: a server-managed extension holds each row's position and, on secondary rows, a reference to the primary row. A group of one has no extension.</p>
+  <p>A row keeps its id while its structure exists, and numbers are never reused. R6 shows the row as <code>includedStructure.id</code>: <code>"1"</code> for the primary, <code>"3"</code> for <code>abc--3</code>. Row ids like <code>abc--2</code> exist only in R4, so <code>GET /R6/BodyStructure/abc--2</code> returns 404.</p>
 </section>
 
 <section>
@@ -136,19 +137,20 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
       <rect class="bm" x="470" y="216" width="270" height="64" rx="3"/><text x="480" y="242">locationQualifier 0..*</text><text class="small tmerge" x="480" y="262">laterality item carries a marker</text>
       <path class="lm" marker-end="url(#a)" d="M320 230H468"/>
       <path class="lm" marker-end="url(#a)" d="M320 266H468"/>
-      <rect class="bx" x="20" y="292" width="300" height="28" rx="3"/><text x="30" y="311">excludedStructure predecessor</text>
-      <rect class="bx" x="20" y="328" width="300" height="34" rx="3"/><text x="30" y="343" style="font-size:11.5px">included[n]: bodyLandmarkOrientation</text><text x="30" y="356" style="font-size:11.5px">spatialReference image origin</text>
-      <path class="lx" d="M320 306H392M320 345H392M392 306V345"/>
-      <text class="tbad" x="402" y="322">rejected with 422</text>
+      <rect class="b6" x="20" y="292" width="300" height="28" rx="3"/><text x="30" y="311">excludedStructure 0..*</text>
+      <rect class="b4" x="470" y="292" width="270" height="28" rx="3"/><text x="480" y="311">extension, on every row</text>
+      <path class="le" marker-end="url(#a)" d="M320 306H468"/><text class="small" x="394" y="300" text-anchor="middle">never a row</text>
+      <rect class="b6" x="20" y="328" width="300" height="34" rx="3"/><text x="30" y="343" style="font-size:11.5px">included[n]: bodyLandmarkOrientation</text><text x="30" y="356" style="font-size:11.5px">spatialReference image origin</text>
+      <rect class="b4" x="470" y="328" width="270" height="34" rx="3"/><text x="480" y="343" style="font-size:11.5px">extensions, nested where needed</text><text x="480" y="356" style="font-size:11.5px">on that structure's row</text>
+      <path class="le" marker-end="url(#a)" d="M320 345H468"/>
     </g>
   </svg></div>
   <div class="legend">
     <span><svg viewBox="0 0 34 10"><path class="l" d="M0 5H34"/></svg>copied</span>
     <span><svg viewBox="0 0 34 10"><path class="lm" d="M0 5H34"/></svg>merged into one element</span>
     <span><svg viewBox="0 0 34 10"><path class="le" d="M0 5H34"/></svg>kept in an extension</span>
-    <span><svg viewBox="0 0 34 10"><path class="lx" d="M0 5H34"/></svg>no R4 place yet</span>
   </div>
-  <p class="note">Maps: <code>fml-maps/R6_R4/maps/StructureMaps/BodyStructure_6to4.fml</code> and <code>fml-maps/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml</code>. Rejecting is deliberate: a clear error is better than quietly losing clinical data. <code>…</code> also covers <code>image</code>, <code>language</code> and <code>text</code>.</p>
+  <p class="note">Maps: <code>fml-maps/R6_R4/maps/StructureMaps/BodyStructure_6to4.fml</code> and <code>fml-maps/R4_R6/maps/StructureMaps/BodyStructure_4to6.fml</code>. <code>…</code> also covers <code>image</code>, <code>language</code> and <code>text</code>. Attachments are mapped field by field: <code>height</code>, <code>width</code>, <code>frames</code>, <code>duration</code> and <code>pages</code> become extensions, and <code>size</code> changes from an R6 string to an R4 number.</p>
 </section>
 
 <section>
@@ -183,6 +185,10 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
             .includedStructure.morphology",
     <mark>"valueCodeableConcept":
       { "text": "Nevus sebaceus" }</mark>
+  }, {
+    "url": "…/bodystructure-row-group",
+    "extension": [{ "url": "position",
+                    "valuePositiveInt": 1 }]
   }],
   "locationQualifier": [
     { "text": "Volar" },
@@ -195,7 +201,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   "patient": { "reference": "Patient/example" }
 }</pre></div>
   </div>
-  <p>Reading through R6 runs the rows back through the other map, and the result equals the request (test "fan-out"). The extension URLs follow the pattern already used in the generated maps.</p>
+  <p>Reading through R6 runs the rows back through the other map. The result equals the request, plus the server-assigned <code>includedStructure.id</code> (test "fan-out"). The field extension URLs follow the pattern already used in the generated maps; the row link is this server's own.</p>
 </section>
 
 <section>
@@ -247,7 +253,11 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   <h2>Hard cases</h2>
   <div class="cases">
     <div class="case"><h3>Shared field edited on any row</h3><p>An R4 client changes <code>description</code> on <code>abc--2</code>. The value is copied to every row, so R6 shows it and no edit is lost.</p><span class="t">tests 3, 4</span></div>
-    <div class="case"><h3>R4 client drops our extensions</h3><p>A PUT without them restores them from the stored row, so <code>laterality</code> and extra <code>morphology</code> survive.</p><span class="t">test 5</span></div>
+    <div class="case"><h3>Rows that move or disappear</h3><p>R6 updates match rows by <code>includedStructure.id</code>, then by identical content. After <code>abc--2</code> is deleted, a new structure gets <code>--4</code>, and <code>--2</code> stays 410. Reordering changes positions, not ids.</p><span class="t">tests 16–19</span></div>
+    <div class="case"><h3>Removing the primary's structure</h3><p>The R6 resource needs a row with its own id, so the first remaining structure moves into the primary row. This is the one case where a structure changes row.</p><span class="t">test 20</span></div>
+    <div class="case"><h3>What isn't there</h3><p><code>excludedStructure</code> stays an extension and is never a row, because a row would read as a structure that is present. It is on every row, so deleting a row can't lose it.</p><span class="t">test 27</span></div>
+    <div class="case"><h3>R4 client drops our extensions</h3><p>A PUT with no <code>extension</code> array restores them from the stored row, so R6-only data survives clients that drop what they don't understand.</p><span class="t">tests 5, 25, 26</span></div>
+    <div class="case"><h3>R4 client removes one on purpose</h3><p>A PUT with an <code>extension</code> array states the client's intent, so anything left out is removed. If no array would remain, send <code>X-Replace-Extensions: true</code>.</p><span class="t">tests 23, 24</span></div>
     <div class="case"><h3>Laterality code removed on purpose</h3><p>The marker sits on the code itself. If the client removes the code from <code>locationQualifier</code>, laterality goes too.</p><span class="t">test 6</span></div>
     <div class="case"><h3>Stale R6 ETag</h3><p>After an R4 edit of any row, an R6 PUT using the old <code>If-Match</code> gets 412 and overwrites nothing.</p><span class="t">test 7</span></div>
     <div class="case"><h3>Valid in one version only</h3><p>R4 without <code>location</code> can't become R6, and R6 without <code>patient</code> can't be stored as R4. Both return 422.</p><span class="t">test 9, "no patient"</span></div>
@@ -258,10 +268,10 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 <section>
   <h2>Known limits</h2>
   <ul>
-    <li>R4 rows can read as separate structures, while R6 describes one structure covering several regions. This is the cost of the split.</li>
-    <li>An R4 client can't remove extra <code>morphology</code> by leaving out the extension, because it's restored. Removing it needs an R6 update.</li>
-    <li>An R6 update numbers rows again from the start. After <code>abc--2</code> is deleted, the next R6 update can reuse that id for a different structure.</li>
-    <li>R4 content R6 couldn't return is rejected: other extensions, <code>contained</code>, <code>implicitRules</code> and <code>modifierExtension</code>.</li>
+    <li>R4 rows can still read as separate structures, while R6 describes one structure covering several regions. The row link shows they belong together, but an R4 client has to look for it.</li>
+    <li>Content that has no place in the other version returns 422: <code>contained</code>, <code>implicitRules</code>, <code>modifierExtension</code>, extensions we don't recognise, R4 <code>Attachment.language</code>, and an R6 <code>Attachment.size</code> over R4's maximum of 2,147,483,647.</li>
+    <li><code>X-Replace-Extensions</code> is this server's own header, so a client has to know about it. A client that sends an <code>extension</code> array but leaves ours out of it removes them.</li>
+    <li>Decimal precision isn't kept: <code>2.0</code> comes back as <code>2</code>, because JSON is parsed as JavaScript numbers. This applies to the whole server.</li>
     <li>Search and history interactions aren't available for these resources.</li>
     <li>No R4 element can reference BodyStructure, so R6 references such as <code>Condition.bodyStructure</code> aren't mapped.</li>
   </ul>
