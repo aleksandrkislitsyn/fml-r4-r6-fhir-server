@@ -177,34 +177,58 @@ curl -X POST localhost:8080/R6/Encounter -H 'content-type: application/fhir+json
 - and the result maps back through `R4_R6` to the same R6 content.
 
 Anything else returns `422` with an `OperationOutcome`. If content would be
-lost, it names the first path, such as `Patient.contact[0].role`. Nothing is
-dropped silently. `contained`, `implicitRules` and `modifierExtension` are
-rejected up front, as for `BodyStructure`. The server sets `id` and `meta`; only
-`meta.tag` and `meta.security` are kept from the body.
+lost, it names the first path, such as `Encounter.status`. Nothing is dropped
+silently. Lists may come back in another order, except where FHIR gives the
+order a meaning (`HumanName.given`, `prefix`, `suffix`, `Address.line`).
+`contained`, `implicitRules` and `modifierExtension` are rejected up front, as
+for `BodyStructure`. The server sets `id` and `meta`; only `meta.tag` and
+`meta.security` are kept from the body.
 
-An R6 `PUT` replaces the whole stored R4 resource. If that resource holds R4
-content that R6 can't show, such as `Encounter.reasonCode`, the update returns
-`409` instead of removing it. Change such resources through `/R4`.
+What R4 has an element for goes there. Everything else uses HL7's
+cross-version extension pattern, so both versions see all of the data:
 
-What maps:
-
-- **Patient**: every element R4 has. The R6-only `contact.role`,
-  `contact.additionalName` and `contact.additionalAddress` return `422`.
-  R6-only `Attachment` fields in `photo` are kept in extensions, as for BodyStructure.
-- **Encounter**: the elements the R4 → R6 map reads, reversed. The first
-  `class` becomes the R4 `class` (one Coding), each further class becomes the
-  class extension. `serviceType` and `diagnosis.condition` keep their first
-  entry, and `actualPeriod`, `admission`, `participant.actor` and
-  `location.form` are renamed back.
+- **R6-only content in R4**: `http://hl7.org/fhir/6.0/StructureDefinition/extension-<element>`.
+  Patient `contact.role`, `contact.additionalName` and `contact.additionalAddress`;
+  Encounter `businessStatus`, `careTeam`, `virtualService`, `plannedStartDate`,
+  `plannedEndDate`, and a `subjectStatus` other than `arrived`/`triaged`. Also
+  whatever doesn't fit an R4 element: further classes, and the whole first class
+  if it has more than one coding; `serviceType` entries other than a first plain
+  concept; `reason` entries with a `use` or several values; `diagnosis` entries
+  with a concept or several conditions or uses; and references to targets R4
+  doesn't allow there (`basedOn` other than ServiceRequest, `participant.actor`
+  other than Practitioner, PractitionerRole or RelatedPerson, a `reason` pointing
+  to a DiagnosticReport). R6-only `Attachment` fields in `photo` are kept as for
+  BodyStructure.
+- **R4-only content in R6**: `http://hl7.org/fhir/4.0/StructureDefinition/extension-<element>`,
+  for `Encounter.statusHistory` and `Encounter.classHistory`. An R6 `PUT` with no
+  `extension` array at all keeps them, because the client most likely dropped
+  what it didn't understand. With an `extension` array, what it leaves out is
+  removed. `Encounter.diagnosis.rank` stays R4-only: an R6 `PUT` of a resource
+  that has one returns `409` instead of removing it.
+- **Moved or renamed**: `reason` ↔ `reasonCode`/`reasonReference` (one R6 reason
+  per value), `dietPreference`, `specialArrangement` and `specialCourtesy` ↔
+  `hospitalization.*`, `actualPeriod` ↔ `period`, `admission` ↔ `hospitalization`,
+  `participant.actor` ↔ `individual`, `location.form` ↔ `physicalType`. Before
+  this, R6 reads lost `reasonCode`, `reasonReference` and the three
+  `hospitalization` lists.
 - **Encounter status** follows HL7's R4 ↔ R5 ConceptMaps (R5 and R6 share the
-  codes): `on-hold` ↔ `onleave`, `completed` ↔ `finished`, the rest unchanged.
-  R4 `arrived` and `triaged` read as `in-progress` with that `subjectStatus`,
-  and are written back the same way. `discharged` and `discontinued` have no
-  R4 code and return `422`. Reads changed with this: `finished`, `onleave`,
-  `arrived` and `triaged` used to be copied as invalid R6 codes.
-- Not mapped, so `422`: `reason`, `dietPreference`, `specialArrangement`,
-  `specialCourtesy` (the R4 → R6 map doesn't read their R4 elements either) and
-  R6-only elements such as `businessStatus`, `careTeam` or `virtualService`.
+  codes): `on-hold` ↔ `onleave`, `completed` ↔ `finished`. `discharged` is
+  stored as `finished` with the R6 code in the status extension (`_status`),
+  HL7's rule for required bindings. R4 `arrived` and `triaged` read as
+  `in-progress` with that `subjectStatus`. Reads changed with this: `finished`,
+  `onleave`, `arrived` and `triaged` used to be copied as invalid R6 codes.
+- **Not stored yet (`422`)**: values of a required binding that have no R4
+  mapping, which are Encounter `status` `discontinued` and `Quantity.comparator`
+  `~` and `ad`. TODO: store the R6 code in the cross-version extension, a
+  placeholder R4 code, and set `implicitRules`, because without a mapping the R4
+  value alone doesn't carry the meaning. Also `422`: an Encounter without
+  `class` (R4 requires one) and `virtualService.addressExtendedContactDetail`.
+
+The R4 validator didn't accept the FHIR JSON form for primitive extensions
+(`_status`, `_birthDate`). The server now checks those itself and validates the
+rest as before, so R4 clients can send them too. Note that the validator checks
+neither required bindings nor reference targets; the maps above keep both
+within what R4 allows.
 
 ## Layout
 
