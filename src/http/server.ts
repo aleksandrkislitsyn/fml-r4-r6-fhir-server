@@ -1,4 +1,4 @@
-import { isStoredResourceType, type StoredResourceType } from "../db/index.ts";
+import { isStoredResourceType, STORED_RESOURCE_TYPES, type StoredResourceType } from "../db/index.ts";
 import * as repo from "../db/repository.ts";
 import { fromStorage, toStorage } from "../fhir/convert.ts";
 import { hasErrors, outcome, type FhirVersion, type Validator } from "../fhir/validator.ts";
@@ -161,14 +161,12 @@ function capabilityStatement(version: FhirVersion) {
     rest: [
       {
         mode: "server",
-        resource: [
-          {
-            type: "Patient",
-            versioning: "versioned",
-            updateCreate: true,
-            interaction: [{ code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" }],
-          },
-        ],
+        resource: STORED_RESOURCE_TYPES.map((type) => ({
+          type,
+          versioning: "versioned",
+          updateCreate: true,
+          interaction: [{ code: "read" }, { code: "create" }, { code: "update" }, { code: "delete" }],
+        })),
       },
     ],
   };

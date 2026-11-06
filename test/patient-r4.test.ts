@@ -97,6 +97,50 @@ describe("R4 Patient CRUD", () => {
   test("metadata", async () => {
     const res = await send("GET", "/metadata");
     expect(res.status).toBe(200);
-    expect(((await res.json()) as any).fhirVersion).toBe("4.0.1");
+    const metadata = (await res.json()) as any;
+    expect(metadata.fhirVersion).toBe("4.0.1");
+    expect(metadata.rest[0].resource.map((r: any) => r.type)).toContain("Encounter");
+  });
+});
+
+describe("R4 Encounter", () => {
+  const encounter = {
+    resourceType: "Encounter",
+    status: "in-progress",
+    class: {
+      system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+      code: "AMB",
+    },
+    extension: [{
+      url: "xver/encounter-class",
+      valueCodeableConcept: {
+        coding: [{
+          system: "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          code: "VR",
+        }],
+      },
+    }],
+  };
+
+  test("create and read preserve native class and cross-version extension", async () => {
+    const response = await send("POST", "/Encounter", encounter);
+    expect(response.status).toBe(201);
+    const created = (await response.json()) as any;
+    try {
+      const read = await send("GET", `/Encounter/${created.id}`);
+      expect(read.status).toBe(200);
+      const stored = (await read.json()) as any;
+      expect(stored.class).toEqual(encounter.class);
+      expect(stored.extension).toEqual(encounter.extension);
+    } finally {
+      await send("DELETE", `/Encounter/${created.id}`);
+    }
+  });
+
+  test("R4 class remains required", async () => {
+    const { class: _class, ...invalid } = encounter;
+    const response = await send("POST", "/Encounter", invalid);
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as any).resourceType).toBe("OperationOutcome");
   });
 });
