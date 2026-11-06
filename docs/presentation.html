@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FML R4 ↔ R6 Server</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Same palette as docs/mappings.html: violet is always R6, teal is always R4. */
+:root {
+  --bg: #f5f6f4; --surface: #ffffff; --fg: #1b2024; --muted: #59636b; --line: #d5dadb;
+  --r6: #5b3fb5; --r6-soft: #ece8f8; --r4: #0b6f6a; --r4-soft: #dff1ef;
+  --fml: #a15c00; --fml-soft: #fbeeda; --bad: #b3261e; --bad-soft: #fae6e4; --ok: #2e7d32;
+  --code-bg: #f0f2f1;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --head: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14181b; --surface: #1d2226; --fg: #e8ebec; --muted: #a0abb2; --line: #363e44;
+  --r6: #b6a4f5; --r6-soft: #2c2649; --r4: #5fd0c7; --r4-soft: #12332f;
+  --fml: #f0b45d; --fml-soft: #3b2c13; --bad: #f4928a; --bad-soft: #40201d; --ok: #81c784;
+  --code-bg: #171b1e; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #14181b; --surface: #1d2226; --fg: #e8ebec; --muted: #a0abb2; --line: #363e44;
+  --r6: #b6a4f5; --r6-soft: #2c2649; --r4: #5fd0c7; --r4-soft: #12332f;
+  --fml: #f0b45d; --fml-soft: #3b2c13; --bad: #f4928a; --bad-soft: #40201d; --ok: #81c784;
+  --code-bg: #171b1e; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); overflow: hidden; }
+
+.deck { position: fixed; inset: 0 0 52px 0; }
+.slide { position: absolute; inset: 0; overflow: auto; padding: 28px 40px 32px; display: none; }
+.slide.active { display: block; }
+.slide > .inner { max-width: 1400px; margin: 0 auto; }
+
+h1, h2, h3 { font-family: var(--head); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 34px; line-height: 1.15; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+h3 { font-size: 16px; margin-bottom: 8px; }
+.lede { font-size: 17px; color: var(--muted); max-width: 980px; margin: 8px 0 20px; }
+p { margin: 0 0 10px; }
+code { font-family: var(--mono); font-size: 0.92em; }
+
+.grid { display: grid; gap: 16px; }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cols-3-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .cols-2, .cols-3, .cols-3-wide { grid-template-columns: minmax(0, 1fr); } .slide { padding: 20px 16px 28px; } }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card.r4 { border-top: 4px solid var(--r4); }
+.card.r6 { border-top: 4px solid var(--r6); }
+.card.fml { border-top: 4px solid var(--fml); }
+.tag { display: inline-block; font: 600 11px/1 var(--sans); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 7px; border-radius: 4px; margin-right: 6px; vertical-align: 2px; }
+.tag.r4 { background: var(--r4-soft); color: var(--r4); }
+.tag.r6 { background: var(--r6-soft); color: var(--r6); }
+.tag.fml { background: var(--fml-soft); color: var(--fml); }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 10px 12px; overflow: auto; font: 12.5px/1.5 var(--mono); white-space: pre; }
+pre .c { color: var(--muted); }
+mark { background: none; color: inherit; border-radius: 3px; padding: 0 2px; }
+mark.r4 { background: var(--r4-soft); color: var(--r4); font-weight: 500; }
+mark.r6 { background: var(--r6-soft); color: var(--r6); font-weight: 500; }
+mark.fml { background: var(--fml-soft); color: var(--fml); font-weight: 500; }
+.n { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 9px; background: var(--fml); color: var(--surface); font: 600 11px/18px var(--sans); margin-right: 2px; }
+
+/* Calls table */
+.calls { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.calls td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.calls tr:last-child td { border-bottom: 0; }
+.calls .m { font: 600 12px var(--mono); width: 56px; }
+.calls .p { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+.calls .s { font: 600 12.5px var(--mono); width: 48px; white-space: nowrap; }
+.s.ok { color: var(--ok); } .s.bad { color: var(--bad); }
+.calls .w { color: var(--muted); }
+
+details { margin-top: 10px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details pre { margin-top: 6px; }
+
+ul.tight { margin: 0; padding-left: 18px; } ul.tight li { margin: 3px 0; }
+.note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+/* Architecture lanes */
+.lanes { display: grid; gap: 12px; }
+.lane { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.lane-label { font: 600 14px/1.3 var(--head); }
+.lane-label small { display: block; font: 400 12.5px var(--sans); color: var(--muted); }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.box { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13.5px; background: var(--bg); }
+.box b { display: block; font-weight: 600; }
+.box span { color: var(--muted); font-size: 12px; }
+.box.r4 { border-color: var(--r4); background: var(--r4-soft); }
+.box.r6 { border-color: var(--r6); background: var(--r6-soft); }
+.box.fml { border-color: var(--fml); background: var(--fml-soft); }
+.box.db { border-color: var(--r4); border-width: 2px; }
+.arrow { color: var(--muted); font-size: 18px; }
+.bricks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.brick { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+.brick b { display: block; }
+.brick span { color: var(--muted); }
+
+/* Architecture diagram */
+figure.arch { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+figure.arch svg { display: block; width: 100%; height: auto; max-height: calc(100vh - 250px); }
+.arch .fill-r4 { fill: var(--r4); } .arch .fill-r6 { fill: var(--r6); }
+.arch .b-r4 { fill: var(--r4-soft); stroke: var(--r4); stroke-width: 1.5; }
+.arch .b-r6 { fill: var(--r6-soft); stroke: var(--r6); stroke-width: 1.5; }
+.arch .b-api { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.arch .b-db { fill: var(--r4-soft); stroke: var(--r4); stroke-width: 3; }
+.arch .b-db-top { fill: var(--surface); stroke: var(--r4); stroke-width: 3; }
+.arch .b-fml { fill: var(--fml-soft); stroke: var(--fml); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.arch .b-inner { fill: var(--surface); stroke: var(--fml); stroke-width: 1; }
+.arch .b-note { fill: var(--bg); stroke: var(--line); }
+.arch .l-r4 { stroke: var(--r4); stroke-width: 2.5; }
+.arch .l-r6 { stroke: var(--r6); stroke-width: 2.5; }
+.arch .l-faint { stroke: var(--r4); stroke-opacity: 0.35; }
+.arch text { fill: var(--fg); font-family: var(--sans); }
+.arch .t-title { font: 600 17px var(--head); }
+.arch .t-head { font: 600 20px var(--head); }
+.arch .t-big { font: 600 40px var(--head); fill: var(--r4); }
+.arch .t-kicker { font: 600 13px var(--sans); letter-spacing: 0.1em; fill: var(--r4); }
+.arch .t-sub { font-size: 13px; fill: var(--muted); }
+.arch .t-body { font-size: 14px; }
+.arch .t-lab { font-size: 12.5px; fill: var(--muted); }
+.arch .t-lab-mono { font: 500 12.5px var(--mono); fill: var(--muted); }
+.arch .t-mono { font: 500 14px var(--mono); }
+.arch .t-mono-s { font: 500 12.5px var(--mono); fill: var(--fml); }
+.arch .t-strong-r4 { font: 600 16px var(--sans); fill: var(--r4); }
+.arch .t-strong-r6 { font: 600 16px var(--sans); fill: var(--r6); }
+.arch .t-strong-r4s { font-weight: 600; fill: var(--r4); }
+.arch .t-strong-r6s { font-weight: 600; fill: var(--r6); }
+.arch .t-mono-b { font: 600 15px var(--mono); }
+.arch .t-code { font-weight: 600; fill: var(--fg); }
+.arch .b-inner-r4 { fill: var(--surface); stroke: var(--r4); stroke-width: 1.5; }
+.arch .b-inner-r4.hl { fill: var(--r4-soft); stroke-width: 2.5; }
+.arch .t-kicker6 { font: 600 13px var(--sans); letter-spacing: 0.1em; fill: var(--r6); }
+.arch .t-mono-s4 { font: 500 13px var(--mono); fill: var(--r4); }
+.arch .t-mono-s6 { font: 500 13px var(--mono); fill: var(--r6); }
+.arch .b-inner-r6 { fill: var(--surface); stroke: var(--r6); stroke-width: 1.5; stroke-dasharray: 5 3; }
+
+/* Matrix */
+table.matrix { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.matrix th, table.matrix td { border-bottom: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+table.matrix th { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.yes { color: var(--ok); font-weight: 600; } .no { color: var(--bad); font-weight: 600; }
+
+/* Nav bar */
+nav { position: fixed; left: 0; right: 0; bottom: 0; height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--surface); border-top: 1px solid var(--line); }
+nav button { font: 500 14px var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+nav button:hover { border-color: var(--muted); }
+nav .dots { display: flex; gap: 6px; flex: 1; justify-content: center; flex-wrap: wrap; }
+nav .dots button { padding: 4px 10px; font-size: 13px; }
+nav .dots button[aria-current="true"] { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+nav .count { font: 500 13px var(--mono); color: var(--muted); min-width: 44px; text-align: right; }
+@media (max-width: 700px) { nav .dots button span { display: none; } }
+
+@media print {
+  body { overflow: visible; } nav { display: none; }
+  .deck { position: static; } .slide { position: static; display: block; overflow: visible; page-break-after: always; }
+}
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ===================================================== 1. ARCHITECTURE -->
+<section class="slide" data-title="Architecture">
+<div class="inner">
+  <h2>FML R4 ↔ R6 FHIR server · 1 / 7</h2>
+  <h1>Architecture: store R4 once, serve R4 and R6</h1>
+  <p class="lede">Every resource is stored as <b style="color:var(--r4)">FHIR R4</b> in PostgreSQL 18. <code>/R4</code> reads and writes it directly. <code>/R6</code> runs FHIR Mapping Language (FML) maps over the same rows: R4 → R6 on every read, R6 → R4 on writes where a reverse map exists (BodyStructure).</p>
+
+  <figure class="arch" role="img" aria-label="R4 clients use the /R4 API, which reads and writes the R4 database directly. R6 clients use the /R6 API, which goes through the FML converter: R4 to R6 on every read, R6 to R4 on writes for BodyStructure. The database stores R4 only and is the single source of truth.">
+  <svg viewBox="0 0 1240 590" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-r4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
+      <marker id="ah-r6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
+    </defs>
+
+    <!-- Clients -->
+    <rect x="40" y="16" width="220" height="62" rx="10" class="b-r4"/>
+    <text x="150" y="43" class="t-title" text-anchor="middle">R4 clients</text>
+    <text x="150" y="63" class="t-sub" text-anchor="middle">existing R4 apps</text>
+
+    <rect x="980" y="16" width="220" height="62" rx="10" class="b-r6"/>
+    <text x="1090" y="43" class="t-title" text-anchor="middle">R6 clients</text>
+    <text x="1090" y="63" class="t-sub" text-anchor="middle">new R6 apps</text>
+
+    <line x1="150" y1="84" x2="150" y2="142" class="l-r4" marker-start="url(#ah-r4)" marker-end="url(#ah-r4)"/>
+    <line x1="1090" y1="84" x2="1090" y2="142" class="l-r6" marker-start="url(#ah-r6)" marker-end="url(#ah-r6)"/>
+
+    <!-- /R4 API -->
+    <rect x="40" y="148" width="220" height="290" rx="12" class="b-api"/>
+    <rect x="40" y="148" width="220" height="6" rx="3" class="fill-r4"/>
+    <text x="150" y="186" class="t-head" text-anchor="middle">/R4 API</text>
+    <text x="150" y="214" class="t-sub" text-anchor="middle">validate against</text>
+    <text x="150" y="232" class="t-sub" text-anchor="middle">R4 core 4.0.1</text>
+    <text x="150" y="270" class="t-body" text-anchor="middle">Patient · Encounter</text>
+    <text x="150" y="290" class="t-body" text-anchor="middle">BodyStructure · Observation</text>
+    <text x="150" y="328" class="t-strong-r4" text-anchor="middle">no conversion</text>
+    <text x="150" y="350" class="t-sub" text-anchor="middle">stored JSON is</text>
+    <text x="150" y="368" class="t-sub" text-anchor="middle">the response</text>
+
+    <!-- /R4 <-> DB -->
+    <line x1="266" y1="232" x2="356" y2="232" class="l-r4" marker-end="url(#ah-r4)"/>
+    <text x="311" y="222" class="t-lab" text-anchor="middle">write</text>
+    <line x1="356" y1="300" x2="266" y2="300" class="l-r4" marker-end="url(#ah-r4)"/>
+    <text x="311" y="290" class="t-lab" text-anchor="middle">read</text>
+    <text x="311" y="320" class="t-lab-mono" text-anchor="middle">R4 JSON</text>
+
+    <!-- Database: single source of truth -->
+    <path d="M362,132 L362,452 A138,30 0 0 0 638,452 L638,132" class="b-db"/>
+    <ellipse cx="500" cy="132" rx="138" ry="30" class="b-db-top"/>
+    <text x="500" y="137" class="t-sub" text-anchor="middle">PostgreSQL 18</text>
+    <text x="500" y="200" class="t-kicker" text-anchor="middle">SINGLE SOURCE OF TRUTH</text>
+    <text x="500" y="252" class="t-big" text-anchor="middle">FHIR R4</text>
+    <text x="500" y="282" class="t-sub" text-anchor="middle">stored once, never as R6</text>
+    <line x1="400" y1="306" x2="600" y2="306" class="l-faint"/>
+    <text x="500" y="334" class="t-mono" text-anchor="middle">patient</text>
+    <text x="500" y="358" class="t-mono" text-anchor="middle">encounter</text>
+    <text x="500" y="382" class="t-mono" text-anchor="middle">bodystructure</text>
+    <text x="500" y="406" class="t-mono" text-anchor="middle">observation</text>
+    <text x="500" y="432" class="t-sub" text-anchor="middle">+ &lt;type&gt;_history, every version</text>
+
+    <!-- FML converter -->
+    <rect x="700" y="132" width="220" height="330" rx="14" class="b-fml"/>
+    <text x="810" y="164" class="t-head" text-anchor="middle">FML converter</text>
+    <text x="810" y="184" class="t-sub" text-anchor="middle">FHIRPath Lab executor</text>
+
+    <rect x="718" y="202" width="184" height="104" rx="10" class="b-inner"/>
+    <text x="810" y="228" class="t-strong-r6" text-anchor="middle">R4 → R6</text>
+    <text x="810" y="250" class="t-mono-s" text-anchor="middle">*_4to6.fml · 164 maps</text>
+    <text x="810" y="272" class="t-sub" text-anchor="middle">every R6 read and search</text>
+    <text x="810" y="292" class="t-sub" text-anchor="middle">no write-back</text>
+
+    <rect x="718" y="330" width="184" height="122" rx="10" class="b-inner"/>
+    <text x="810" y="356" class="t-strong-r4" text-anchor="middle">R6 → R4</text>
+    <text x="810" y="378" class="t-mono-s" text-anchor="middle">*_6to4.fml · 58 maps</text>
+    <text x="810" y="400" class="t-sub" text-anchor="middle">R6 writes: BodyStructure</text>
+    <text x="810" y="420" class="t-sub" text-anchor="middle">round-trip checked,</text>
+    <text x="810" y="436" class="t-sub" text-anchor="middle">one transaction</text>
+
+    <!-- Read lane: DB -> converter -> /R6 -->
+    <line x1="638" y1="254" x2="712" y2="254" class="l-r4" marker-end="url(#ah-r4)"/>
+    <text x="675" y="244" class="t-lab-mono" text-anchor="middle">R4</text>
+    <line x1="908" y1="254" x2="974" y2="254" class="l-r6" marker-end="url(#ah-r6)"/>
+    <text x="941" y="244" class="t-lab-mono" text-anchor="middle">R6</text>
+
+    <!-- Write lane: /R6 -> converter -> DB -->
+    <line x1="974" y1="388" x2="908" y2="388" class="l-r6" marker-end="url(#ah-r6)"/>
+    <text x="941" y="378" class="t-lab-mono" text-anchor="middle">R6</text>
+    <line x1="712" y1="388" x2="644" y2="388" class="l-r4" marker-end="url(#ah-r4)"/>
+    <text x="675" y="378" class="t-lab-mono" text-anchor="middle">R4</text>
+
+    <!-- /R6 API -->
+    <rect x="980" y="148" width="220" height="290" rx="12" class="b-api"/>
+    <rect x="980" y="148" width="220" height="6" rx="3" class="fill-r6"/>
+    <text x="1090" y="186" class="t-head" text-anchor="middle">/R6 API</text>
+    <text x="1090" y="214" class="t-sub" text-anchor="middle">validate against</text>
+    <text x="1090" y="232" class="t-sub" text-anchor="middle">R6 core 6.0.0-ballot5</text>
+    <text x="1090" y="270" class="t-body" text-anchor="middle">read: all four types</text>
+    <text x="1090" y="290" class="t-body" text-anchor="middle">+ Encounter class search</text>
+    <text x="1090" y="328" class="t-body" text-anchor="middle">write: BodyStructure</text>
+    <text x="1090" y="350" class="t-sub" text-anchor="middle">others → 405</text>
+    <text x="1090" y="368" class="t-sub" text-anchor="middle">(no reverse map yet)</text>
+
+    <!-- Footer notes -->
+    <text x="150" y="476" class="t-sub" text-anchor="middle">fhirschema validator</text>
+    <text x="810" y="490" class="t-sub" text-anchor="middle">maps in fml-maps/ · loaded on first R6 read</text>
+    <text x="1090" y="476" class="t-sub" text-anchor="middle">fhirschema validator</text>
+
+    <rect x="40" y="518" width="1160" height="56" rx="10" class="b-note"/>
+    <text x="620" y="542" class="t-body" text-anchor="middle">One copy of the data. R4 clients see it exactly as stored. R6 clients see a projection computed by FML on every request,</text>
+    <text x="620" y="562" class="t-body" text-anchor="middle">with the same id and versionId, so both versions always agree on what the current record is.</text>
+  </svg>
+  </figure>
+
+  <h3 style="margin-top:22px">Building blocks</h3>
+  <div class="bricks">
+    <div class="brick"><b>Bun + Bun.SQL</b><span>HTTP server and Postgres client, no framework</span></div>
+    <div class="brick"><b>PostgreSQL 18</b><span>One table per type + <code>&lt;type&gt;_history</code>; <code>resource jsonb</code></span></div>
+    <div class="brick"><b>@atomic-ehr/fhir-canonical-manager</b><span>Downloads and indexes the R4 and R6 core packages</span></div>
+    <div class="brick"><b>@atomic-ehr/fhirschema</b><span>Validates R4 writes, and R6 input/output</span></div>
+    <div class="brick"><b>@atomic-ehr/codegen</b><span>TypeScript types for R4 resources</span></div>
+    <div class="brick"><b>FHIRPath Lab FML executor</b><span>Brian's engine, pinned as the <code>vendor/fhirpath-lab</code> submodule</span></div>
+    <div class="brick"><b>fml-maps/</b><span>164 R4 → R6 maps (163 generated + BodySiteReference) · 58 R6 → R4 maps (datatypes + BodyStructure)</span></div>
+    <div class="brick"><b>Tests</b><span>129 integration tests against the real database, all passing</span></div>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== 2. PATIENT -->
+<section class="slide" data-title="Patient">
+<div class="inner">
+  <h2>Case 1 / 3 · 2 / 7</h2>
+  <h1>Patient: written as R4, read as R6</h1>
+  <p class="lede">Patient barely changed between R4 and R6, so the generated map is a field-by-field copy. The R6 response has the same content, id and version as the stored R4. Writes through <code>/R6</code> are refused because Patient has no R6 → R4 map.</p>
+
+  <div class="grid cols-2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>The calls</h3>
+      <table class="calls">
+        <tr><td class="m">POST</td><td class="p">/R4/Patient</td><td class="s ok">201</td><td class="w">Location <code>/R4/Patient/d4ddfc62-…/_history/1</code></td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Patient/d4ddfc62-…</td><td class="s ok">200</td><td class="w">stored R4, as is</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Patient/d4ddfc62-…</td><td class="s ok">200</td><td class="w">converted by <code>Patient4to6</code></td></tr>
+        <tr><td class="m">PUT</td><td class="p">/R6/Patient/d4ddfc62-…</td><td class="s bad">405</td><td class="w">“R6 is read-only for this type; use /R4 for writes”</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Create request</h3>
+<pre>curl -X POST localhost:8080/R4/Patient \
+  -H 'content-type: application/fhir+json' -d '{
+  "resourceType": "Patient",
+  "identifier": [{ "system": "http://hospital.example/mrn", "value": "MRN-1001" }],
+  "name": [{ "family": "Doe", "given": ["Jane"] }],
+  "gender": "female", "birthDate": "1990-04-01",
+  "contact": [{ "relationship": [{ "text": "sister" }],
+                "name": { "family": "Doe", "given": ["Anna"] },
+                "telecom": [{ "system": "phone", "value": "+1 555 0100" }] }]
+}'</pre>
+    </div>
+  </div>
+
+  <div class="grid cols-3-wide">
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>Stored · GET /R4/Patient/…</h3>
+<pre>{
+  "resourceType": "Patient",
+  "id": "d4ddfc62-…",
+  "meta": { "versionId": "1", … },
+  "identifier": [{ "system": "…/mrn",
+                   "value": "MRN-1001" }],
+  "name": [{ "family": "Doe", "given": ["Jane"] }],
+  "gender": "female",
+  "birthDate": "1990-04-01",
+  "contact": [{
+    "relationship": [{ "text": "sister" }],
+    "name": { "family": "Doe", "given": ["Anna"] },
+    "telecom": [{ "system": "phone",
+                  "value": "+1 555 0100" }]
+  }]
+}</pre>
+    </div>
+    <div class="card fml">
+      <h3><span class="tag fml">FML</span>Patient_4to6.fml (generated)</h3>
+<pre><span class="c">uses ".../4.0/StructureDefinition/Patient" alias PatientR4 as source
+uses ".../6.0/StructureDefinition/Patient" alias PatientR6 as target
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"</span>
+
+group Patient(source src : PatientR4,
+              target tgt : PatientR6)
+      extends DomainResource &lt;&lt;type+&gt;&gt; {
+  <mark class="fml">src.identifier -> tgt.identifier;</mark>
+  <mark class="fml">src.name       -> tgt.name;</mark>
+  <mark class="fml">src.gender     -> tgt.gender;</mark>
+  <mark class="fml">src.birthDate  -> tgt.birthDate;</mark>
+  <mark class="fml">src.contact as s -> tgt.contact as t
+      then PatientContact(s, t);</mark>
+  <span class="c">… 11 more one-to-one rules</span>
+}
+
+group PatientContact(source src, target tgt)
+      extends BackboneElement {
+  src.relationship -> tgt.relationship;
+  src.name         -> tgt.name;
+  src.telecom      -> tgt.telecom;
+  <span class="c">… address, gender, organization, period</span>
+}</pre>
+      <p class="note"><code>extends DomainResource</code> and the datatype maps (<code>HumanName</code>, <code>ContactPoint</code>, …) come from other files through the wildcard <code>imports</code>, which the embedded engine resolves.</p>
+    </div>
+    <div class="card r6">
+      <h3><span class="tag r6">R6</span>Converted · GET /R6/Patient/…</h3>
+<pre>{
+  "resourceType": "Patient",
+  "id": "d4ddfc62-…",
+  "meta": { "versionId": "1", … },
+  "identifier": [{ "system": "…/mrn",
+                   "value": "MRN-1001" }],
+  "name": [{ "family": "Doe", "given": ["Jane"] }],
+  "gender": "female",
+  "birthDate": "1990-04-01",
+  "contact": [{
+    "relationship": [{ "text": "sister" }],
+    "name": { "family": "Doe", "given": ["Anna"] },
+    "telecom": [{ "system": "phone",
+                  "value": "+1 555 0100" }]
+  }]
+}</pre>
+      <p class="note">Identical content. R6-only fields (<code>contact.role</code>, <code>contact.additionalName</code>, <code>contact.additionalAddress</code>) are listed in the map as “not populated”.</p>
+    </div>
+  </div>
+  <p class="note">Responses captured from the running server; <code>meta.lastUpdated</code> and long ids trimmed, key order normalised. The first R6 read took about 2 s while the engine prepared the maps; later reads use the cached program.</p>
+</div>
+</section>
+
+<!-- ===================================================== 3. ENCOUNTER -->
+<section class="slide" data-title="Encounter">
+<div class="inner">
+  <h2>Case 2 / 3 · 3 / 7</h2>
+  <h1>Encounter: renames, and a field that became a list</h1>
+  <p class="lede">R4 <code>Encounter.class</code> holds one Coding; R6 <code>class</code> is a list of CodeableConcepts. An R4 row keeps the extra R6 values in the cross-version extension <code>…/6.0/StructureDefinition/extension-Encounter.class</code>, and the map folds both into the R6 list. Three elements are renamed on the way.</p>
+
+  <div class="grid cols-2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>The calls</h3>
+      <table class="calls">
+        <tr><td class="m">POST</td><td class="p">/R4/Encounter</td><td class="s ok">201</td><td class="w">class AMB + extension VR</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Encounter/d936a286-…</td><td class="s ok">200</td><td class="w">stored R4, as is</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Encounter/d936a286-…</td><td class="s ok">200</td><td class="w">converted by <code>Encounter4to6</code></td></tr>
+      </table>
+      <p class="note">Searching by class through both versions is on the next slide.</p>
+      <p class="note">PR #5 renamed the extension from <code>xver/encounter-class</code> to the HL7 cross-version URL pattern <code>http://hl7.org/fhir/[version]/StructureDefinition/extension-[element id]</code>, the same pattern BodyStructure uses.</p>
+    </div>
+    <div class="card">
+      <h3>Create request</h3>
+<pre>curl -X POST localhost:8080/R4/Encounter \
+  -H 'content-type: application/fhir+json' -d '{
+  "resourceType": "Encounter", "status": "finished",
+  "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+             "code": "AMB" },
+  "extension": [{
+    "url": "http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class",
+    "valueCodeableConcept": { "coding": [{ "system": "…/v3-ActCode", "code": "VR" }] } }],
+  "subject": { "reference": "Patient/d4ddfc62-…" },
+  "participant": [{ "individual": { "reference": "Practitioner/dr-smith" } }],
+  "period": { "start": "2026-11-06T09:00:00Z", "end": "2026-11-06T09:30:00Z" },
+  "hospitalization": { "admitSource": { "text": "Referral" } }
+}'</pre>
+    </div>
+  </div>
+
+  <div class="grid cols-3-wide">
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>Stored · GET /R4/Encounter/…</h3>
+<pre>{
+  "resourceType": "Encounter",
+  "id": "d936a286-…",
+  "status": "finished",
+<span class="n">1</span><mark class="r4">"class": { "system": "…/v3-ActCode",
+             "code": "AMB" },</mark>
+<span class="n">1</span><mark class="r4">"extension": [{
+    "url": "…/6.0/StructureDefinition/
+            extension-Encounter.class",
+    "valueCodeableConcept": {
+      "coding": [{ "system": "…/v3-ActCode",
+                   "code": "VR" }] } }],</mark>
+  "subject": { "reference": "Patient/d4dd…" },
+  "participant": [{
+<span class="n">3</span>  <mark class="r4">"individual"</mark>: { "reference":
+                      "Practitioner/dr-smith" } }],
+<span class="n">2</span><mark class="r4">"period"</mark>: { "start": "2026-11-06T09:00:00Z",
+              "end":   "2026-11-06T09:30:00Z" },
+<span class="n">4</span><mark class="r4">"hospitalization"</mark>: {
+    "admitSource": { "text": "Referral" } }
+}</pre>
+    </div>
+    <div class="card fml">
+      <h3><span class="tag fml">FML</span>Encounter_4to6.fml</h3>
+<pre>group Encounter(source src : EncounterR4,
+                target tgt : EncounterR6)
+      extends DomainResource &lt;&lt;type+&gt;&gt; {
+  src.status -> tgt.status;
+<span class="n">1</span><mark class="fml">src.class as s -> tgt.class as t then {
+    s -> t.coding as c then Coding(s, c);
+  };</mark>
+<span class="n">1</span><mark class="fml">src.extension as e
+      where (url = '…/6.0/StructureDefinition/
+                   extension-Encounter.class') then {
+    e.value : CodeableConcept as s
+      -> tgt.class as t then CodeableConcept(s, t);
+  };</mark>
+  src.subject -> tgt.subject;
+  src.participant as s -> tgt.participant as t
+      then EncounterParticipant(s, t);
+<span class="n">2</span><mark class="fml">src.period -> tgt.actualPeriod;</mark>  <span class="c">// renamed</span>
+<span class="n">4</span><mark class="fml">src.hospitalization as s -> tgt.admission as t
+      then EncounterHospitalization(s, t);</mark>
+}
+
+group EncounterParticipant(source src, target tgt)
+      extends BackboneElement {
+<span class="n">3</span><mark class="fml">src.individual -> tgt.actor;</mark>  <span class="c">// renamed</span>
+}</pre>
+      <p class="note">The <span class="n">1</span> rules were added by hand (Brian, Francisco, Patrick) on top of the generated map; the renames are generated.</p>
+    </div>
+    <div class="card r6">
+      <h3><span class="tag r6">R6</span>Converted · GET /R6/Encounter/…</h3>
+<pre>{
+  "resourceType": "Encounter",
+  "id": "d936a286-…",
+  "status": "finished",
+<span class="n">1</span><mark class="r6">"class": [
+    { "coding": [{ "system": "…/v3-ActCode",
+                   "code": "AMB" }] },
+    { "coding": [{ "system": "…/v3-ActCode",
+                   "code": "VR" }] }
+  ],</mark>
+  "subject": { "reference": "Patient/d4dd…" },
+  "participant": [{
+<span class="n">3</span>  <mark class="r6">"actor"</mark>: { "reference":
+                 "Practitioner/dr-smith" } }],
+<span class="n">2</span><mark class="r6">"actualPeriod"</mark>: { "start": "2026-11-06T09:00:00Z",
+                    "end":   "2026-11-06T09:30:00Z" },
+<span class="n">4</span><mark class="r6">"admission"</mark>: {
+    "admitSource": { "text": "Referral" } }
+}</pre>
+      <p class="note">The extension is consumed: the generic extension copy in <code>DomainResource_4to6</code> skips every <code>…/6.0/StructureDefinition/extension-</code> URL, so it reaches R6 only as the <code>class</code> entry. The stored R4 row is unchanged.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3><span class="tag bad">Watch</span>What the generated map does not read</h3>
+    <p style="margin:0">The map header lists R4 elements with no rule: <code>statusHistory</code>, <code>classHistory</code>, <code>reasonCode</code>, <code>reasonReference</code>, <code>diagnosis.rank</code>, and three <code>hospitalization</code> lists (<code>dietPreference</code>, <code>specialCourtesy</code>, <code>specialArrangement</code>). If an Encounter has them, they are stored, but <b>silently missing from the R6 view</b>. For example, R4 <code>reasonCode</code> should become R6 <code>reason.value</code>, which still needs a hand-written rule.</p>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== 4. ENCOUNTER SEARCH -->
+<section class="slide" data-title="Encounter search">
+<div class="inner">
+  <h2>Case 2 / 3 · Search · 4 / 7</h2>
+  <h1>Encounter: searching by class in both versions</h1>
+  <p class="lede">The stored row has class <b>AMB</b> natively and <b>VR</b> in the cross-version extension. R4 <code>class</code> keeps its standard meaning, because R4 doesn't allow redefining a standard parameter. R6 <code>class</code> sees the whole list. <code>class-r6</code> gives R4 clients the R6 behaviour under its own name.</p>
+
+  <figure class="arch" role="img" aria-label="One stored R4 Encounter with native class AMB and extension class VR. R4 class matches only AMB. R4 class-r6 and R6 class match both AMB and VR. R4 parameters return stored R4; R6 class returns R6 converted by FML." style="margin-bottom:16px">
+  <svg viewBox="0 0 1240 330" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-s4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
+      <marker id="ah-s6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
+    </defs>
+
+    <!-- Stored row -->
+    <rect x="20" y="30" width="380" height="270" rx="12" class="b-db"/>
+    <text x="210" y="62" class="t-kicker" text-anchor="middle">STORED ONCE · FHIR R4</text>
+    <text x="210" y="88" class="t-mono" text-anchor="middle">encounter / d936a286-…</text>
+
+    <rect x="44" y="110" width="332" height="70" rx="10" class="b-inner-r4"/>
+    <text x="60" y="136" class="t-sub">native element</text>
+    <text x="60" y="162" class="t-mono">class.code = <tspan class="t-code">AMB</tspan></text>
+
+    <rect x="44" y="200" width="332" height="76" rx="10" class="b-inner-r6"/>
+    <text x="60" y="226" class="t-sub">extension …/6.0/…/extension-Encounter.class</text>
+    <text x="60" y="254" class="t-mono">valueCodeableConcept = <tspan class="t-code">VR</tspan></text>
+
+    <!-- Search parameters -->
+    <rect x="610" y="20" width="610" height="84" rx="10" class="b-api"/>
+    <rect x="610" y="20" width="6" height="84" rx="3" class="fill-r4"/>
+    <text x="632" y="48" class="t-mono-b">GET /R4/Encounter?class=…</text>
+    <text x="632" y="72" class="t-body">matches <tspan class="t-strong-r4s">AMB only</tspan> · standard R4 meaning</text>
+    <text x="632" y="92" class="t-sub">returns stored R4</text>
+
+    <rect x="610" y="122" width="610" height="84" rx="10" class="b-api"/>
+    <rect x="610" y="122" width="6" height="84" rx="3" class="fill-r4"/>
+    <text x="632" y="150" class="t-mono-b">GET /R4/Encounter?class-r6=…</text>
+    <text x="632" y="174" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · R6 behaviour, backported</text>
+    <text x="632" y="194" class="t-sub">returns stored R4 (class + extension, as stored)</text>
+
+    <rect x="610" y="224" width="610" height="84" rx="10" class="b-api"/>
+    <rect x="610" y="224" width="6" height="84" rx="3" class="fill-r6"/>
+    <text x="632" y="252" class="t-mono-b">GET /R6/Encounter?class=…</text>
+    <text x="632" y="276" class="t-body">matches <tspan class="t-strong-r6s">AMB and VR</tspan> · standard R6 meaning</text>
+    <text x="632" y="296" class="t-sub">returns R6 via FML: class = [AMB, VR], no extension</text>
+
+    <!-- AMB lines -->
+    <path d="M376,145 C500,145 490,58 604,58" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <path d="M376,145 C500,145 490,156 604,156" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <path d="M376,145 C500,145 490,258 604,258" class="l-r4" fill="none" marker-end="url(#ah-s4)"/>
+    <!-- VR lines -->
+    <path d="M376,238 C510,238 500,176 604,176" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+    <path d="M376,238 C510,238 500,278 604,278" class="l-r6" fill="none" marker-end="url(#ah-s6)"/>
+  </svg>
+  </figure>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>The calls (searching for this encounter)</h3>
+      <table class="calls">
+        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…|AMB</td><td class="s ok">200</td><td class="w"><b>found</b>, R4</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…|VR</td><td class="s ok">200</td><td class="w"><b>not found</b> (total 0)</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class-r6=…|VR</td><td class="s ok">200</td><td class="w"><b>found</b>, R4: <code>class</code> object + extension</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class=…|VR</td><td class="s ok">200</td><td class="w"><b>found</b>, R6: <code>class</code> list, no extension</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class=…|AMB</td><td class="s ok">200</td><td class="w"><b>found</b>, R6</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Encounter?class=…&amp;class-r6=…</td><td class="s bad">400</td><td class="w">“Combining class and class-r6 is not supported”</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Encounter?class-r6=…</td><td class="s bad">400</td><td class="w">“Unsupported search parameter: class-r6”</td></tr>
+      </table>
+      <p class="note"><code>…</code> = <code>http://terminology.hl7.org/CodeSystem/v3-ActCode</code>. Accepted token forms: <code>code</code>, <code>system|code</code>, <code>|code</code>, <code>system|</code>. No modifiers, lists or paging yet.</p>
+    </div>
+
+    <div class="card fml">
+      <h3><span class="tag r4">R4</span>How we implemented it: a SearchParameter definition</h3>
+<pre>GET /R4/SearchParameter/Encounter-class-r6
+
+{
+  "resourceType": "SearchParameter",
+  "id": "Encounter-class-r6",
+  "url": <mark class="r4">"http://example.org/fhir/SearchParameter/Encounter-class-r6"</mark>,
+  "name": "EncounterClassR6",
+  "derivedFrom": "http://hl7.org/fhir/SearchParameter/Encounter-class",
+  "status": "draft",
+  "description": "Backport of the R6 Encounter `class` search to R4. …",
+  "code": <mark class="r6">"class-r6"</mark>,
+  "base": ["Encounter"],
+  "type": "token",
+  "expression": <mark class="fml">"Encounter.class
+     | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/
+                            extension-Encounter.class').value"</mark>,
+  "multipleOr": false,
+  "multipleAnd": false
+}</pre>
+      <ul class="tight" style="margin-top:10px">
+        <li>Lives in <code>fhir/r4/</code>, a small local FHIR package that the canonical manager loads next to <code>hl7.fhir.r4.core</code>. <code>getSearchParametersForResource("Encounter")</code> now returns it with the 22 core parameters.</li>
+        <li>The R4 CapabilityStatement points <code>class-r6</code> at this <code>url</code>, and the server serves the resource, so the link resolves.</li>
+        <li>The search itself is still Patrick's SQL over the stored R4, which matches this <code>expression</code>. <code>/R6</code> runs each hit through <code>Encounter4to6</code>.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1">
+      <h3><span class="tag bad">Watch</span>Decisions and open questions</h3>
+      <ul class="tight">
+        <li><b>Why a new name:</b> R4 <code>class</code> must keep its standard meaning, so the backport can't reuse the name. The name <code>class-r6</code> follows a pattern we could use for other changed elements.</li>
+        <li><b>Canonical URL:</b> <code>example.org</code> is a placeholder until we have a namespace of our own. It isn't under <code>hl7.org</code>, because HL7 publishes no such parameter.</li>
+        <li><b>What the extension holds:</b> HL7 doesn't say whether it carries all classes or only the extra ones. We assume only the extra ones, so an extension that repeats the native class shows up twice in R6.</li>
+        <li><b>No data migration:</b> rows saved with the old <code>xver/encounter-class</code> URL are no longer searched or mapped. Checked on the earlier Encounter <code>cc094385-…</code>: its R6 <code>class</code> now holds only AMB, and VR comes through as a plain extension.</li>
+        <li><b>Generator follow-up:</b> the filter that stops <code>6.0</code> cross-version extensions being copied into R6 is a local edit to three generated maps, and still needs to go into the map generator.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== 5. BODYSTRUCTURE -->
+<section class="slide" data-title="BodyStructure">
+<div class="inner">
+  <h2>Case 3 / 3 · 5 / 7</h2>
+  <h1>BodyStructure: one R6 resource, several R4 rows</h1>
+  <p class="lede">R6 <code>includedStructure</code> repeats (1..*), but R4 has one <code>location</code> and one <code>morphology</code>. So an R6 BodyStructure is written as one R4 row per structure: <code>&lt;id&gt;</code>, <code>&lt;id&gt;--2</code>, …. R6-only values live in R4 extensions. This is the one type with writes through <code>/R6</code>, using hand-written maps in both directions.</p>
+
+  <div class="grid cols-2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>The calls</h3>
+      <table class="calls">
+        <tr><td class="m">POST</td><td class="p">/R6/BodyStructure</td><td class="s ok">201</td><td class="w">2 structures → 2 R4 rows</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/452142f2-…</td><td class="s ok">200</td><td class="w">row 1 (primary): forearm</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/452142f2-…--2</td><td class="s ok">200</td><td class="w">row 2: humerus</td></tr>
+        <tr><td class="m">PUT</td><td class="p">/R4/BodyStructure/452142f2-…--2</td><td class="s ok">200</td><td class="w">R4 client edits <code>description</code> on row 2</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/BodyStructure/452142f2-…</td><td class="s ok">200</td><td class="w">versionId 2, new description, both structures intact</td></tr>
+      </table>
+      <p class="note">Each write rewrites the whole group in one transaction. It commits only if every row is valid R4 and the group converts back to valid R6 without losing anything; otherwise <code>422</code>.</p>
+    </div>
+    <div class="card r6">
+      <h3><span class="tag r6">R6</span>Create request · POST /R6/BodyStructure</h3>
+<pre>{
+  "resourceType": "BodyStructure",
+  "active": true,
+  "description": "Lesion spreading across the left arm",
+  "patient": { "reference": "Patient/d4ddfc62-…" },
+  "includedStructure": [
+    { <mark class="r6">"structure": { "coding": [{ "code": "14975008", "display": "Forearm" }] },</mark>
+      <mark class="r6">"laterality": { "coding": [{ "code": "419161000", "display": "Unilateral left" }] },</mark>
+      <mark class="r6">"morphology": [{ "text": "Basal cell carcinoma" }, { "text": "Nevus sebaceus" }]</mark> },
+    { <mark class="r6">"structure": { "coding": [{ "code": "85050009", "display": "Bone structure of humerus" }] },</mark>
+      <mark class="r6">"morphology": [{ "text": "Lesion" }]</mark> }
+  ]
+}</pre>
+    </div>
+  </div>
+
+  <div class="grid cols-3-wide">
+    <div class="card fml">
+      <h3><span class="tag fml">FML</span>BodyStructure_6to4.fml (hand-written)</h3>
+<pre>group BodyStructureSplit(source src : BodyStructureR6,
+                         target bundle : BundleR4) {
+  <mark class="fml">src.includedStructure as inc
+    -> create('BodyStructure') as out,
+       bundle.entry as e, e.resource = out
+    then BodyStructureRow(src, inc, out);</mark>   <span class="c">// 1 row each</span>
+}
+
+group BodyStructureRow(source src, source inc,
+                       target out) {
+  src.description -> out.description; <span class="c">// shared,</span>
+  src.patient     -> out.patient;     <span class="c">// every row</span>
+  <mark class="fml">inc.structure -> out.location;</mark>
+  <mark class="fml">inc.morphology first -> out.morphology;</mark>
+  <mark class="fml">inc.morphology not_first as v
+    -> out.extension as x,
+       x.url = '…/extension-BodyStructure
+                 .includedStructure.morphology',
+       x.valueCodeableConcept as t
+    then CodeableConcept(v, t);</mark>
+  <mark class="fml">inc.laterality as v -> out.locationQualifier as q
+    then MarkLaterality(v, q);</mark>  <span class="c">// + marker ext</span>
+  <span class="c">… qualifier, excludedStructure, landmarks,
+    spatialReference, image, origin → extensions</span>
+}</pre>
+      <p class="note">The reverse map, <code>BodyStructure_4to6.fml</code>, merges the rows back: the first row gives the shared fields, and each row adds one <code>includedStructure</code>.</p>
+    </div>
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>Row 1 · GET /R4/BodyStructure/452142f2-…</h3>
+<pre>{
+  "resourceType": "BodyStructure",
+  "id": "452142f2-…",
+  "active": true,
+  "description": "Lesion spreading across the left arm",
+  "patient": { "reference": "Patient/d4dd…" },
+  <mark class="r4">"location": { "coding": [{ "code": "14975008",
+                            "display": "Forearm" }] },</mark>
+  <mark class="r4">"morphology": { "text": "Basal cell carcinoma" },</mark>
+  <mark class="r4">"locationQualifier": [{
+    "coding": [{ "code": "419161000",
+                 "display": "Unilateral left" }],
+    "extension": [{ "url": "…includedStructure.laterality",
+                    "valueBoolean": true }] }],</mark>
+  "extension": [
+    <mark class="r4">{ "url": "…includedStructure.morphology",
+      "valueCodeableConcept": { "text": "Nevus sebaceus" } },</mark>
+    { "url": "…/bodystructure-row-group", "extension": [
+        { "url": "position", "valuePositiveInt": 1 },
+        { "url": "member", "valueReference":
+            { "reference": "BodyStructure/452142f2-…--2" } } ] }
+  ]
+}</pre>
+    </div>
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>Row 2 · GET /R4/BodyStructure/452142f2-…--2</h3>
+<pre>{
+  "resourceType": "BodyStructure",
+  "id": "452142f2-…--2",
+  "active": true,
+  "description": "Lesion spreading across the left arm",
+  "patient": { "reference": "Patient/d4dd…" },
+  <mark class="r4">"location": { "coding": [{ "code": "85050009",
+               "display": "Bone structure of humerus" }] },</mark>
+  <mark class="r4">"morphology": { "text": "Lesion" },</mark>
+  "extension": [
+    { "url": "…/bodystructure-row-group", "extension": [
+        { "url": "primary", "valueReference":
+            { "reference": "BodyStructure/452142f2-…" } },
+        { "url": "position", "valuePositiveInt": 2 } ] }
+  ]
+}</pre>
+      <p class="note">The <code>row-group</code> extension is added by the server (<code>src/fhir/bodystructure.ts</code>), not by FML. It lets an R4 client find the other rows and keeps their order.</p>
+      <details><summary>R6 read after the R4 edit on row 2</summary>
+<pre>{ "resourceType": "BodyStructure",
+  "id": "452142f2-…",
+  "meta": { "versionId": "2", … },
+  "description": "Lesion on the left arm (edited via R4)",
+  "includedStructure": [
+    { "id": "1", "structure": { … "Forearm" },
+      "laterality": { … "Unilateral left" },
+      "morphology": [ { "text": "Basal cell carcinoma" },
+                      { "text": "Nevus sebaceus" } ] },
+    { "id": "2", "structure": { … "humerus" },
+      "morphology": [ { "text": "Lesion" } ] } ] }</pre>
+      </details>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== 6. BODYSTRUCTURE REFERENCES -->
+<section class="slide" data-title="References">
+<div class="inner">
+  <h2>Case 3 / 3 · References · 6 / 7</h2>
+  <h1>BodyStructure: splitting breaks references</h1>
+  <p class="lede">Splitting one R6 BodyStructure into R4 rows gives it two identities: R4 clients see rows (<code>99dc…--2</code>), R6 clients see one resource (<code>99dc…</code>). Every resource that points at a BodyStructure has to be translated between the two, and kept valid when rows move. Artur's PR #6 does this for <b>Observation</b>.</p>
+
+  <figure class="arch" role="img" aria-label="In R4, Observation o1 references the BodyStructure row 99dc--2 through the bodySite extension. In R6, the same Observation references the whole BodyStructure 99dc through bodyStructure. The FML map BodySiteReference strips the row suffix." style="margin-bottom:16px">
+  <svg viewBox="0 0 1240 360" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-ref4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r4"/></marker>
+      <marker id="ah-ref6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fill-r6"/></marker>
+    </defs>
+
+    <!-- R4 world -->
+    <text x="20" y="28" class="t-kicker">R4 · WHAT IS STORED</text>
+    <rect x="20" y="44" width="250" height="96" rx="10" class="b-r4"/>
+    <text x="36" y="70" class="t-title">Observation o1</text>
+    <text x="36" y="94" class="t-mono-s4">bodySite.extension</text>
+    <text x="36" y="114" class="t-sub">…/StructureDefinition/bodySite</text>
+    <text x="36" y="132" class="t-sub">valueReference</text>
+
+    <rect x="330" y="44" width="250" height="56" rx="8" class="b-inner-r4"/>
+    <text x="346" y="68" class="t-mono">99dc…</text><text x="346" y="88" class="t-sub">row 1 · Forearm</text>
+    <rect x="330" y="112" width="250" height="56" rx="8" class="b-inner-r4 hl"/>
+    <text x="346" y="136" class="t-mono">99dc…--2</text><text x="346" y="156" class="t-sub">row 2 · Upper arm</text>
+    <rect x="330" y="180" width="250" height="56" rx="8" class="b-inner-r4"/>
+    <text x="346" y="204" class="t-mono">99dc…--3</text><text x="346" y="224" class="t-sub">row 3 · Shoulder</text>
+    <text x="455" y="262" class="t-sub" text-anchor="middle">three BodyStructure rows in R4</text>
+
+    <path d="M270,120 C300,120 300,140 326,140" class="l-r4" fill="none" marker-end="url(#ah-ref4)"/>
+
+    <!-- Middle: FML -->
+    <rect x="612" y="96" width="196" height="112" rx="12" class="b-fml"/>
+    <text x="710" y="124" class="t-head" text-anchor="middle">FML</text>
+    <text x="710" y="146" class="t-mono-s" text-anchor="middle">BodySiteReference</text>
+    <text x="710" y="168" class="t-sub" text-anchor="middle">strip "--N" from</text>
+    <text x="710" y="186" class="t-sub" text-anchor="middle">BodyStructure/&lt;id&gt;--N</text>
+    <line x1="584" y1="152" x2="606" y2="152" class="l-r4" marker-end="url(#ah-ref4)"/>
+    <line x1="812" y1="152" x2="834" y2="152" class="l-r6" marker-end="url(#ah-ref6)"/>
+
+    <!-- R6 world -->
+    <text x="1220" y="28" class="t-kicker6" text-anchor="end">R6 · WHAT CLIENTS SEE</text>
+    <rect x="840" y="44" width="380" height="192" rx="10" class="b-r6"/>
+    <text x="856" y="70" class="t-title">BodyStructure 99dc…</text>
+    <text x="856" y="92" class="t-sub">one resource, includedStructure:</text>
+    <text x="872" y="120" class="t-body">1 · Forearm</text>
+    <text x="872" y="146" class="t-body">2 · Upper arm</text>
+    <text x="872" y="172" class="t-body">3 · Shoulder</text>
+    <text x="856" y="208" class="t-sub">GET /R6/BodyStructure/99dc…--2 → 404</text>
+
+    <rect x="840" y="270" width="380" height="76" rx="10" class="b-r6"/>
+    <text x="856" y="296" class="t-title">Observation o1</text>
+    <text x="856" y="320" class="t-mono-s6">bodyStructure[0].reference</text>
+    <text x="856" y="338" class="t-sub">→ BodyStructure/99dc… (the whole resource)</text>
+    <path d="M1030,266 L1030,240" class="l-r6" fill="none" marker-end="url(#ah-ref6)"/>
+
+    <!-- Loss callout -->
+    <rect x="20" y="290" width="790" height="56" rx="10" class="b-note"/>
+    <text x="36" y="314" class="t-body"><tspan font-weight="600">Lossy in one direction:</tspan> R4 knows o1 is about the upper arm row; R6 only knows</text>
+    <text x="36" y="334" class="t-body">“this BodyStructure”. Two rows of one group become a single R6 entry.</text>
+  </svg>
+  </figure>
+
+  <div class="grid cols-2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>The calls</h3>
+      <table class="calls">
+        <tr><td class="m">POST</td><td class="p">/R6/BodyStructure</td><td class="s ok">201</td><td class="w">3 structures → rows <code>99dc…</code>, <code>--2</code>, <code>--3</code></td></tr>
+        <tr><td class="m">POST</td><td class="p">/R4/Observation</td><td class="s ok">201</td><td class="w">o1: bodySite extension → <code>BodyStructure/99dc…--2</code></td></tr>
+        <tr><td class="m">POST</td><td class="p">/R4/Observation</td><td class="s ok">201</td><td class="w">o2: references <code>--2</code> and <code>--3</code></td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Observation/o1</td><td class="s ok">200</td><td class="w"><code>bodyStructure</code> → <code>BodyStructure/99dc…</code></td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/Observation/o2</td><td class="s ok">200</td><td class="w">one entry, not two</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/99dc…--2</td><td class="s ok">200</td><td class="w">one row: Upper arm</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R6/BodyStructure/99dc…--2</td><td class="s bad">404</td><td class="w">rows don't exist in R6</td></tr>
+        <tr><td class="m">PUT</td><td class="p">/R6/BodyStructure/99dc…</td><td class="s ok">200</td><td class="w">remove Forearm, so Upper arm moves into the primary row</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/BodyStructure/99dc…--2</td><td class="s bad">410</td><td class="w">old row is gone</td></tr>
+        <tr><td class="m">GET</td><td class="p">/R4/Observation/o1</td><td class="s ok">200</td><td class="w"><b>version 2</b>, now references <code>BodyStructure/99dc…</code></td></tr>
+      </table>
+      <h3 style="margin-top:14px">Rejected on R4 write <span class="tag bad">422</span></h3>
+      <table class="calls">
+        <tr><td class="p">BodyStructure/99dc…--2/_history/1</td><td class="w">“can't be version-specific”</td></tr>
+        <tr><td class="p">#bs1</td><td class="w">“can't reference a contained resource”</td></tr>
+        <tr><td class="p">http://localhost:8080/R4/BodyStructure/99dc…</td><td class="w">“must be relative for this server”</td></tr>
+        <tr><td class="p">Patient/d4ddfc62-…</td><td class="w">“must reference a BodyStructure”</td></tr>
+      </table>
+      <p class="note">These forms couldn't be translated to R6 or repointed safely, so they are refused up front. Whether the target exists isn't checked.</p>
+    </div>
+
+    <div class="card fml">
+      <h3><span class="tag fml">FML</span>Observation_4to6.fml + BodySiteReference_4to6.fml</h3>
+<pre><span class="c">// Observation: keep bodySite, without the reference extension</span>
+src.bodySite as s where (coding.exists() or text.exists() or …)
+  -> tgt.bodySite as t then ObservationBodySite(s, t);
+
+<span class="c">// … and turn each bodySite extension into an R6 bodyStructure</span>
+<mark class="fml">src.bodySite as b then {
+  b.extension as e
+      where (url = 'http://hl7.org/fhir/StructureDefinition/bodySite') then {
+    e.value : Reference as r
+      -> tgt.bodyStructure as cr, cr.reference as t
+      then BodySiteReference(r, t);
+  };
+};</mark>
+
+<span class="c">// Row reference → resource reference. No &lt;&lt;type+&gt;&gt;: it runs only
+// when called by name, so other References are untouched.</span>
+group BodySiteReference(source src : ReferenceR4,
+                        target tgt : ReferenceR6) extends Element {
+  <mark class="fml">src.reference as r -> tgt.reference =
+    (r.replaceMatches('^(BodyStructure/[^/]+)--[0-9]+$', '$1'));</mark>
+  src.type       -> tgt.type;
+  src.identifier -> tgt.identifier;
+  src.display    -> tgt.display;
+}</pre>
+      <p class="note">Outside FML: <code>withUniqueBodyStructures</code> merges duplicate entries after the map (two rows of one group → one), and <code>writeGroup</code> repoints references when rows move.</p>
+    </div>
+  </div>
+
+  <div class="grid cols-3-wide">
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>o1 before the move · version 1</h3>
+<pre>{
+  "resourceType": "Observation",
+  "id": "9ab0a714-…",
+  "meta": { "versionId": "1" },
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "bodySite": {
+    "text": "Upper arm",
+    "extension": [{
+      "url": "http://hl7.org/fhir/
+              StructureDefinition/bodySite",
+      "valueReference": {
+        <mark class="r4">"reference": "BodyStructure/99dc…--2"</mark>
+      } }] },
+  "valueQuantity": { "value": 33.2, "unit": "Cel" }
+}</pre>
+    </div>
+    <div class="card r6">
+      <h3><span class="tag r6">R6</span>o1 as R6 · GET /R6/Observation/…</h3>
+<pre>{
+  "resourceType": "Observation",
+  "id": "9ab0a714-…",
+  "meta": { "versionId": "1" },
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "valueQuantity": { "value": 33.2, "unit": "Cel" },
+  "bodySite": { "text": "Upper arm" },
+  <mark class="r6">"bodyStructure": [{
+    "reference": {
+      "reference": "BodyStructure/99dc…"
+    } }]</mark>
+}</pre>
+      <p class="note">The extension is gone from <code>bodySite</code>; the reference now lives in R6's own element and points at the whole resource.</p>
+    </div>
+    <div class="card r4">
+      <h3><span class="tag r4">R4</span>o1 after the move · version 2</h3>
+<pre>{
+  "resourceType": "Observation",
+  "id": "9ab0a714-…",
+  "meta": { <mark class="fml">"versionId": "2"</mark> },
+  "status": "final",
+  "code": { "text": "Skin temperature" },
+  "bodySite": {
+    "text": "Upper arm",
+    "extension": [{
+      "url": "http://hl7.org/fhir/
+              StructureDefinition/bodySite",
+      "valueReference": {
+        <mark class="r4">"reference": "BodyStructure/99dc…"</mark>
+      } }] },
+  "valueQuantity": { "value": 33.2, "unit": "Cel" }
+}</pre>
+      <p class="note">Upper arm moved from <code>--2</code> into the primary row. The server rewrote o1 in the same transaction as the BodyStructure write, without the Observation's client doing anything. o2's reference to <code>--3</code> stayed, because row ids are stable.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3><span class="tag bad">Watch</span>Problems this creates, and what's still open</h3>
+    <div class="grid cols-2" style="gap:24px">
+      <ul class="tight">
+        <li><b>No R4 element to reference a BodyStructure.</b> R4 core has none, so the standard <code>bodySite</code> extension carries it. R6 has <code>Observation.bodyStructure</code>.</li>
+        <li><b>Two identities.</b> A row id is valid in R4 only; R6 needs the resource id. The map translates, and R6 can't say which structure was meant.</li>
+        <li><b>Rows move.</b> Removing the first structure moves the next into the primary row and leaves a <code>410</code>. Every referrer has to be found and rewritten in the same transaction, which creates new versions of resources nobody edited.</li>
+      </ul>
+      <ul class="tight">
+        <li><b>Only Observation, read-only in R6.</b> Every other type that can point at a BodyStructure (Procedure, Condition, Specimen, ServiceRequest… via <code>bodySite</code> or the procedure extensions) needs the same map, check and repoint.</li>
+        <li><b>Writes through R6 aren't possible yet.</b> An R6 Observation can't say which row it means, so there's no R6 → R4 map.</li>
+        <li><b>Design question:</b> is splitting worth the reference cost, or should R4 keep one row with the extra structures in extensions?</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== 7. CONCLUSION -->
+<section class="slide" data-title="Conclusion">
+<div class="inner">
+  <h2>7 / 7</h2>
+  <h1>Conclusion</h1>
+  <p class="lede">Storing one version and projecting the other with FML works end to end. The generated maps run unchanged for reads. Writes need reverse maps and a decision on where R6-only data lives in R4.</p>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>What works today</h3>
+      <table class="matrix">
+        <tr><th>Resource</th><th>/R4</th><th>/R6 read</th><th>/R6 write</th></tr>
+        <tr><td>Patient</td><td class="yes">CRUD</td><td class="yes">yes</td><td class="no">405</td></tr>
+        <tr><td>Encounter</td><td class="yes">CRUD + <code>class</code>, <code>class-r6</code> search</td><td class="yes">yes + <code>class</code> search</td><td class="no">405</td></tr>
+        <tr><td>BodyStructure</td><td class="yes">CRUD</td><td class="yes">yes</td><td class="yes">CRUD</td></tr>
+        <tr><td>Observation</td><td class="yes">CRUD, BodyStructure references</td><td class="yes">yes, <code>bodyStructure</code></td><td class="no">405</td></tr>
+      </table>
+      <ul class="tight" style="margin-top:12px">
+        <li>One FML engine: the FHIRPath Lab executor runs the 164 R4 → R6 maps (163 generated), including <code>imports</code> and <code>extends</code>.</li>
+        <li>R4 writes are validated against R4 4.0.1; R6 writes against R6 6.0.0-ballot5, plus a round-trip check.</li>
+        <li>Ids and <code>versionId</code> survive conversion, so an R6 response carries the same ETag as the stored R4 version.</li>
+        <li>129 integration tests pass against PostgreSQL 18.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Patterns we found</h3>
+      <ul class="tight">
+        <li><b>Same shape</b> (Patient): a generated one-to-one map is enough.</li>
+        <li><b>Renamed element</b> (Encounter <code>period → actualPeriod</code>): handled by the generator.</li>
+        <li><b>0..1 became 0..*</b> (Encounter <code>class</code>, BodyStructure <code>morphology</code>): extra values go into an HL7-pattern cross-version extension (<code>…/6.0/StructureDefinition/extension-…</code>) on the R4 side, and the map folds them back.</li>
+        <li><b>A repeating group with no R4 equivalent</b> (BodyStructure <code>includedStructure</code>): split into linked R4 rows. This is our own design, not HL7's, and needs server code beyond FML.</li>
+        <li><b>Splitting changes identity</b>: references to a split resource must be translated (row → resource) on read, and repointed when rows move. FML handles the translation; the repointing is server code.</li>
+        <li><b>Search depends on the version</b>: R4 <code>class</code> keeps its standard meaning, so values that only exist in R6 need a separate backport parameter (<code>class-r6</code>). The search runs on the stored R4; FML only converts the results.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="tag bad">Risks</span>Open issues</h3>
+      <ul class="tight">
+        <li><b>Silent loss on read</b>: generated maps skip some elements (e.g. Encounter <code>reasonCode</code>), and the R6 view drops them without warning.</li>
+        <li><b>Draft maps</b>: generated against R6-ballot5 and still carry review warnings. Local fixes (the <code>6.0</code> extension filter) still have to go into the generator.</li>
+        <li><b>No data migration</b>: Encounters stored with the old <code>xver/encounter-class</code> URL lost their extra class in the R6 view.</li>
+        <li><b>Validation gaps</b>: date formats and required code bindings are not checked yet.</li>
+        <li><b>References to BodyStructure</b> work for Observation only. Other referrers (Procedure, Condition, Specimen, ServiceRequest…) still need the same map, checks and repointing, and R6 can't say which structure a reference meant.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Next steps</h3>
+      <ul class="tight">
+        <li>R6 → R4 maps for Patient and Encounter, so <code>/R6</code> can accept writes.</li>
+        <li>Detect elements a map didn't read, and return a warning instead of losing them silently.</li>
+        <li>Generalise the extension convention for cardinality changes, and agree on it with the cross-version group.</li>
+        <li>Broader search: more parameters and paging, and decide whether the <code>-r6</code> backport naming becomes the general rule.</li>
+        <li>More resource types, using BodyStructure as the reference for hard cases.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+</div>
+
+<nav aria-label="Slides">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <div class="dots" id="dots"></div>
+  <span class="count" id="count"></span>
+  <button id="next" aria-label="Next slide">→</button>
+</nav>
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll(".slide"));
+  const dots = document.getElementById("dots");
+  const count = document.getElementById("count");
+  let current = 0;
+
+  slides.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.innerHTML = (i + 1) + "<span> · " + s.dataset.title + "</span>";
+    b.addEventListener("click", () => show(i));
+    dots.appendChild(b);
+  });
+
+  function show(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle("active", j === current));
+    Array.from(dots.children).forEach((b, j) => b.setAttribute("aria-current", j === current ? "true" : "false"));
+    count.textContent = (current + 1) + " / " + slides.length;
+    slides[current].scrollTop = 0;
+    if (location.hash !== "#" + (current + 1)) history.replaceState(null, "", "#" + (current + 1));
+  }
+
+  document.getElementById("prev").addEventListener("click", () => show(current - 1));
+  document.getElementById("next").addEventListener("click", () => show(current + 1));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("summary")) return;
+    if (["ArrowRight", "PageDown"].includes(e.key) || (e.key === " " && !e.shiftKey)) { e.preventDefault(); show(current + 1); }
+    if (["ArrowLeft", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) { e.preventDefault(); show(current - 1); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+  });
+
+  const fromHash = parseInt(location.hash.slice(1), 10);
+  show(Number.isFinite(fromHash) ? fromHash - 1 : 0);
+})();
+</script>
+</body>
+</html>

@@ -137,12 +137,22 @@ curl -G localhost:8080/R4/Encounter \
 Encounter.class | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
 ```
 
-R4 `class` keeps its standard meaning, so the backport has its own name. The
-CapabilityStatement lists it with the definition
-`http://hl7.org/fhir/6.0/SearchParameter/Encounter-class`. That canonical
-applies the cross-version extension URL pattern to SearchParameters. HL7 does
-not define that pattern for SearchParameters, and the server does not serve a
-SearchParameter resource under the URL. `class` and `class-r6` cannot be
+R4 `class` keeps its standard meaning, so the backport has its own name. It is
+defined by an R4 SearchParameter in `fhir/r4/SearchParameter-Encounter-class-r6.json`,
+with canonical `http://example.org/fhir/SearchParameter/Encounter-class-r6`
+(`example.org` is a placeholder until the project has its own namespace).
+`fhir/r4` is a small local FHIR package that the R4 canonical manager loads next
+to `hl7.fhir.r4.core`. The CapabilityStatement points `class-r6` at that
+canonical, and the server serves it:
+
+```sh
+curl localhost:8080/R4/SearchParameter/Encounter-class-r6
+```
+
+`GET /R4/SearchParameter/<id>` serves any SearchParameter the canonical manager
+knows, core ones included. The search itself is implemented in
+`src/db/repository.ts` and matches the definition's `expression`; the server
+doesn't evaluate the expression at runtime. `class` and `class-r6` cannot be
 combined in one request (`400`). The other limitations are the same as `class`.
 [`docs/mappings.html`](docs/mappings.html#encounter-class) explains the
 mapping with a diagram, real server output, and the hard cases.
@@ -164,6 +174,7 @@ mapping with a diagram, real server output, and the hard cases.
 | `src/http/grouped.ts` | CRUD through both versions for types stored as linked rows |
 | `src/fhir/observation.ts` | Rules for Observation writes: kept row references and extensions |
 | `src/http/observation.ts` | Create and update through both versions for Observation |
+| `fhir/r4/` | Local FHIR package with the server's own R4 conformance resources (the `class-r6` SearchParameter), loaded by the canonical manager |
 | `fml-maps/` | FML StructureMaps. `R4_R6` is generated, `R6_R4` holds its datatype maps reversed, and `BodyStructure` is hand-written in both |
 | `docs/mappings.html` | Diagrams of how resources map between versions. Open it in a browser |
 | `postman/fml-r4-r6.postman_collection.json` | Runnable examples with assertions. Import it into Postman, or run `newman run` on it with the server up |

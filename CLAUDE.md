@@ -14,6 +14,7 @@ Sample FHIR server: Bun + PostgreSQL 18, with `/R4` and `/R6` base URLs. All res
 - Keep `docs/mappings.html` and `postman/` in line with the maps when mappings change.
 - Validation: `@atomic-ehr/fhirschema`. Its `validate()` expects schemas already merged with their base chain. `src/fhir/validator.ts` flattens them (`mergeSchema`).
 - Postgres: pass objects (not `JSON.stringify` strings) as jsonb parameters to `Bun.SQL`, or they get double-encoded as jsonb strings.
+- Conformance resources the server defines itself (e.g. the `class-r6` SearchParameter) live in the local package `fhir/r4/`, loaded by the R4 canonical manager in `src/fhir/validator.ts`. Keep their `url` in sync with the CapabilityStatement in `src/http/server.ts`; a test checks every advertised definition resolves.
 - Generated types in `src/fhir-types/` are produced by `bun run generate-types`; don't edit them by hand.
 
 

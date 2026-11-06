@@ -366,7 +366,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
 <pre>Encounter.class
   | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value</pre>
   <p><strong>Why a second name.</strong> R4 forbids changing <code>class</code>: "Parameter names cannot overlap with standard parameter names, and standard parameters cannot be redefined" (<code>CapabilityStatement.rest.resource.searchParam.name</code>). A client that knows only R4 therefore gets exactly the R4 behaviour, and the backport is opt-in.</p>
-  <p><strong>Why this definition URL.</strong> The CapabilityStatement lists <code>class-r6</code> with the definition <code>http://hl7.org/fhir/6.0/SearchParameter/Encounter-class</code>. This applies the cross-version extension pattern to a SearchParameter and reads as "the R6 <code>class</code> parameter, evaluated on R4 data". <span class="tag own">Our design, not defined by HL7</span> HL7 defines the version prefix only for extensions, and nothing is published at this URL. The <code>documentation</code> of the entry carries the expression above.</p>
+  <p><strong>Why this definition URL.</strong> The CapabilityStatement lists <code>class-r6</code> with the definition <code>http://example.org/fhir/SearchParameter/Encounter-class-r6</code>. <span class="tag own">Our design, not defined by HL7</span> It is an R4 SearchParameter in <code>fhir/r4/SearchParameter-Encounter-class-r6.json</code>, loaded by the canonical manager next to the R4 core package and served at <code>/R4/SearchParameter/Encounter-class-r6</code>. Its <code>expression</code> is the one above. <code>example.org</code> is a placeholder; HL7 publishes no such parameter, so it isn't under <code>hl7.org</code>.</p>
   <p class="note">Code: <code>src/http/server.ts</code> (<code>ENCOUNTER_SEARCH_PARAMS</code>, <code>encounterSearchParams</code>) and <code>searchEncounterClass</code> in <code>src/db/repository.ts</code>. Token syntax for all three: <code>code</code>, <code>system|code</code>, <code>|code</code> or <code>system|</code>.</p>
 </section>
 
@@ -382,7 +382,7 @@ ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
   </div>
   <ul>
     <li>HL7 doesn't say whether the extension holds every class or only the ones beyond the native element. Here it holds only the additional ones, so an extension that repeats the native class shows up twice in R6.</li>
-    <li>Nothing is published at <code>http://hl7.org/fhir/6.0/SearchParameter/Encounter-class</code>, and the server doesn't serve a SearchParameter resource.</li>
+    <li>The SearchParameter's <code>expression</code> documents the search; the server doesn't evaluate it. The SQL in <code>src/db/repository.ts</code> implements the same rule.</li>
     <li>One token per request, as for <code>class</code>: comma lists, repeated parameters and modifiers return 400, and there is no pagination.</li>
     <li>R6 Encounter writes return 405, so there is no R6 → R4 map for <code>class</code> yet.</li>
     <li>The <code>6.0</code> part of the extension filter is a local change to the generated maps and still has to go upstream to the map generator.</li>

@@ -48,6 +48,9 @@ export function createHandler({ validators, converter }: ServerDeps) {
     if (type === "metadata" && req.method === "GET") return json(capabilityStatement(version));
 
     if (!type || rest.length > 0) return error(404, `Unsupported path ${url.pathname}`, "not-found");
+    if (type === "SearchParameter" && id !== undefined && req.method === "GET" && validator) {
+      return await readSearchParameter(validator, id);
+    }
     if (!isStoredResourceType(type)) {
       return error(404, `Resource type ${type} is not supported`, "not-supported");
     }
@@ -110,17 +113,31 @@ export function createHandler({ validators, converter }: ServerDeps) {
 
 /**
  * R6 `class` semantics on R4: the native Coding plus the cross-version extension codings.
- * The canonical follows the version-prefix pattern of cross-version extensions; HL7 does not
- * publish a SearchParameter under it. R4 `class` keeps its standard meaning, so the backport
- * gets its own name.
+ * R4 `class` keeps its standard meaning, so the backport gets its own name. Its definition is
+ * fhir/r4/SearchParameter-Encounter-class-r6.json, loaded by the R4 canonical manager and
+ * served at /R4/SearchParameter/Encounter-class-r6.
  */
-const ENCOUNTER_CLASS_BACKPORT = "http://hl7.org/fhir/6.0/SearchParameter/Encounter-class";
+export const ENCOUNTER_CLASS_BACKPORT = "http://example.org/fhir/SearchParameter/Encounter-class-r6";
 
 /** Encounter search parameters per version, mapped to whether cross-version class codings match. */
 const ENCOUNTER_SEARCH_PARAMS: Record<FhirVersion, ReadonlyMap<string, boolean>> = {
   R4: new Map([["class", false], ["class-r6", true]]),
   R6: new Map([["class", true]]),
 };
+
+/**
+ * SearchParameters known to the canonical manager: the core package plus our local package.
+ * The manager replaces `id` with its own index key, so the id is taken from the canonical URL,
+ * which ends in `/SearchParameter/<id>` for core and local parameters alike.
+ */
+async function readSearchParameter(validator: Validator, id: string): Promise<Response> {
+  if (!ID_RE.test(id)) return error(400, `Invalid id: ${id}`);
+  const entries = await validator.definitions.searchEntries({});
+  const entry = entries.find((e) => e.resourceType === "SearchParameter" && e.url?.endsWith(`/SearchParameter/${id}`));
+  if (!entry) return error(404, `SearchParameter/${id} not found`, "not-found");
+  const resource = await validator.definitions.read(entry);
+  return json({ ...resource, id });
+}
 
 function encounterSearchParams(version: FhirVersion) {
   const syntax = "Single token: code, system|code, |code, or system|. No modifiers, lists, or pagination.";
