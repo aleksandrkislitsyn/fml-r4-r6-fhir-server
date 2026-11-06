@@ -15,7 +15,11 @@ imports "http://hl7.org/fhir/uv/xver/StructureMap/*4to6"
     Attachment.duration decimal[0..1]
     Attachment.pages positiveInt[0..1]
 */
-group Attachment(source src : AttachmentR4, target tgt : AttachmentR6) extends Element <<type+>> {
+// Edited by hand. R6-only fields are stored in extensions by Attachment_6to4, so they are
+// read back here and not copied as extensions.
+group Attachment(source src : AttachmentR4, target tgt : AttachmentR6) <<type+>> {
+  src.id -> tgt.id;
+  src.extension where (url.startsWith('http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.').not() and url.startsWith('http://hl7.org/fhir/5.0/StructureDefinition/extension-').not()) -> tgt.extension;
   src.contentType -> tgt.contentType;
   src.language -> tgt.language;
   src.data -> tgt.data;
@@ -24,4 +28,19 @@ group Attachment(source src : AttachmentR4, target tgt : AttachmentR6) extends E
   src.hash -> tgt.hash;
   src.title -> tgt.title;
   src.creation -> tgt.creation;
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.height') then {
+    e.value -> tgt.height "value";
+  } "height";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.width') then {
+    e.value -> tgt.width "value";
+  } "width";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.frames') then {
+    e.value -> tgt.frames "value";
+  } "frames";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.duration') then {
+    e.value -> tgt.duration "value";
+  } "duration";
+  src.extension as e where (url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Attachment.pages') then {
+    e.value -> tgt.pages "value";
+  } "pages";
 }

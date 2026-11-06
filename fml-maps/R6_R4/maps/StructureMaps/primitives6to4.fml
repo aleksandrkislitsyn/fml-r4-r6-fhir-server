@@ -1,0 +1,15 @@
+/// url = 'http://hl7.org/fhir/uv/xver/StructureMap/Primitives6to4'
+/// name = 'Primitives6to4'
+/// title = 'Primitive Transforms: R6 to R4'
+/// status = 'draft'
+
+uses "http://hl7.org/fhir/6.0/StructureDefinition/markdown" alias markdownR6 as source
+uses "http://hl7.org/fhir/4.0/StructureDefinition/string" alias stringR4 as target
+
+imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
+
+// Hand-written. Only the cross-type conversions in use: more get added with the resources
+// that need them.
+group markdown2string(source src : markdownR6, target tgt : stringR4) extends Element <<types>> {
+  src.value as v -> tgt.value = v "markdown2stringValue";
+}
