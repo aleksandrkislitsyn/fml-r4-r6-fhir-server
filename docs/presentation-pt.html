@@ -323,6 +323,22 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
 .big-statement span { color: var(--r6); font-style: italic; }
 .takeaways .card { font-size: 15px; }
 .arch .b-inner-r6s { fill: var(--surface); stroke: var(--r6); stroke-width: 1.5; }
+
+/* Zoom: click a code block to see its card enlarged */
+.slide pre { cursor: zoom-in; }
+.slide pre:hover { outline: 2px solid var(--r4); outline-offset: 2px; }
+#zoom { position: fixed; inset: 0; z-index: 60; background: rgba(15, 29, 51, .72); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+#zoom[hidden] { display: none; }
+#zoom .zoom-panel { max-width: min(1400px, 96vw); max-height: calc(100vh - 80px); overflow: auto; cursor: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,.4); border-radius: 10px; }
+#zoom .zoom-panel > .card { margin: 0; padding: 22px 28px; }
+#zoom .zoom-panel h3 { font-size: 24px; margin-bottom: 14px; }
+#zoom .zoom-panel pre { font-size: clamp(16px, 1.55vw, 26px); line-height: 1.5; cursor: auto; outline: none; max-height: none; }
+#zoom .zoom-panel .note { font-size: 17px; }
+#zoom .zoom-panel .n { min-width: 26px; height: 26px; line-height: 26px; font-size: 14px; border-radius: 13px; }
+#zoom .zoom-hint { color: #fff; font: 500 13px var(--sans); opacity: .8; margin: 12px 0 0; }
+@media print { #zoom { display: none !important; } }
 </style>
 </head>
 <body>
@@ -337,7 +353,7 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
       <h1 class="cover-title">FML R4 <span class="amp">↔</span> R6<br>FHIR Server</h1>
       <p class="cover-sub">One single source of truth, two versions of FHIR, and a converter in between.<br><em>Uma só fonte da verdade, duas versões e um tradutor pelo meio.</em></p>
       <p class="cover-crew"><b>A tripulação</b><br>Brian Postlethwaite · Francisco Novillo Perez · Patrick Werner · Artur Kurvits · Aleksandr Kislitsyn</p>
-      <p class="note">Press → to start. <em>Boa viagem!</em></p>
+      <p class="note">Press → to start. Click any JSON or map to enlarge it. <em>Boa viagem!</em></p>
       <p class="note">Galo de Barcelos: <a href="https://commons.wikimedia.org/wiki/File:Galo_de_Barcelos.svg">Di (they-them), Wikimedia Commons</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></p>
     </div>
     <div class="cover-hero"><img src="presentation/images/02_galo_de_barcelos.svg" alt="Galo de Barcelos, the rooster of Barcelos"></div>
@@ -636,13 +652,13 @@ group PatientContact(source src, target tgt)
 group Encounter(source src : EncounterR6,
                 target tgt : EncounterR4)
       extends DomainResource &lt;&lt;type+&gt;&gt; {
-<span class="n">5</span><mark class="fml">src.status as v where ($this != 'in-progress')
+<span class="n">5</span><mark class="fml">src.status as v
+      where ($this != 'in-progress' and $this != 'discharged')
     -> tgt.status = translate(v, '#EncounterStatus', 'code');</mark>
   <span class="c">// R4 class is one Coding: the first class becomes it,
   // every further class an extension</span>
-<span class="n">1</span><mark class="fml">src.class first as c then {
-    c.coding first -> tgt.class;
-  };
+<span class="n">1</span><mark class="fml">src.class first as c -> tgt.class as k
+    then EncounterFirstClass(c, k);
   src.class not_first as v -> tgt.extension as x,
     x.url = '…/6.0/StructureDefinition/extension-Encounter.class',
     x.valueCodeableConcept as t then CodeableConcept(v, t);</mark>
@@ -650,8 +666,16 @@ group Encounter(source src : EncounterR6,
   src.participant as s -> tgt.participant as t
       then EncounterParticipant(s, t);
 <span class="n">2</span><mark class="fml">src.actualPeriod -> tgt.period;</mark>      <span class="c">// renamed</span>
-<span class="n">4</span><mark class="fml">src.admission as s -> tgt.hospitalization as t
-      then EncounterAdmission(s, t);</mark>  <span class="c">// renamed</span>
+<span class="n">4</span><mark class="fml">src where (admission.exists() or …)
+    -> tgt.hospitalization as h
+    then EncounterHospitalization(src, h);</mark>  <span class="c">// renamed</span>
+}
+<span class="c">// The first coding becomes the R4 class; a first class
+// holding more is also kept whole in an extension on it</span>
+group EncounterFirstClass(source c, target k) {
+<span class="n">1</span><mark class="fml">c.coding first as cd then Coding(cd, k);</mark>
+  c where (coding.count() != 1 or text.exists() …)
+    -> k.extension as x, x.url = '…/extension-Encounter.class', …;
 }
 group EncounterParticipant(source src, target tgt) … {
 <span class="n">3</span><mark class="fml">src.actor -> tgt.individual;</mark>       <span class="c">// renamed</span>
@@ -783,6 +807,8 @@ group EncounterParticipant(source src, target tgt) … {
   "base": ["Encounter"],
   "type": "token",
   "expression": <mark class="fml">"Encounter.class
+     | Encounter.class.extension('http://hl7.org/fhir/6.0/StructureDefinition/
+                                  extension-Encounter.class').value
      | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/
                             extension-Encounter.class').value"</mark>,
   "multipleOr": false,
@@ -1175,6 +1201,19 @@ PUT /R6/Observation/7ddf…   <span class="c">status → amended</span>         
       </ul>
     </div>
   </div>
+  <div class="card r4" style="margin-top:16px">
+    <h3><span class="tag r4">R4 clients</span>Existing R4 clients probably won't get away without changes</h3>
+    <div class="grid cols-2" style="gap:24px">
+      <ul class="tight">
+        <li><b>A read can be partial.</b> <code>GET /R4/BodyStructure/ID</code> returns only the first structure; the rest sit in rows <code>ID--2</code>, <code>ID--3</code>, which a client finds only through the row-group extension.</li>
+        <li><b>R6 data arrives as extensions.</b> Extra Encounter classes, Observation <code>statusReason</code>… are cross-version extensions. A client that ignores them misses data, and one that strips them on PUT relies on the server carrying them forward.</li>
+      </ul>
+      <ul class="tight">
+        <li><b>Search finds less.</b> R4 <code>class</code> doesn't match a class that only exists in R6; the client has to know about <code>class-r6</code>.</li>
+        <li><b>Data changes under them.</b> References point at rows that can move or return <code>410</code>, and the server rewrites Observations when they do, so versions change without the client writing and <code>If-Match</code> conflicts become more likely.</li>
+      </ul>
+    </div>
+  </div>
   <p class="note" style="margin-top:14px">Each of these is a convention to agree on, ideally with the HL7 cross-version work, not a library to write.</p>
 
   <div class="obrigado"><div class="obrigado-in">
@@ -1195,6 +1234,7 @@ PUT /R6/Observation/7ddf…   <span class="c">status → amended</span>         
   <span class="count" id="count"></span>
   <button id="next" aria-label="Next slide">→</button>
 </nav>
+<div id="zoom" role="dialog" aria-modal="true" aria-label="Enlarged block" hidden><div class="zoom-panel"></div><p class="zoom-hint">Click or press Esc to close</p></div>
 
 <script>
 (function () {
@@ -1217,6 +1257,7 @@ PUT /R6/Observation/7ddf…   <span class="c">status → amended</span>         
     count.textContent = (current + 1) + " / " + slides.length;
     slides[current].scrollTop = 0;
     if (location.hash !== "#" + (current + 1)) history.replaceState(null, "", "#" + (current + 1));
+    document.dispatchEvent(new CustomEvent("slidechange"));
   }
 
   document.getElementById("prev").addEventListener("click", () => show(current - 1));
@@ -1235,6 +1276,45 @@ PUT /R6/Observation/7ddf…   <span class="c">status → amended</span>         
   });
   const fromHash = parseInt(location.hash.slice(1), 10);
   show(Number.isFinite(fromHash) ? fromHash - 1 : 0);
+})();
+</script>
+
+
+<script>
+(function () {
+  const overlay = document.getElementById("zoom");
+  const panel = overlay.querySelector(".zoom-panel");
+  let opener = null;
+
+  function open(pre) {
+    const block = pre.closest(".card") || pre;
+    const copy = block.cloneNode(true);
+    copy.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+    panel.textContent = "";
+    panel.appendChild(copy);
+    opener = pre;
+    overlay.hidden = false;
+    panel.scrollTop = 0;
+  }
+  function close() {
+    overlay.hidden = true;
+    panel.textContent = "";
+    if (opener) opener.focus?.();
+    opener = null;
+  }
+
+  document.querySelector(".deck").addEventListener("click", (e) => {
+    const pre = e.target.closest("pre");
+    if (pre && !window.getSelection().toString()) open(pre);
+  });
+  overlay.addEventListener("click", (e) => { if (!panel.contains(e.target) || e.target === panel) close(); });
+  panel.addEventListener("click", (e) => { if (e.target.closest("pre")) close(); });
+  // While a block is open, keys belong to it: Esc closes, arrows don't change slides.
+  document.addEventListener("keydown", (e) => {
+    if (overlay.hidden) return;
+    if (e.key === "Escape") close();
+    if (["ArrowLeft", "ArrowRight", "PageUp", "PageDown", " ", "Home", "End"].includes(e.key)) e.stopImmediatePropagation();
+  }, true);
 })();
 </script>
 </body>
