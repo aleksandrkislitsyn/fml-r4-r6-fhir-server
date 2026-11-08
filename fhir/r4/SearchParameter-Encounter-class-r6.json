@@ -9,11 +9,11 @@
   "experimental": true,
   "date": "2026-11-06",
   "publisher": "fml-r4-r6-fhir-server",
-  "description": "Backport of the R6 Encounter `class` search to R4. R6 `Encounter.class` is a list of CodeableConcepts; an R4 Encounter holds one native Coding and keeps any further classes in the cross-version extension http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class. This parameter matches the native class or any Coding of that extension, the same Encounters that R6 `class` finds. R4 `class` keeps its standard meaning (native Coding only), so the backport has its own code. Cannot be combined with `class` in one request.",
+  "description": "Backport of the R6 Encounter `class` search to R4. R6 `Encounter.class` is a list of CodeableConcepts; an R4 Encounter holds one native Coding and keeps any further classes in the cross-version extension http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class on the resource. A first class with more than one coding is kept whole in the same extension on the R4 class element. This parameter matches the native class or any Coding of that extension, in either place, the same Encounters that R6 `class` finds. R4 `class` keeps its standard meaning (native Coding only), so the backport has its own code. Cannot be combined with `class` in one request.",
   "code": "class-r6",
   "base": ["Encounter"],
   "type": "token",
-  "expression": "Encounter.class | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value",
+  "expression": "Encounter.class | Encounter.class.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value",
   "xpathUsage": "normal",
   "multipleOr": false,
   "multipleAnd": false

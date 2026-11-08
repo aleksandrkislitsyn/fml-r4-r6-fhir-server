@@ -101,8 +101,10 @@ curl -G localhost:8080/R6/Encounter \
   --data-urlencode 'class=http://terminology.hl7.org/CodeSystem/v3-ActCode|VR'
 ```
 
-R6 searches the native R4 `class` and every Coding in
-`extension.where(url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').valueCodeableConcept.coding`.
+R6 searches the native R4 `class` and every Coding in the class extension
+(`http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class`), both on
+the resource and on the R4 `class` element, where a first class with more than
+one coding is kept whole.
 The extension URL follows the HL7 cross-version pattern
 `http://hl7.org/fhir/[version]/StructureDefinition/extension-[element id]`.
 The extension carries the classes beyond the native `class`; R6 receives the
@@ -133,11 +135,14 @@ curl -G localhost:8080/R4/Encounter \
 ```
 
 `class-r6` gives R4 clients the R6 `class` semantics. It matches the native
-`class` and every Coding of the class extension, the same set that `/R6`
+`class` and every Coding of the class extension, on the resource or on
+`class`, the same set that `/R6`
 `class` matches, but returns the stored R4 resources. As a FHIRPath expression:
 
 ```
-Encounter.class | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
+Encounter.class
+  | Encounter.class.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
+  | Encounter.extension('http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.class').value
 ```
 
 R4 `class` keeps its standard meaning, so the backport has its own name. It is
