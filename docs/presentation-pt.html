@@ -535,7 +535,7 @@ figure.arch { background: var(--kit-tiles) top left / 156px 104px repeat; }
   <div class="pt-head"><span class="pt-chapter">Capítulo II · O Paciente</span><span class="pt-saying">«Devagar se vai ao longe» <em>· slowly, one goes far. Patient barely changed in six years.</em></span></div>
   <h2>Case 1 / 3</h2>
   <h1>Patient: written as R4, read as R6</h1>
-  <p class="lede">Patient barely changed between R4 and R6, so the generated map is a field-by-field copy. The R6 response has the same content, id and version as the stored R4. Writes work through <code>/R6</code> too: <code>Patient_6to4</code> reverses the map, and R6-only fields (<code>contact.role</code>, <code>additionalName</code>, <code>additionalAddress</code>) return <code>422</code>.</p>
+  <p class="lede">Patient barely changed between R4 and R6, so the generated map is a field-by-field copy. The R6 response has the same content, id and version as the stored R4. Writes work through <code>/R6</code> too: <code>Patient_6to4</code> reverses the map, and the R6-only <code>contact.role</code>, <code>additionalName</code> and <code>additionalAddress</code> are kept in cross-version extensions.</p>
 
     <div class="grid cols-3-wide">
     <div class="card r4">
