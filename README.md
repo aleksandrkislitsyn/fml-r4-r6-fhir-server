@@ -184,21 +184,30 @@ order a meaning (`HumanName.given`, `prefix`, `suffix`, `Address.line`).
 for `BodyStructure`. The server sets `id` and `meta`; only `meta.tag` and
 `meta.security` are kept from the body.
 
-What R4 has an element for goes there. Everything else uses HL7's
-cross-version extension pattern, so both versions see all of the data:
+What R4 has an element for goes there. Data R4 can't represent goes in
+cross-version extensions, following the rule in the FHIR spec (versions.html):
+`http://hl7.org/fhir/[defining_version]/StructureDefinition/extension-[ElementDefinition.id]`,
+with a `_datatype` child when the value's complex type doesn't exist in R4
+(`CodeableReference`, `VirtualServiceDetail`). Where HL7 publishes the R5
+equivalent (`hl7.fhir.uv.xver-r5.r4`), the extensions have the same structure.
+`6.0` isn't a `defining_version` in the spec yet, because R6 is a ballot; the
+URLs anticipate the unpublished `hl7.fhir.uv.xver-r6.r4` package, as the rest
+of the project's maps do.
+
 
 - **R6-only content in R4**: `http://hl7.org/fhir/6.0/StructureDefinition/extension-<element>`.
   Patient `contact.role`, `contact.additionalName` and `contact.additionalAddress`;
   Encounter `businessStatus`, `careTeam`, `virtualService`, `plannedStartDate`,
   `plannedEndDate`, and a `subjectStatus` other than `arrived`/`triaged`. Also
   whatever doesn't fit an R4 element: further classes, and the whole first class
-  if it has more than one coding; `serviceType` entries other than a first plain
-  concept; `reason` entries with a `use` or several values; `diagnosis` entries
-  with a concept or several conditions or uses; and references to targets R4
-  doesn't allow there (`basedOn` other than ServiceRequest, `participant.actor`
-  other than Practitioner, PractitionerRole or RelatedPerson, a `reason` pointing
-  to a DiagnosticReport). R6-only `Attachment` fields in `photo` are kept as for
-  BodyStructure.
+  if it has more than one coding (on R4 `class`); `serviceType` entries other
+  than a first plain concept; a reason value with both a concept and a reference
+  (`reason.value`); and, on each diagnosis, conditions beyond the first
+  reference and uses beyond the first (`diagnosis.condition`, `diagnosis.use`).
+  A diagnosis whose first condition is only a concept gets the concept's text as
+  `display` in the required R4 `condition`, with the whole value in the
+  `diagnosis.condition` extension on it (HL7's FAQ on required references).
+  R6-only `Attachment` fields in `photo` are kept as for BodyStructure.
 - **R4-only content in R6**: `http://hl7.org/fhir/4.0/StructureDefinition/extension-<element>`,
   for `Encounter.statusHistory` and `Encounter.classHistory`. An R6 `PUT` with no
   `extension` array at all keeps them, because the client most likely dropped
@@ -222,13 +231,20 @@ cross-version extension pattern, so both versions see all of the data:
   `~` and `ad`. TODO: store the R6 code in the cross-version extension, a
   placeholder R4 code, and set `implicitRules`, because without a mapping the R4
   value alone doesn't carry the meaning. Also `422`: an Encounter without
-  `class` (R4 requires one) and `virtualService.addressExtendedContactDetail`.
+  `class` (R4 requires one), a `reason` with a `use` or several values (R4 has
+  neither, and HL7 defines no extension for them), and
+  `virtualService.addressExtendedContactDetail`.
+- **Reference targets**: R6 allows more targets in some places (`basedOn`,
+  `participant.actor`, `reason`). The reference is copied into the R4 element
+  even when R4 doesn't allow that target there, because R4 can represent the
+  reference and HL7 defines no extension for other targets. Observation does the
+  same.
 
 The R4 validator didn't accept the FHIR JSON form for primitive extensions
 (`_status`, `_birthDate`). The server now checks those itself and validates the
 rest as before, so R4 clients can send them too. Note that the validator checks
-neither required bindings nor reference targets; the maps above keep both
-within what R4 allows.
+neither required bindings nor reference targets. The maps keep codes within
+R4's required bindings; reference targets are copied as described above.
 
 ## Layout
 

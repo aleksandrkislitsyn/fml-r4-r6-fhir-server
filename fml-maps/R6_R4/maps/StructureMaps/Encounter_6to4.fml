@@ -31,10 +31,13 @@ uses "http://hl7.org/fhir/4.0/StructureDefinition/Encounter" alias EncounterR4 a
 
 imports "http://hl7.org/fhir/uv/xver/StructureMap/*6to4"
 
-// The reverse of Encounter4to6. What R4 has an element for goes there; R6-only content is kept
-// in cross-version extensions (http://hl7.org/fhir/6.0/StructureDefinition/extension-<element>),
-// and Encounter4to6 reads it back. A write that still loses something fails the round-trip
-// check in src/http/r6writes.ts and returns 422.
+// The reverse of Encounter4to6. What R4 has an element for goes there; data R4 can't represent
+// is kept in cross-version extensions, following versions.html: the URL is
+// http://hl7.org/fhir/[defining_version]/StructureDefinition/extension-[ElementDefinition.id],
+// and a complex type R4 doesn't have gets a _datatype child. Encounter4to6 reads them back. A
+// write that still loses something fails the round-trip check in src/http/r6writes.ts (422).
+// 6.0 isn't a defining_version in the spec yet (R6 is a ballot); these URLs anticipate the
+// unpublished hl7.fhir.uv.xver-r6.r4 package, like the rest of this project's maps.
 group Encounter(source src : EncounterR6, target tgt : EncounterR4) extends DomainResource <<type+>> {
   src.identifier -> tgt.identifier;
 
@@ -82,29 +85,30 @@ group Encounter(source src : EncounterR6, target tgt : EncounterR4) extends Doma
 
   src.subject -> tgt.subject;
   src.episodeOfCare -> tgt.episodeOfCare;
-  // R4 basedOn only allows ServiceRequest (HL7: references to other targets go in the
-  // cross-version extension).
-  src.basedOn as v where ((type.exists() and (type in ('ServiceRequest'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(ServiceRequest)/[^/]+(/_history/[^/]+)?$')))) -> tgt.basedOn as t then Reference(v, t) "basedOn";
-  src.basedOn as v where (((type.exists() and (type in ('ServiceRequest'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(ServiceRequest)/[^/]+(/_history/[^/]+)?$')))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.basedOn', x.valueReference as t then Reference(v, t) "basedOnExtra";
+  // R6 allows more basedOn targets than R4. The reference itself is representable in R4, and HL7
+  // defines no extension for other targets, so it is copied as is.
+  src.basedOn -> tgt.basedOn;
   src.participant as s -> tgt.participant as t then EncounterParticipant(s, t);
   src.appointment -> tgt.appointment;
   src.actualPeriod -> tgt.period; // renamed
   src.length -> tgt.length;
 
-  // One R4 reasonCode or reasonReference per R6 reason with one value, no use, and a reference
-  // R4 allows (not DiagnosticReport). Any other reason is kept whole in an extension.
-  src.reason as r where (use.empty() and id.empty() and extension.empty() and value.count() = 1 and value.id.empty() and value.extension.empty() and (value.concept.exists() xor value.reference.exists()) and (value.reference.empty() or ((value.reference.type.exists() and (value.reference.type in ('Condition' | 'Procedure' | 'Observation'))) or (value.reference.type.empty() and (value.reference.reference.empty() or value.reference.reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or value.reference.reference.matches('(^|/)(Condition|Procedure|Observation)/[^/]+(/_history/[^/]+)?$')))))) then {
-    r.value as v then {
+  // One R4 reasonCode or reasonReference per R6 reason. A value with both a concept and a
+  // reference fits neither, so it goes in HL7's extension-Encounter.reason.value. R4 has no
+  // reason.use and no grouping of values, and HL7 defines no extension for them, so a reason
+  // with a use or several values isn't mapped and the write returns 422.
+  src.reason as r where (use.empty() and id.empty() and extension.empty() and value.count() = 1) then {
+    r.value as v where (concept.exists() and reference.empty() and id.empty() and extension.empty()) then {
       v.concept -> tgt.reasonCode "concept";
+    } "concept";
+    r.value as v where (reference.exists() and concept.empty() and id.empty() and extension.empty()) then {
       v.reference -> tgt.reasonReference "reference";
-    } "value";
+    } "reference";
+    r.value as v where (concept.exists() and reference.exists()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason.value' then EncounterCodeableReferenceToExtension(v, x) "both";
   } "reason";
-  src.reason as r where ((use.empty() and id.empty() and extension.empty() and value.count() = 1 and value.id.empty() and value.extension.empty() and (value.concept.exists() xor value.reference.exists()) and (value.reference.empty() or ((value.reference.type.exists() and (value.reference.type in ('Condition' | 'Procedure' | 'Observation'))) or (value.reference.type.empty() and (value.reference.reference.empty() or value.reference.reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or value.reference.reference.matches('(^|/)(Condition|Procedure|Observation)/[^/]+(/_history/[^/]+)?$')))))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.reason' then EncounterReasonToExtension(r, x) "reasonExtra";
 
-  // R4 diagnosis has one condition reference and at most one use. Any other diagnosis is kept
-  // whole in an extension.
-  src.diagnosis as s where (condition.count() = 1 and condition.reference.exists() and condition.concept.empty() and condition.id.empty() and condition.extension.empty() and use.count() <= 1) -> tgt.diagnosis as t then EncounterDiagnosis(s, t) "diagnosis";
-  src.diagnosis as s where ((condition.count() = 1 and condition.reference.exists() and condition.concept.empty() and condition.id.empty() and condition.extension.empty() and use.count() <= 1).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis' then EncounterDiagnosisToExtension(s, x) "diagnosisExtra";
+  // Every R6 diagnosis is an R4 diagnosis; see EncounterDiagnosis.
+  src.diagnosis as s -> tgt.diagnosis as t then EncounterDiagnosis(s, t);
 
   src.account -> tgt.account;
   // R4 keeps admission, dietPreference, specialArrangement and specialCourtesy in hospitalization.
@@ -138,18 +142,33 @@ group EncounterFirstClass(source c, target k) {
 group EncounterParticipant(source src, target tgt) extends BackboneElement {
   src.type -> tgt.type;
   src.period -> tgt.period;
-  // renamed. R4 individual only allows Practitioner, PractitionerRole and RelatedPerson.
-  src.actor as v where ((type.exists() and (type in ('Practitioner' | 'PractitionerRole' | 'RelatedPerson'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(Practitioner|PractitionerRole|RelatedPerson)/[^/]+(/_history/[^/]+)?$')))) -> tgt.individual as t then Reference(v, t) "actor";
-  src.actor as v where (((type.exists() and (type in ('Practitioner' | 'PractitionerRole' | 'RelatedPerson'))) or (type.empty() and (reference.empty() or reference.matches('(^|/)[A-Z][A-Za-z]+/[^/]+(/_history/[^/]+)?$').not() or reference.matches('(^|/)(Practitioner|PractitionerRole|RelatedPerson)/[^/]+(/_history/[^/]+)?$')))).not()) -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.participant.actor', x.valueReference as t then Reference(v, t) "actorExtension";
+  src.actor -> tgt.individual; // renamed. R6 allows more targets; copied as is, as for basedOn
 }
 
 
-// R4 has one condition reference and one use per diagnosis.
+// R4 diagnosis has one condition reference and one use. Further conditions and uses go in HL7's
+// extension-Encounter.diagnosis.condition and .use on the diagnosis.
 group EncounterDiagnosis(source src, target tgt) extends BackboneElement {
-  src.condition first as c then {
-    c.reference -> tgt.condition "reference";
-  } "condition";
+  src.condition first as c -> tgt.condition as k then EncounterFirstCondition(c, k) "condition";
+  src.condition not_first as c -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition' then EncounterCodeableReferenceToExtension(c, x) "conditionExtra";
   src.use first -> tgt.use "use";
+  src.use not_first as v -> tgt.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.use', x.valueCodeableConcept as t then CodeableConcept(v, t) "useExtra";
+}
+
+
+// R4 condition is a required Reference. A plain reference is copied. Anything else (a concept,
+// alone or with a reference) is kept whole in the condition extension on the R4 condition, and
+// the R4 condition gets the best reference available, as HL7's FAQ for required references says:
+// the reference if there is one, otherwise the concept's text as display. Encounter4to6 reads
+// the extension instead of the reference.
+group EncounterFirstCondition(source c, target k) {
+  c.reference as r then Reference(r, k) "reference";
+  c where (reference.empty()) then {
+    c.concept as cc then {
+      cc.text -> k.display "text";
+    } "concept";
+  } "display";
+  c where (concept.exists() or reference.empty() or id.exists() or extension.exists()) -> k.extension as x, x.url = 'http://hl7.org/fhir/6.0/StructureDefinition/extension-Encounter.diagnosis.condition' then EncounterCodeableReferenceToExtension(c, x) "full";
 }
 
 
@@ -179,22 +198,11 @@ group EncounterLocation(source src, target tgt) extends BackboneElement {
 }
 
 
-// CodeableReference doesn't exist in R4: a complex extension with concept and reference.
+// CodeableReference doesn't exist in R4: a complex extension with _datatype, concept and reference.
 group EncounterCodeableReferenceToExtension(source c, target x) {
+  c -> x.extension as d, d.url = 'http://hl7.org/fhir/StructureDefinition/_datatype', d.valueString = 'CodeableReference' "datatype";
   c.concept as v -> x.extension as e, e.url = 'concept', e.valueCodeableConcept as t then CodeableConcept(v, t) "concept";
   c.reference as v -> x.extension as e, e.url = 'reference', e.valueReference as t then Reference(v, t) "reference";
-}
-
-
-group EncounterReasonToExtension(source r, target x) {
-  r.use as v -> x.extension as e, e.url = 'use', e.valueCodeableConcept as t then CodeableConcept(v, t) "use";
-  r.value as v -> x.extension as e, e.url = 'value' then EncounterCodeableReferenceToExtension(v, e) "value";
-}
-
-
-group EncounterDiagnosisToExtension(source d, target x) {
-  d.condition as v -> x.extension as e, e.url = 'condition' then EncounterCodeableReferenceToExtension(v, e) "condition";
-  d.use as v -> x.extension as e, e.url = 'use', e.valueCodeableConcept as t then CodeableConcept(v, t) "use";
 }
 
 
@@ -207,6 +215,7 @@ group EncounterBusinessStatusToExtension(source b, target x) {
 
 // VirtualServiceDetail is R6-only. address as ExtendedContactDetail (also R6-only) isn't mapped.
 group EncounterVirtualServiceToExtension(source s, target x) {
+  s -> x.extension as d, d.url = 'http://hl7.org/fhir/StructureDefinition/_datatype', d.valueString = 'VirtualServiceDetail' "datatype";
   s.channelType as v -> x.extension as e, e.url = 'channelType', e.valueCoding as t then Coding(v, t) "channelType";
   s.address : url as v -> x.extension as e, e.url = 'address', e.valueUrl as t then Url(v, t) "addressUrl";
   s.address : string as v -> x.extension as e, e.url = 'address', e.valueString as t then String(v, t) "addressString";
